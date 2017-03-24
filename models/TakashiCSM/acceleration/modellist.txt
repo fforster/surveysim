@@ -1,0 +1,8 @@
+# name       prog.mass  exp.energy  mass-loss.rate (10 km/s)  CSM.outer.edge (cm)  beta
+yoon1200e10   12 Msun    1e51 erg      no CSM                   no CSM
+yoon1258e10   12 Msun    1e51 erg      1e-3 Msun/yr             1e15 cm            5
+yoon1258e13   12 Msun    1.3e51 erg    1e-3 Msun/yr             1e15 cm            5
+yoon1258e15   12 Msun    1.5e51 erg    1e-3 Msun/yr             1e15 cm            5
+yoon1264e10   12 Msun    1e51 erg      1e-4 Msun/yr             1e15 cm            5
+
+
