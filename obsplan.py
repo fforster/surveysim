@@ -124,7 +124,10 @@ class obsplan(object):
             # plot
             if self.doplot:
 
-                fig, ax = plt.subplots()
+                fig, ax = plt.subplots(figsize = (13, 7))
+
+                ax.set_ylabel("%s mag" % self.band)
+                
                 # plot observing dates
                 for i in self.MJDs:
                     ax.axvline(i, c = 'k')
@@ -132,7 +135,7 @@ class obsplan(object):
                 # plot limiting magnitude, sky, airmasses, moon phase
                 ax.plot(self.MJDs, self.skymags, c = 'blue', lw = 4, label = "Sky brightness [mag / arcsec2]")
                 ax.plot(self.MJDs, self.airmasses + 22., c = 'orange', label = "airmass + 22", lw = 4)
-                ax.plot(self.MJDs, self.moonphases / (synodicmoonperiod / 2.) + 24., c = 'k', lw = 4, label = "Moon phase / synodic period + 24")
+                ax.plot(self.MJDs, self.moonphases / (synodicmoonperiod / 2.) + 24., c = 'k', lw = 4, label = "2 x Moon phase / synodic period + 24")
                 ax.plot(self.MJDs, self.limmag, c = 'r', label = self.obsname, lw = 4)
 
                 # show more dates for reference

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import constants
+from constants import *
 from obsplan import *
 from LCz import *
 from LCz_Av import *
@@ -56,6 +56,8 @@ class survey(object):
             
     def estimate_maxredshift(self, **kwargs):
 
+        self.LCz.doplot = False
+        
         print "   Looking for maximum redshift..."
 
         zguess = kwargs["zguess"]
@@ -109,15 +111,18 @@ class survey(object):
 
             print "      Correction applied. Current range is", self.zs
 
-            
     # compute magnitudes and set Av distribution
-    def compute_mags(self):
+    def compute_mags(self, **kwargs):
+
+        plotmodel = False
+        if "plotmodel" in kwargs.keys():
+            plotmodel = kwargs["plotmodel"]
         
         print "      Computing magnitudes..."
 
         # create LCz_Av object (use minimum Av)
         self.LCz_Av = LCz_Av(LCz = self.LCz, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = self.filtername)
-        self.LCz_Av.compute_mags()
+        self.LCz_Av.compute_mags(plotmodel = True)
 
         # generate Av probability distribution
         self.LCz_Av.set_Avdistribution(self.lAv)
@@ -196,7 +201,7 @@ class survey(object):
         ax.set_xlabel("z")
         ax.set_ylabel("Event cumulative distribution")
         if save:
-            plt.savefig("plots/simLCs_expvsdet_%s.png" % (self.obsplan.planname))
+            plt.savefig("plots/simLCs_expvsdet_%s_%s.png" % (self.obsplan.planname, self.LCz.modelname))
 
         fig, ax = plt.subplots()
         map(lambda LC: ax.plot(self.obsplan.MJDs, LC, alpha = 0.1), self.simLCs[np.random.choice(range(self.nsim), size = 5000, replace = True)])
@@ -206,35 +211,38 @@ class survey(object):
         ax.set_ylabel("%s mag" % self.filtername)
         ax.legend()
 
+        plt.xticks(rotation = 90, ha = 'left')
+        plt.xticks(np.arange(min(self.obsplan.MJDs) - 2, max(self.obsplan.MJDs) + 2, 2))
+        plt.tick_params(pad = 0)
+        plt.tick_params(axis='x', which='major', labelsize=10)
+        plt.tight_layout()
+        
         ## function used for plot ticks
         def YYYYMMDD(date, pos):
             return Time(date, format = 'mjd', scale = 'utc').iso[:11]
         plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(YYYYMMDD))
-        plt.xticks(rotation = 45, ha = 'left')
 
         if save:
-            plt.savefig("plots/simLCs_LCs_%s.png" % (self.obsplan.planname))
-            np.save("npy/simLCs_LCs_%s.npy" % (self.obsplan.planname), self.simLCs)
-            np.save("npy/simLCs_MJDs_%s.npy" % (self.obsplan.planname), self.obsplan.MJDs)
-            np.save("npy/simLCs_limmag_%s.npy" % (self.obsplan.planname), self.obsplan.limmag)
+            plt.savefig("plots/simLCs_LCs_%s_%s.png" % (self.obsplan.planname, self.LCz.modelname))
+            np.save("npy/simLCs_LCs_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), self.simLCs)
+            np.save("npy/simLCs_MJDs_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), self.obsplan.MJDs)
+            np.save("npy/simLCs_limmag_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), self.obsplan.limmag)
 
         fig, ax = plt.subplots()
         ax.hist(self.simtexps)
         ax.set_xlabel("Explosion time MJD [days]")
         ax.set_ylabel("N")
-        ax.legend()
         if save:
-            plt.savefig("plots/simLCs_texp_%s.png" % (self.obsplan.planname))
-            np.save("npy/simLCs_texp_%s.npy" % (self.obsplan.planname), self.simtexps)
+            plt.savefig("plots/simLCs_texp_%s_%s.png" % (self.obsplan.planname, self.LCz.modelname))
+            np.save("npy/simLCs_texp_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), self.simtexps)
 
         fig, ax = plt.subplots()
         ax.plot(self.zs, self.detprob, drawstyle = "steps", lw = 5)
         ax.set_xlabel("z")
         ax.set_ylabel("Detection probability")
-        ax.legend()
         if save:
-            plt.savefig("plots/simLCs_prob_%s.png" % (self.obsplan.planname))
-            np.save("npy/simLCs_prob_%s.npy" % self.obsplan.planname, self.detprob)
+            plt.savefig("plots/simLCs_prob_%s_%s.png" % (self.obsplan.planname, self.LCz.modelname))
+            np.save("npy/simLCs_prob_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), self.detprob)
 
         if not save:
             plt.show()
@@ -242,37 +250,30 @@ class survey(object):
 
 if __name__  == "__main__":
 
-    # physical constants
+    # matplotlib
+    from matplotlib import rc
+    rc('text', usetex=True)
+    rc('font', family='sans-serif')
     
-    h = 6.6260755e-27       # erg s
-    G = 6.67259e-8          # cm3 g-1 s-2
-    k = 1.380658e-16        # erg K-1
-    sigmaSB = 5.6704e-5     # erg cm-2 s-1 K-4
-    eV = 1.6021772e-12      # erg
-    Rsun = 6.96e10          # cm
-    Msun = 1.99e33          # g
-    yr2sec = 31556926       # seconds
-    yr2days = 365.242199    # days
-    pc2cm = 3.08567758e18   # cm
-    cm2AA = 1e8
-    cspeed = 2.99792458e10  # cm s-1
-    cspeedAAs = cspeed * cm2AA  # A s-1
-    Hnot = 71               # km s-1 Mpc-1
-    Hnotcgs = Hnot * 1e5 / (1e6 * pc2cm)
-    OmegaM = 0.27
-    OmegaL = 0.73
-
+    plt.tick_params(axis='both', which='major', labelsize=10)
+    plt.tick_params(axis='both', which='minor', labelsize=10)
 
     # filtername
     filtername = 'g'
     modelfile = "13z002E1.0.dat"
+    modelfile = "yoon1209e10.fr"
+    modeldir = "/home/fforster/Work/Model_LCs/models/yoon12msun"
     obsname = sys.argv[1] #"Blanco-DECam" #"KMTNet"
 
     # start an observational plan
-    customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 150, nnights = 150, nightfraction = 1. / 100., nread = 1, startmoonphase = -3, maxmoonphase = 15, doplot = False)
-    
+    if obsname == "VST-OmegaCam":
+        customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+    elif obsname == "KMTNet":
+        customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+        #customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 23, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 1., nread = 4, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+
     # light curve model
-    SN = StellaModel(dir = "/home/fforster/Work/Model_LCs/models", modelfile = modelfile, doplot = False)
+    SN = StellaModel(dir = modeldir, modelfile = modelfile, doplot = True)
 
     # extinction
     lAv = 0.187
@@ -292,7 +293,7 @@ if __name__  == "__main__":
     efficiency = knorm * IIPfrac
 
     # start survey
-    newsurvey = survey(obsplan = customplan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = knorm * IIPfrac, filtername = 'g', nz = nz)
+    newsurvey = survey(obsplan = customplan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = knorm * IIPfrac, filtername = filtername, nz = nz)
 
     # estimate maximum survey redshift
     newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 2)
@@ -304,7 +305,7 @@ if __name__  == "__main__":
     newsurvey.do_cosmology()
 
     # compute magnitudes
-    newsurvey.compute_mags()
+    newsurvey.compute_mags(plotmodel = True)
     
     # sample from distribution
     newsurvey.sample_events(nsim = 10000)

@@ -302,9 +302,9 @@ class LCz(object):
                 mask = (self.timesz[i] > self.tendpeak[i])
                 self.tmax[i] = self.timesz[i][mask][np.argmin(self.bandmag[i][mask])]
                 print "Redshift: %4.2f, start of peak: %f obs. days, peak: %f obs. days, end of peak: %f obs. days, 1 day after end of peak: %f obs. days, maximum: %f obs. days" % (self.zs[i], self.tstartpeak[i], self.tpeak[i], self.tendpeak[i], self.tday1[i], self.tmax[i])
-                if self.tpeak[i] > maxlim:
-                    print "WARNING: tpeak looks too high"
-                    sys.exit()
+                #if self.tpeak[i] > maxlim:
+                #    print "WARNING: tpeak looks too high"
+                #    sys.exit()
         else:
             
             if self.modelname[:4] == "NS10":
@@ -335,7 +335,7 @@ class LCz(object):
             cNorm  = colors.Normalize(vmin = 0, vmax = self.nz)
             scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
             for i in range(self.nz):
-                
+
                 colorVal = scalarMap.to_rgba(i)
                 
                 ax.plot(self.timesz[i], self.absmagz[i], color = colorVal, label = "z: %5.3f" % self.zs[i])
@@ -429,8 +429,11 @@ class StellaModel(LCz):
         self.doplot = False
         if "doplot" in kwargs.keys():
             self.doplot = kwargs["doplot"]
-        self.dopeaks = True
         self.extmodel = "CCM89+O94"
+
+        self.dopeaks = False
+        if "dopeaks" in kwargs.keys():
+            self.dopeaks = kwargs["dopeaks"]
         
         # read file
         try:
@@ -796,6 +799,88 @@ class SNIIRabinakWaxman(object):
         self.R13 = self.sqrtR500**2 * 500. * Rsun / 1e13
         self.e_R13 = 0.5 / self.sqrtR500 * self.e_sqrtR500 * 500. * Rsun / 1e13
 
+# early evolution of SNe Ia from Piro et al. 2016
+class SNPiro16(object):
+
+    def __init__(self, **kwargs):
+        
+        self.mixing = kwargs["mixing"]
+        self.modeldir = "models/Piro16/Ia/ia_lum_teff"
+        self.lumfile = "%s/lum_%s.dat" % (self.modeldir, self.mixing)
+        self.Tefffile = "%s/T_eff_%s.dat" % (self.modeldir, self.mixing)
+
+        # create lambdas array in optical range
+        self.lambdas = np.logspace(3, 4, 160) # 160 bins between 1e3 and 1e4 AA logarithmically spaced 
+        self.nlambdas = len(self.lambdas)
+        self.nu = cspeedAAs / self.lambdas
+        
+    def readmodel(self):
+        
+        timeL, L  = np.loadtxt(self.lumfile).transpose()
+        timeT, T  = np.loadtxt(self.Tefffile).transpose()
+        if len(L) != len(T) or np.max(timeL - timeT) != 0:
+            print "WARNING: model L and Teff have different dimensions or times are not consistent"
+            sys.exit()
+        mask = np.isfinite(L) & np.isfinite(T)
+        self.timemodel = timeL[mask] / days2sec # days
+        self.Lmodel = L[mask] # erg/s
+        self.Teffmodel = T[mask] # K
+        print "Here"
+        self.Linterpf = interp1d(self.timemodel, self.Lmodel, fill_value = 0, bounds_error = False) # input in days
+        self.Teffinterpf = interp1d(self.timemodel, self.Teffmodel, fill_value = 0, bounds_error = False) # input in days
+
+    def R(self, **kwargs):
+        
+        # time in hours
+        tdays = kwargs["tdays"]
+
+        return np.sqrt(self.Linterpf(tdays) / (4. * np.pi * sigmaSB * self.Teffinterpf(tdays)**4)) # cm
+
+    # predict supernova flux during rise
+    def flux(self, nu, MJD):
+        
+        # requires MJDs, MJDexp, scale and factor to be defined
+        flux = np.zeros(np.shape(MJD))
+        tdays = (MJD - self.MJDexp)
+        maskpos = (tdays > 0)
+        flux[maskpos] = self.factor * self.scale * BB(nu, self.R(tdays = tdays[maskpos]), self.Teffinterpf(tdays[maskpos]))
+        return flux
+
+    # chi2
+    def chi2(self, MJDexp, factor, sqrtR500):
+        
+        self.R500 = sqrtR500**2
+        self.MJDexp = MJDexp
+        self.factor = factor
+        ADUmodel = self.flux(self.nufit, self.MJDs)
+        MJDfit = (ADUmodel >= self.ADUs) | (self.MJDs <= self.maxMJD)
+        return np.sum((ADUmodel[MJDfit] - self.ADUs[MJDfit])**2 / self.e_ADUs[MJDfit]**2)
+
+#    # fit parameters to observed data
+#    def fit(self, **kwargs):
+#    
+#        # arguments
+#        self.MJDs = kwargs["MJDs"] # times
+#        self.ADUs = kwargs["ADUs"] # ADUs
+#        self.e_ADUs = kwargs["e_ADUs"] # error in ADUs
+#        self.nufit = kwargs["nu"] # fitting band
+#
+#        # find maximum time to consider and typical scale ratio between data and ADUs
+#        mask = self.ADUs > 3. * self.e_ADUs
+#        self.maxMJD = int(self.MJDs[0]) + 2. * (self.MJDs[mask][np.argmax(self.ADUs[mask] + 2. * self.e_ADUs[mask])] - int(self.MJDs[0]))
+#        self.factor = 1.
+#        self.scale = 1.
+#        self.MJDexp = int(self.MJDs[0])
+#        self.scale = np.max(self.ADUs) / np.max(self.flux(self.nufit, self.MJDs))
+#        
+#        # minimize using Minuit
+#        m = Minuit(self.chi2, MJDexp = int(self.MJDs[0]), factor = 1., sqrtR500 = 1., error_MJDexp = 0.1, error_factor = 0.1, error_sqrtR500 = 0.01, limit_factor = (1e-2, 1e2), limit_sqrtR500 = (5e-2, 3), print_level = 0, errordef = 1.)
+#        m.migrad()
+#        (self.MJDexp, self.factor, self.sqrtR500) = (m.values["MJDexp"], m.values["factor"], m.values["sqrtR500"])
+#        (self.e_MJDexp, self.e_factor, self.e_sqrtR500) = (m.errors["MJDexp"], m.errors["factor"], m.errors["sqrtR500"])
+#        self.R500 = self.sqrtR500**2
+#        self.e_R500 = 0.5 / self.sqrtR500 * self.e_sqrtR500
+
 # Dado & Dar at any redshift
 class SNDDz(LCz):
     
@@ -906,6 +991,34 @@ class SNRWz(LCz):
         
         # compute BB flux
         self.flux = BB(self.nu, self.SN.R(t5 = self.times * 24. * 3600. / 1e5), self.SN.T(t5 = self.times * 24. * 3600. / 1e5)) * (cspeedAAs / np.atleast_2d(self.lambdas)**2)  # erg/s/AA
+
+
+# Piro16 at any redshift
+class SNPiro16z(LCz):
+
+    def __init__(self, **kwargs):
+        
+        self.mixing = float(kwargs["mixing"])
+        self.modelname = "Piro16_%5.3fmix" % (self.mixing)
+        self.SN = SNPiro16(mixing = self.mixing)
+        self.SN.readmodel()
+        
+        self.times = kwargs["tdays"] # days
+        self.doplot = False
+        if "doplot" in kwargs.keys():
+            self.doplot = kwargs["doplot"]
+
+        # create lambdas array in optical range
+        self.lambdas = np.logspace(3, 4, 160) # 160 bins between 1e3 and 1e4 AA logarithmically spaced 
+        self.nlambdas = len(self.lambdas)
+
+        # derived quantities
+        self.ntimes = len(self.times)
+        self.nu = cspeedAAs / self.lambdas
+
+        # compute BB flux
+        self.flux = BB(self.nu, self.SN.R(tdays = self.times), self.SN.Tinterpf(tdays)) * (cspeedAAs / np.atleast_2d(self.lambdas)**2)  # erg/s/AA
+
 
 # -------------------------------
 # main program

@@ -23,8 +23,12 @@ class LCz_Av(object):
         self.nz = len(self.zs)
         self.ntimes = self.LCz.ntimes
         
-    def compute_mags(self):
+    def compute_mags(self, **kwargs):
 
+        plotmodel = False
+        if "plotmodel" in kwargs.keys():
+            plotmodel = kwargs["plotmodel"]
+            
         self.magAvf = []
         test = []
 
@@ -35,6 +39,10 @@ class LCz_Av(object):
             self.LCz.attenuate(Av = self.Av[i], Rv = self.Rv)
             self.LCz.redshift(zs = self.zs, DL = self.DL)
             self.LCz.dofilter(filtername = self.filtername)
+            if i == 0 and plotmodel:
+                self.LCz.doplot = True
+            else:
+                self.LCz.doplot = False
             self.LCz.mags(Dm = self.Dm)
 
             for j in range(self.nz):
@@ -70,9 +78,9 @@ class LCz_Av(object):
         tmin = np.min(MJDs) - maxobserverage
         tmax = np.max(MJDs)
 
-        texp = tmin + np.random.random(nsim) * (tmax - tmin)
+        texp = tmin + np.random.random(int(nsim)) * (tmax - tmin)
         if self.nAv != 1:
-            iAv = map(lambda i: int(self.random2iAv(i)), np.random.random(nsim))
+            iAv = map(lambda i: int(self.random2iAv(i)), np.random.random(int(nsim)))
         else:
             iAv = np.zeros(nsim, dtype = int)
 

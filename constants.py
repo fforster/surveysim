@@ -14,6 +14,7 @@ sigmaT = 6.652458734e-25 # Thomson cross-section [cm2]
 mp = 1.6726219e-24 # proton mass in [g]
 yr2sec = 31556926       # seconds
 yr2days = 365.242199    # days
+days2sec = yr2sec / yr2days # seconds
 pc2cm = 3.08567758e18   # cm
 cm2AA = 1e8
 cspeed = 2.99792458e10  # cm s-1
