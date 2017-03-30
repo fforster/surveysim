@@ -28,6 +28,12 @@ class ETC(object):
         self.seeing['z'] = self.seeing['i'] * (self.observatory.cwl['i'] / self.observatory.cwl['z'])**0.2
         self.seeing['Y'] = self.seeing['z'] * (self.observatory.cwl['z'] / self.observatory.cwl['Y'])**0.2
 
+        # approximation, not sure how valid this is
+        self.seeing['B'] = self.seeing['u']
+        self.seeing['V'] = self.seeing['g']
+        self.seeing['R'] = self.seeing['r']
+        self.seeing['I'] = self.seeing['i']
+
     # compute FWHM given band and airmass as keyword arguments 'band' and 'airmass'
     def FWHM(self, **kwargs):
 

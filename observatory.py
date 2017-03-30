@@ -17,14 +17,14 @@ class observatory(object):
         if "observatory" in kwargs.keys():
             
             # default filter central wavelengths and bandwidth
-            self.cwl = {'u': 375, 'g': 473.5, 'r': 638.5, 'i': 775.5, 'z': 922.5, 'Y': 995} # nm
-            self.bandpass = {'u': 50, 'g': 147, 'r': 141, 'i': 147, 'z': 147, 'Y': 50} # nm
+            self.cwl = {'u': 375, 'g': 473.5, 'r': 638.5, 'i': 775.5, 'z': 922.5, 'Y': 995, 'B': 446.0, 'V': 554.8, 'Rc': 657.4, 'Ic': 802.0} # nm
+            self.bandpass = {'u': 50, 'g': 147, 'r': 141, 'i': 147, 'z': 147, 'Y': 50, 'B': 90., 'V': 70., 'Rc': 150., 'Ic': 150.} # nm
 
             # default instrumental seeing
             self.inst_seeing = 0.63 # arcsec
 
             # atmosphere transmission
-            self.atmosph_eff = {'u': 0.7, 'g': 0.8,'r': 0.9, 'i': 0.9, 'z': 0.9, 'Y': 0.9}
+            self.atmosph_eff = {'u': 0.7, 'g': 0.8,'r': 0.9, 'i': 0.9, 'z': 0.9, 'Y': 0.9, 'B': 0.7, 'V': 0.8, 'R': 0.9, 'I': 0.9} # BVRI a simple approximation
 
             # effective aperture radius for photometric measurement
             self.aperture_eff = 2.04 
@@ -73,7 +73,7 @@ class observatory(object):
                 self.primary_eff = {'u': 0.93, 'g': 0.93, 'r': 0.9, 'i': 0.87, 'z': 0.9, 'Y': 0.9}
                 self.corrector_eff = {'u': 0.7, 'g': 0.85, 'r': 0.8, 'i': 0.85, 'z': 0.85, 'Y': 0.6}
                 self.filter_eff = {'u': 0.89, 'g': 0.94, 'r': 0.97, 'i': 0.96, 'z': 0.96, 'Y': 0.96}
-                self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.78, 'i': 0.6, 'z': 0.2, 'Y': 0.1} 
+                self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.78, 'i': 0.6, 'z': 0.2, 'Y': 0.1}
 
                 # geographical location (requires ephem)
                 if ephemimport:
@@ -96,11 +96,10 @@ class observatory(object):
                 self.vig = 1.0 # vignetting # GUESS
                 
                 # mirror, lens, filter and CCD efficiencies at filters
-                self.primary_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
-                self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
-                self.filter_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
-                self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5} # rough guess based on BVRI
-                self.CCD_eff = {'u': 0.6, 'g': 0.4, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5} # rough guess based on BVRI
+                self.primary_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 97.2, 'V': 97.2, 'Rc': 97.3, 'Ic': 95.8}
+                self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 1., 'V': 1., 'Rc': 1., 'Ic': 1.}
+                self.filter_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 83.8, 'V': 83.9, 'Rc': 85.6, 'Ic': 77.3}
+                self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5, 'B': 90.8, 'V': 89.1, 'Rc': 91.9, 'Ic': 84.8}
 
                 # geographical location (requires ephem)
                 if ephemimport:

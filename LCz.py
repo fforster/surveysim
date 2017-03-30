@@ -505,8 +505,12 @@ class SNIaDadoDar(object):
 
         self.Mc = float(kwargs["Mc"])        # Msun
         self.M56Ni = float(kwargs["M56Ni"])  # Msun
-        self.fe = float(kwargs["fe"]) # ~0.3 fraction of free (ionized) electrons
-        self.Ae = float(kwargs["Ae"]) # ~0.05 ratio between energy released in the decay of 56Co as positron kinetic energy and gamma ray energy 
+        self.fe = 0.3
+        if "fe" in kwargs.keys():
+            self.fe = float(kwargs["fe"]) # ~0.3 fraction of free (ionized) electrons
+        self.Ae = 0.05
+        if "Ae" in kwargs.keys():
+            self.Ae = float(kwargs["Ae"]) # ~0.05 ratio between energy released in the decay of 56Co as positron kinetic energy and gamma ray energy 
 
         self.tsec = np.linspace(0, 300, 10000) * (24. * 3600.)  # s
         self.tdays = self.tsec / 3600. / 24.
@@ -898,8 +902,15 @@ class SNDDz(LCz):
 
         self.Mc = float(kwargs["Mc"])        # Msun
         self.M56Ni = float(kwargs["M56Ni"])  # Msun
-        self.fe = float(kwargs["fe"]) # ~0.3 fraction of free (ionized) electrons
-        self.Ae = float(kwargs["Ae"]) # ~0.05 ratio between energy released in the decay of 56Co as positron kinetic energy and gamma ray energy 
+        self.fe = 0.3
+        if "fe" in kwargs.keys():
+            self.fe = float(kwargs["fe"]) # ~0.3 fraction of free (ionized) electrons
+        self.Ae = 0.05
+        if "Ae" in kwargs.keys():
+            self.Ae = float(kwargs["Ae"]) # ~0.05 ratio between energy released in the decay of 56Co as positron kinetic energy and gamma ray energy 
+
+        self.extmodel = "CCM89+O94"
+                
         self.modelname = "DD_Mc%4.2f_M56Ni%4.2f_fe%4.2f_Ae%4.2f" % (self.Mc, self.M56Ni, self.fe, self.Ae)
 
         self.times = np.array(kwargs["tdays"]) # days

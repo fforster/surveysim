@@ -30,6 +30,9 @@ class survey(object):
 
         # maximum time for an object to have exploded before the beginning of the simulation to be considered detected
         self.maxrestframeage = 10
+        if "maxrestframeage" in kwargs.keys():
+            self.maxrestframeage = kwargs["maxrestframeage"]
+            
 
     def compute_zs(self):
 
@@ -210,6 +213,7 @@ class survey(object):
         ax.set_title("Total detections: %.1f, %.1f (diff.)" % (1. * np.sum(self.ndetections) / self.nsim * self.cumtotalSNe[-1], 1. * np.sum(self.ndetectionsdiff) / self.nsim * self.cumtotalSNe[-1]))
         ax.set_xlabel("z")
         ax.set_ylabel("Event cumulative distribution")
+        ax.set_xlim(0, self.maxz)
         if save:
             plt.savefig("plots/simLCs_expvsdet_%s_%s.png" % (self.obsplan.planname, self.LCz.modelname))
 
@@ -224,7 +228,7 @@ class survey(object):
         ax.legend()
 
         plt.xticks(rotation = 90, ha = 'left')
-        plt.xticks(np.arange(min(self.obsplan.MJDs) - 2, max(self.obsplan.MJDs) + 2, int((max(self.obsplan.MJDs) - min(self.obsplan.MJDs)) / 150.)))
+        plt.xticks(np.arange(min(self.obsplan.MJDs) - 2, max(self.obsplan.MJDs) + 2, max(1, int((max(self.obsplan.MJDs) - min(self.obsplan.MJDs)) / 70.))))
         plt.tick_params(pad = 0)
         plt.tick_params(axis='x', which='major', labelsize=10)
         plt.tight_layout()
@@ -273,27 +277,36 @@ if __name__  == "__main__":
     plt.tick_params(axis='both', which='minor', labelsize=10)
 
     # filtername
-    filtername = 'g'
     modelfile = "13z002E1.0.dat"
     modelfile = "yoon1209e10.fr"
     modeldir = "/home/fforster/Work/Model_LCs/models/yoon12msun"
-    obsname = sys.argv[1] #"Blanco-DECam" #"KMTNet"
 
+    # survey telescope, filter and object type
+    obsname = sys.argv[1] #"Blanco-DECam" #"KMTNet"
+    filtername = sys.argv[2]
+    objtype = sys.argv[3] # Ia II
+
+    # maximum age of object at the start of the survey
+    maxrestframeage = 3
+    
     # start an observational plan
-    if obsname == "VST-OmegaCam":
+    if obsname == "HiTS14A":
+        plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 40, nepochspernight = 4, ncontnights = 5, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
+    elif obsname == "HiTS15A":
+        plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 50, nepochspernight = 5, ncontnights = 6, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
+    elif obsname == "VST-OmegaCam":
         plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
     elif obsname == "KMTNet":
         plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
-    elif obsname == "KMTNet17B":
-        #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
-        #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'custom', nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, ncontnights = 82, nnights = 82, startmoonphase = 3, maxmoonphase = 15, doplot = True)
+    elif obsname == "KMTNetSNsurvey":
         plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
-        #customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 23, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 1., nread = 4, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+    elif obsname == "KMTNet17B":
+        plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
     elif obsname == "SNLS":
         plan = obsplan(obsname = "CFHT-MegaCam", band = filtername, mode = 'file', inputfile = "SNLS_%s.dat" % filtername, nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True)
-
-    # light curve model
-    SN = StellaModel(dir = modeldir, modelfile = modelfile, doplot = True)
+    else:
+        print "WARNING: undefined observatory"
+        sys.exit()
 
     # extinction
     lAv = 0.187
@@ -301,19 +314,26 @@ if __name__  == "__main__":
     Avs = np.linspace(0, 4. * lAv, nAv)# np.hstack([0, np.logspace(-1.5, 0, 10)])
     Rv = 3.1
 
-    # star formation history and efficienciy
-    SFH = SFHs(SFH = "MD14")
+    # light curve model, star formation history and efficiency
+    if objtype == 'II':
+        SN = StellaModel(dir = modeldir, modelfile = modelfile, doplot = True)
+        SFH = SFHs(SFH = "MD14")
+        knorm = 0.0091
+        IIPfrac = 0.54
+        efficiency = knorm * IIPfrac
+    elif objtype == 'Ia':
+        SN = SNDDz(Mc = 1.44, M56Ni = 0.84, Ae = 0.15, tdays = np.linspace(0, 100, 500))
+        SFH = SFHs(SFH = "Ia-P12")
+        efficiency = 1.0
+    else:
+        print "WARNING: SN type"
+        sys.exit()
 
     # number of redshift bins
     nz = 20 #20 #20
 
-    # conversion efficiency between star formation and explosions
-    knorm = 0.0091
-    IIPfrac = 0.54
-    efficiency = knorm * IIPfrac
-
     # start survey
-    newsurvey = survey(obsplan = plan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = knorm * IIPfrac, filtername = filtername, nz = nz)
+    newsurvey = survey(obsplan = plan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = efficiency, filtername = filtername, nz = nz, maxrestframeage = maxrestframeage)
 
     # estimate maximum survey redshift
     newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 2)

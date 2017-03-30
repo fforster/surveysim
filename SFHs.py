@@ -6,8 +6,8 @@ class SFHs(object):
         
         self.label = kwargs["SFH"]
 
-        self.SFRlonglabels = ['Madau & Dickinson 2014', 'Horiuchi+ 2011', 'Cole']
-        self.SFRlabels = ['MD14', 'H11', 'Cole']
+        self.SFRlonglabels = ['Madau & Dickinson 2014', 'Horiuchi+ 2011', 'Cole', 'SNIa-Perrets']
+        self.SFRlabels = ['MD14', 'H11', 'Cole', 'Ia-P12']
 
     def doSFR(self, z):
 
@@ -15,7 +15,7 @@ class SFHs(object):
 
             # Madau & Dickinson 2014, ARAA, eq 15
 
-            self.SFR = 0.015 * (1. + z)**2.7 / (1. + ((1. + z) / 2.9)**5.6)
+            self.SFR = 0.015 * (1. + z)**2.7 / (1. + ((1. + z) / 2.9)**5.6) # Msun/yr/Mpc3
 
         elif self.label == self.SFRlabels[1]: #H11
 
@@ -42,6 +42,13 @@ class SFHs(object):
             
             self.SFR = (h * (a1 + b1 * z) / (1. + (z / c1)**d1))
 
+        elif self.label == self.SFRlabels[3]: # Ia Perrets et al. 2012
+
+            alpha = 2.11 # +- 0.28
+            r0 = 0.17 * 1e-4 # +- 0.03
+
+            self.SFR = r0 * (1 + z)**alpha # SNIa/yr/Mpc # must use efficiency of 1.0
+            
 if __name__ == "__main__":
 
     SFH = SFHs(SFH = "MD14")

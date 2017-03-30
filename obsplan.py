@@ -196,7 +196,7 @@ class obsplan(object):
             ax.set_xlim(min(self.MJDs), max(self.MJDs) + 2)
             ax.legend(loc = 4, fontsize = 8, framealpha = 0.5)
             plt.xticks(rotation = 90, ha = 'left')
-            plt.xticks(np.arange(min(self.MJDs) - 2, max(self.MJDs) + 2, int((max(self.MJDs) - min(self.MJDs)) / 150.)))
+            plt.xticks(np.arange(min(self.MJDs) - 2, max(self.MJDs) + 2, max(1, int((max(self.MJDs) - min(self.MJDs)) / 70.))))
             plt.tick_params(pad = 0)
             plt.tick_params(axis='x', which='major', labelsize=10)
             plt.tight_layout()
