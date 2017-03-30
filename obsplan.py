@@ -369,12 +369,12 @@ class obsplan(object):
         
 if __name__ == '__main__':
     
-    #KMNTNet17B = obsplan(obsname = "KMTNet", band = 'g', mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
+    KMNTNet17B = obsplan(obsname = "KMTNet", band = 'B', mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
     
     #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
 
-    filtername = "g"
-    plan = obsplan(obsname = "CFHT-MegaCam", band = filtername, mode = 'file', inputfile = "SNLS_%s.dat" % filtername, nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True)
+    #filtername = "g"
+    #plan = obsplan(obsname = "CFHT-MegaCam", band = filtername, mode = 'file', inputfile = "SNLS_%s.dat" % filtername, nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True)
 
     #customplan = obsplan(obsname = "Blanco-DECam", band = 'g', mode = 'custom', nfields = 50, nepochspernight = 1, ncontnights = 30, nnights = 30, nightfraction = 0.5, nread = 2, startmoonphase = 0, maxmoonphase = 7, doplot = True)
 
