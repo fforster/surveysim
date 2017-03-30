@@ -88,7 +88,7 @@ class observatory(object):
                 self.FoV = 4.0
                 self.pixscale = 0.4
                 self.RON = 7 # e-
-                self.gain = 4 #?
+                self.gain = 1.2 # e-/ADU
                 self.readouttime = 30. # s
 
                 self.filterchange = 8 # s # GUESS
@@ -100,6 +100,7 @@ class observatory(object):
                 self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
                 self.filter_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
                 self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5} # rough guess based on BVRI
+                self.CCD_eff = {'u': 0.6, 'g': 0.4, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5} # rough guess based on BVRI
 
                 # geographical location (requires ephem)
                 if ephemimport:

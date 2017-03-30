@@ -8,6 +8,7 @@ import matplotlib.cm as cmx
 import sys, re
 sys.path.append("../cos_calc")
 import cos_calc
+
 #from iminuit import Minuit
 
 #from pylab import *
@@ -151,7 +152,7 @@ class LCz(object):
 
         if self.filtername in ugrizy:
 
-            bandfilter = np.loadtxt('/home/fforster/Work/Model_LCs/filters/DECam_transmission_total.txt').transpose()
+            bandfilter = np.loadtxt('filters/DECam_transmission_total.txt').transpose()
             iband = 0
             for i in range(len(ugrizy)):
                 if ugrizy[i] == self.filtername:
@@ -164,6 +165,15 @@ class LCz(object):
             bandfilter = np.loadtxt('filters/Bessel_%s-1.txt' % self.filtername).transpose()
             lfilter = bandfilter[0] * 10. # AA
             tfilter = bandfilter[1] / 100. # fraction
+            idxsort = np.argsort(lfilter)
+            lfilter = lfilter[idxsort]
+            tfilter = tfilter[idxsort]
+
+        elif self.filtername == "Kepler":
+
+            bandfilter = np.loadtxt('filters/kepler_response.dat').transpose()
+            lfilter = bandfilter[0] * 10. # AA
+            tfilter = bandfilter[1] # fraction
             idxsort = np.argsort(lfilter)
             lfilter = lfilter[idxsort]
             tfilter = tfilter[idxsort]
@@ -213,10 +223,10 @@ class LCz(object):
         for i in range(self.nz):
         
             for j in range(self.ntimes):
-        
+
                 fluxzf = interp1d(self.lambdaz[i], self.fluxz[i, j])
                 self.bandfluxz[i, j] = fluxzf(self.bandlambda)
-                
+
         if self.doplot:
             
             print "Plotting redshifted spectra and transmission filter..."
@@ -250,9 +260,10 @@ class LCz(object):
         for i in range(self.nz):
             for j in range(self.ntimes):
                 self.bandmag[i, j] = -2.5 * np.log10(np.sum(self.bandfluxz[i, j] * (self.bandlambda**2 / cspeedAAs) * self.bandSnu * self.dlognu) / np.sum(self.bandSnu * self.dlognu)) - 48.6
+                if not np.isfinite(self.bandmag[i, j]):
+                    self.bandmag[i, j] = 40.
             # compute effective absolute magnitudes
             self.absmagz[i] = self.bandmag[i] - self.Dm[i]
-
 
         # find maximum, SBO peak, peak end, and different days post SBO in restframe time
         # --------------------------------------------------------------------------------
@@ -805,36 +816,34 @@ class SNPiro16(object):
     def __init__(self, **kwargs):
         
         self.mixing = kwargs["mixing"]
+
         self.modeldir = "models/Piro16/Ia/ia_lum_teff"
         self.lumfile = "%s/lum_%s.dat" % (self.modeldir, self.mixing)
         self.Tefffile = "%s/T_eff_%s.dat" % (self.modeldir, self.mixing)
-
-        # create lambdas array in optical range
-        self.lambdas = np.logspace(3, 4, 160) # 160 bins between 1e3 and 1e4 AA logarithmically spaced 
-        self.nlambdas = len(self.lambdas)
-        self.nu = cspeedAAs / self.lambdas
         
     def readmodel(self):
         
-        timeL, L  = np.loadtxt(self.lumfile).transpose()
+        timeL, log10L  = np.loadtxt(self.lumfile).transpose()
         timeT, T  = np.loadtxt(self.Tefffile).transpose()
-        if len(L) != len(T) or np.max(timeL - timeT) != 0:
+        if len(log10L) != len(T) or np.max(timeL - timeT) != 0:
             print "WARNING: model L and Teff have different dimensions or times are not consistent"
             sys.exit()
-        mask = np.isfinite(L) & np.isfinite(T)
+        mask = np.isfinite(log10L) & np.isfinite(T)
         self.timemodel = timeL[mask] / days2sec # days
-        self.Lmodel = L[mask] # erg/s
+        self.log10Lmodel = log10L[mask] # log10 erg/s
         self.Teffmodel = T[mask] # K
-        print "Here"
-        self.Linterpf = interp1d(self.timemodel, self.Lmodel, fill_value = 0, bounds_error = False) # input in days
-        self.Teffinterpf = interp1d(self.timemodel, self.Teffmodel, fill_value = 0, bounds_error = False) # input in days
+        self.log10Linterpf = interp1d(self.timemodel, self.log10Lmodel, fill_value = -99, bounds_error = False) # erg/s
+        self.Teffinterpf = interp1d(self.timemodel, self.Teffmodel, fill_value = 0, bounds_error = False) # K
 
     def R(self, **kwargs):
         
         # time in hours
         tdays = kwargs["tdays"]
 
-        return np.sqrt(self.Linterpf(tdays) / (4. * np.pi * sigmaSB * self.Teffinterpf(tdays)**4)) # cm
+        R = np.zeros_like(tdays)
+        mask = (tdays > 0) & (self.Teffinterpf(tdays) > 0)
+        R[mask] = np.sqrt(10**self.log10Linterpf(tdays[mask]) / (4. * np.pi * sigmaSB * self.Teffinterpf(tdays[mask])**4)) # cm
+        return R
 
     # predict supernova flux during rise
     def flux(self, nu, MJD):
@@ -846,40 +855,41 @@ class SNPiro16(object):
         flux[maskpos] = self.factor * self.scale * BB(nu, self.R(tdays = tdays[maskpos]), self.Teffinterpf(tdays[maskpos]))
         return flux
 
-    # chi2
-    def chi2(self, MJDexp, factor, sqrtR500):
-        
-        self.R500 = sqrtR500**2
-        self.MJDexp = MJDexp
-        self.factor = factor
-        ADUmodel = self.flux(self.nufit, self.MJDs)
-        MJDfit = (ADUmodel >= self.ADUs) | (self.MJDs <= self.maxMJD)
-        return np.sum((ADUmodel[MJDfit] - self.ADUs[MJDfit])**2 / self.e_ADUs[MJDfit]**2)
 
-#    # fit parameters to observed data
-#    def fit(self, **kwargs):
-#    
-#        # arguments
-#        self.MJDs = kwargs["MJDs"] # times
-#        self.ADUs = kwargs["ADUs"] # ADUs
-#        self.e_ADUs = kwargs["e_ADUs"] # error in ADUs
-#        self.nufit = kwargs["nu"] # fitting band
-#
-#        # find maximum time to consider and typical scale ratio between data and ADUs
-#        mask = self.ADUs > 3. * self.e_ADUs
-#        self.maxMJD = int(self.MJDs[0]) + 2. * (self.MJDs[mask][np.argmax(self.ADUs[mask] + 2. * self.e_ADUs[mask])] - int(self.MJDs[0]))
-#        self.factor = 1.
-#        self.scale = 1.
-#        self.MJDexp = int(self.MJDs[0])
-#        self.scale = np.max(self.ADUs) / np.max(self.flux(self.nufit, self.MJDs))
-#        
-#        # minimize using Minuit
-#        m = Minuit(self.chi2, MJDexp = int(self.MJDs[0]), factor = 1., sqrtR500 = 1., error_MJDexp = 0.1, error_factor = 0.1, error_sqrtR500 = 0.01, limit_factor = (1e-2, 1e2), limit_sqrtR500 = (5e-2, 3), print_level = 0, errordef = 1.)
-#        m.migrad()
-#        (self.MJDexp, self.factor, self.sqrtR500) = (m.values["MJDexp"], m.values["factor"], m.values["sqrtR500"])
-#        (self.e_MJDexp, self.e_factor, self.e_sqrtR500) = (m.errors["MJDexp"], m.errors["factor"], m.errors["sqrtR500"])
-#        self.R500 = self.sqrtR500**2
-#        self.e_R500 = 0.5 / self.sqrtR500 * self.e_sqrtR500
+# Piro16 at any redshift
+class SNPiro16z(LCz):
+
+    def __init__(self, **kwargs):
+
+        # kwargs
+        self.mixing = float(kwargs["mixing"])
+        self.times = kwargs["tdays"] # days
+        self.doplot = False
+        if "doplot" in kwargs.keys():
+            self.doplot = kwargs["doplot"]
+
+        # do not look for peaks
+        self.dopeaks = False
+
+        # extinction model
+        self.extmodel = "CCM89+O94"
+
+        # create lambdas array in optical range
+        self.lambdas = np.logspace(3, 4, 160) # 160 bins between 1e3 and 1e4 AA logarithmically spaced 
+        self.nlambdas = len(self.lambdas)
+
+        # derived quantities
+        self.ntimes = len(self.times)
+        self.nu = cspeedAAs / self.lambdas
+
+        # create SN model
+        self.modelname = "Piro16_%5.3fmix" % (self.mixing)
+        self.SN = SNPiro16(mixing = self.mixing)
+        self.SN.readmodel()
+
+        # compute BB flxu
+        self.flux = BB(self.nu, self.SN.R(tdays = self.times), self.SN.Teffinterpf(self.times)) * (cspeedAAs / np.atleast_2d(self.lambdas)**2)  # erg/s/AA
+
 
 # Dado & Dar at any redshift
 class SNDDz(LCz):
@@ -991,33 +1001,6 @@ class SNRWz(LCz):
         
         # compute BB flux
         self.flux = BB(self.nu, self.SN.R(t5 = self.times * 24. * 3600. / 1e5), self.SN.T(t5 = self.times * 24. * 3600. / 1e5)) * (cspeedAAs / np.atleast_2d(self.lambdas)**2)  # erg/s/AA
-
-
-# Piro16 at any redshift
-class SNPiro16z(LCz):
-
-    def __init__(self, **kwargs):
-        
-        self.mixing = float(kwargs["mixing"])
-        self.modelname = "Piro16_%5.3fmix" % (self.mixing)
-        self.SN = SNPiro16(mixing = self.mixing)
-        self.SN.readmodel()
-        
-        self.times = kwargs["tdays"] # days
-        self.doplot = False
-        if "doplot" in kwargs.keys():
-            self.doplot = kwargs["doplot"]
-
-        # create lambdas array in optical range
-        self.lambdas = np.logspace(3, 4, 160) # 160 bins between 1e3 and 1e4 AA logarithmically spaced 
-        self.nlambdas = len(self.lambdas)
-
-        # derived quantities
-        self.ntimes = len(self.times)
-        self.nu = cspeedAAs / self.lambdas
-
-        # compute BB flux
-        self.flux = BB(self.nu, self.SN.R(tdays = self.times), self.SN.Tinterpf(tdays)) * (cspeedAAs / np.atleast_2d(self.lambdas)**2)  # erg/s/AA
 
 
 # -------------------------------

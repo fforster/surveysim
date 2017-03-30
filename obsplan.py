@@ -9,10 +9,10 @@ from scipy.optimize import curve_fit
 # observatory information
 from observatory import *
 from ETC import *
+from skymag import *
 
 # DECam specific modues
 sys.path.append("../HiTS-public")
-from skymag import *
 from DECam_tools import *
 
 class obsplan(object):
@@ -38,39 +38,31 @@ class obsplan(object):
             self.doplot = kwargs["doplot"]
         else:
             self.doplot = False
+
+        # main parameters
+        self.nfields = kwargs["nfields"]
+        self.nread = kwargs["nread"] # number of reads per epoch
+        self.nepochspernight = kwargs["nepochspernight"]
+        self.nightfraction = kwargs["nightfraction"]
+        
+        # night length and Moon period
+        synodicmoonperiod = 29.5
+        self.nightlength = 8.25 / 24.
         
         # custom observational plan (assume next new moon plus starting moon phase as initial MJD)
         if self.mode == 'custom':
         
-            self.nfields = kwargs["nfields"]
-            self.nread = kwargs["nread"] # number of reads per epoch
-            self.nepochspernight = kwargs["nepochspernight"]
             self.ncontnights = kwargs["ncontnights"]
             self.nnights = kwargs["nnights"]
-            self.nightfraction = kwargs["nightfraction"]
             self.startmoonphase = kwargs["startmoonphase"]
-            # night length and Moon period
-            self.nightlength = 8.25 / 24.
-            synodicmoonperiod = 29.5
-        
             if "maxmoonphase" in kwargs.keys():
                 self.maxmoonphase = kwargs["maxmoonphase"]
             else:
                 self.maxmoonphase = 1e9
-
+                
             # custom plan name
             self.planname = "%s-nf%i-ne%i-nr%i-nc%i-nn%i_%s_%s" % (self.mode, self.nfields, self.nepochspernight, self.nread, self.ncontnights, self.nnights, self.obsname, self.band)
             print "Observation plan name:", self.planname
-
-            # overhead time
-            self.overhead = max(self.obs.readouttime, self.obs.slewtime)
-            
-            # compute exposure time
-            self.exptime = self.nightlength * self.nightfraction / self.nfields / self.nepochspernight * 24. * 60. * 60. - self.overhead - self.obs.readouttime * (self.nread - 1) # seconds
-            if self.exptime < 0:
-                print "Negative exposure time"
-                sys.exit()
-            print "Number of fields to visit: %i, exposure time: %s" % (self.nfields, self.exptime)
         
             # starting date, new and full moon days
             ephemdate = ephem.Date((Time(Time.now().mjd, format = 'mjd', scale = 'utc').isot).replace("T", " "))
@@ -85,33 +77,83 @@ class obsplan(object):
                     dates.append(i + j * dtobs)
             self.MJDs = np.array(dates) + starttime
 
-            # use simple linear model to predict airmass (TODO: alternatively, provide RA DEC list?)
-            if self.band == 'u':
-                minairmass = 1.0
-                maxairmass = 1.5
-            elif self.band == 'g' and self.nepochspernight == 4:
-                minairmass = 1.2
-                maxairmass = 1.8
-            elif self.band == 'g' and self.nepochspernight == 5:
-                minairmass = 1.1
-                maxairmass = 1.7
+        elif self.mode == "file":
+
+            self.obsplanfile = kwargs["inputfile"]
+
+            params = {}
+            input = open("obsplans/%s" % self.obsplanfile, 'r')
+            for line in input.readlines():
+                key, val = line.split()
+                params[key] = val
+
+            if "dates" in params.keys():
+                self.MJDs = []
+                for lims in params["dates"].split(","):
+                    ab = lims.split(":")
+                    if len(ab) == 1:
+                        Time(str(ephem.Date(ab[0])).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd
+                        self.MJDs = np.hstack([self.MJDs, mjds])
+                    elif len(ab) == 2:
+                        mjds = map(lambda x: Time(str(ephem.Date(x)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd, [ab[0], ab[1]])
+                        self.MJDs = np.hstack([self.MJDs, np.linspace(mjds[0], mjds[1], mjds[1] - mjds[0])])
+                    else:
+                        print "WARNING: observational plan incorrectly formatted"
+                        sys.exit()
+            if "mjds" in params.keys():
+                self.MJDs = []
+                for mjd in params["mjds"].split(","):
+                    self.MJDs = np.hstack([self.MJDs, float(mjd)])
             else:
-                minairmass = 1.1
-                maxairmass = 1.7
-                
-            t_minairmass = self.nightfraction / 2. - self.nightfraction / self.nepochspernight / 2.
-            if self.nepochspernight > 1:
-                self.airmasses = minairmass + (np.abs(np.mod(dates, 1.) / self.nightlength - t_minairmass) / t_minairmass)**2 * (maxairmass - minairmass)
-            else:
-                self.airmasses = np.ones_like(dates) * minairmass
+                print "WARNING: observation times not specified"
+                sys.exit()
 
-            # compute moon phases
-            skymodel = sky(band = self.band, MJDs = self.MJDs)
-            self.moonphases, self.skymags = np.array(skymodel.skymags())
+            # make sure there are no repeated observations
+            self.MJDs = np.unique(np.sort(self.MJDs))
+            dates = self.MJDs - self.MJDs[0]
 
-            # using sky magnitudes, airmasses, exposure time, SNR lim, compute limiting magnitudes
-            self.limmag = np.array(map(lambda x, y: self.ETC.findmag(band=self.band, SNRin=5., exptime=self.exptime, airmass=x, skymode="mag", skymag=y, nread = self.nread), self.airmasses, self.skymags))
+            # custom plan name
+            self.planname = "%s-nf%i-ne%i-nr%i-nn%i_%s_%s" % (self.obsplanfile[:-4], self.nfields, self.nepochspernight, self.nread, len(self.MJDs), self.obsname, self.band)
+            print "Observation plan name:", self.planname
 
+        # overhead time
+        self.overhead = max(self.obs.readouttime, self.obs.slewtime)
+        
+        # compute exposure time
+        self.exptime = self.nightlength * self.nightfraction / self.nfields / self.nepochspernight * 24. * 60. * 60. - self.overhead - self.obs.readouttime * (self.nread - 1) # seconds
+        if self.exptime < 0:
+            print "Negative exposure time"
+            sys.exit()
+        print "Number of fields to visit: %i, exposure time: %s" % (self.nfields, self.exptime)
+
+        # use simple linear model to predict airmass (TODO: alternatively, provide RA DEC list?)
+        if self.band == 'u':
+            minairmass = 1.0
+            maxairmass = 1.5
+        elif self.band == 'g' and self.nepochspernight == 4:
+            minairmass = 1.2
+            maxairmass = 1.8
+        elif self.band == 'g' and self.nepochspernight == 5:
+            minairmass = 1.1
+            maxairmass = 1.7
+        else:
+            minairmass = 1.1
+            maxairmass = 1.7
+
+        t_minairmass = self.nightfraction / 2. - self.nightfraction / self.nepochspernight / 2.
+        if self.nepochspernight > 1:
+            self.airmasses = minairmass + (np.abs(np.mod(dates, 1.) / self.nightlength - t_minairmass) / t_minairmass)**2 * (maxairmass - minairmass)
+        else:
+            self.airmasses = np.ones_like(dates) * minairmass
+            
+        # compute moon phases
+        skymodel = sky(band = self.band, MJDs = self.MJDs)
+        self.moonphases, self.skymags = np.array(skymodel.skymags())
+
+        # using sky magnitudes, airmasses, exposure time, SNR lim, compute limiting magnitudes
+        self.limmag = np.array(map(lambda x, y: self.ETC.findmag(band=self.band, SNRin=5., exptime=self.exptime, airmass=x, skymode="mag", skymag=y, nread = self.nread), self.airmasses, self.skymags))
+
+        if self.mode == 'custom':
             # mask moon phase
             mask = (self.moonphases <= self.maxmoonphase)
             self.totalepochs = np.sum(mask)
@@ -120,44 +162,46 @@ class obsplan(object):
             self.limmag = self.limmag[mask]
             self.moonphases = self.moonphases[mask]
             self.skymags = self.skymags[mask]
+        
+        # plot
+        if self.doplot:
             
-            # plot
-            if self.doplot:
-
-                fig, ax = plt.subplots(figsize = (13, 7))
-
-                ax.set_ylabel("%s mag" % self.band)
+            fig, ax = plt.subplots(figsize = (13, 7))
+            
+            ax.set_ylabel("%s mag" % self.band)
+            
+            # plot observing dates
+            for i in self.MJDs:
+                ax.axvline(i, c = 'k')
                 
-                # plot observing dates
-                for i in self.MJDs:
-                    ax.axvline(i, c = 'k')
-
-                # plot limiting magnitude, sky, airmasses, moon phase
-                ax.plot(self.MJDs, self.skymags, c = 'blue', lw = 4, label = "Sky brightness [mag / arcsec2]")
-                ax.plot(self.MJDs, self.airmasses + 22., c = 'orange', label = "airmass + 22", lw = 4)
-                ax.plot(self.MJDs, self.moonphases / (synodicmoonperiod / 2.) + 24., c = 'k', lw = 4, label = "2 x Moon phase / synodic period + 24")
-                ax.plot(self.MJDs, self.limmag, c = 'r', label = self.obsname, lw = 4)
-
-                # show more dates for reference
-                for i in np.arange(int(min(self.MJDs)), int(max(self.MJDs)) + 20):
-                    ax.axvspan(-10 + self.nightlength + i , -10 + i + 1, alpha = 0.2, color = 'gray', lw = 0)
-
-                # function used for plot ticks
-                def YYYYMMDD(date, pos):
-                    return Time(date, format = 'mjd', scale = 'utc').iso[:11]
-                plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(YYYYMMDD))
-
-                # final touches
-                ax.set_title("%i nights, %i sec open shutter/epoch (%i readouts/epoch)" % (np.size(self.MJDs) / self.nepochspernight, self.exptime, self.nread))
-                ax.set_xlim(min(self.MJDs), max(self.MJDs) + 2)
-                ax.legend(loc = 4, fontsize = 8, framealpha = 0.5)
-                plt.xticks(rotation = 90, ha = 'left')
-                plt.xticks(np.arange(min(self.MJDs) - 2, max(self.MJDs) + 7, 2))
-                plt.tick_params(pad = 0)
-                plt.tick_params(axis='x', which='major', labelsize=10)
-                plt.tight_layout()
-                ax.set_ylim(ax.get_ylim()[::-1])
-                plt.savefig("plots/%s_plan.png" % self.planname)
+            # plot limiting magnitude, sky, airmasses, moon phase
+            ax.plot(self.MJDs, self.skymags, c = 'blue', lw = 4, label = "Sky brightness [mag / arcsec2]")
+            ax.plot(self.MJDs, self.airmasses + 22., c = 'orange', label = "airmass + 22", lw = 4)
+            ax.plot(self.MJDs, self.moonphases / (synodicmoonperiod / 2.) + 24., c = 'k', lw = 4, label = "2 x Moon phase / synodic period + 24")
+            ax.plot(self.MJDs, self.limmag, c = 'r', label = self.obsname, zorder = 1000)
+            ax.plot(self.MJDs, self.limmag - 2.5 * np.log10(np.sqrt(2.)), c = 'r', ls = ':', label = "%s (diff.)" % self.obsname, zorder = 2000)
+            ax.scatter(self.MJDs, self.limmag, c = 'k', marker = 'o', lw = 0, alpha = 0.5, zorder = 1000)
+            
+            # show more dates for reference
+            for i in np.arange(int(min(self.MJDs)), int(max(self.MJDs)) + 20):
+                ax.axvspan(-10 + self.nightlength + i , -10 + i + 1, alpha = 0.2, color = 'gray', lw = 0)
+                
+            # function used for plot ticks
+            def YYYYMMDD(date, pos):
+                return Time(date, format = 'mjd', scale = 'utc').iso[:11]
+            plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(YYYYMMDD))
+            
+            # final touches
+            ax.set_title("%i nights, %i sec open shutter/epoch (%i readouts/epoch)" % (np.size(self.MJDs) / self.nepochspernight, self.exptime, self.nread))
+            ax.set_xlim(min(self.MJDs), max(self.MJDs) + 2)
+            ax.legend(loc = 4, fontsize = 8, framealpha = 0.5)
+            plt.xticks(rotation = 90, ha = 'left')
+            plt.xticks(np.arange(min(self.MJDs) - 2, max(self.MJDs) + 2, int((max(self.MJDs) - min(self.MJDs)) / 150.)))
+            plt.tick_params(pad = 0)
+            plt.tick_params(axis='x', which='major', labelsize=10)
+            plt.tight_layout()
+            ax.set_ylim(ax.get_ylim()[::-1])
+            plt.savefig("plots/%s_plan.png" % self.planname)
 
 
         ######################################################################
@@ -325,11 +369,12 @@ class obsplan(object):
         
 if __name__ == '__main__':
     
-    customplan = obsplan(obsname = "Blanco-DECam", band = 'g', mode = 'custom', nfields = 50, nepochspernight = 1, ncontnights = 30, nnights = 30, nightfraction = 0.5, nread = 2, startmoonphase = 0, maxmoonphase = 7, doplot = True)
+    #KMNTNet17B = obsplan(obsname = "KMTNet", band = 'g', mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
+    
+    #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
 
+    filtername = "g"
+    plan = obsplan(obsname = "CFHT-MegaCam", band = filtername, mode = 'file', inputfile = "SNLS_%s.dat" % filtername, nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True)
 
-    print customplan.totalepochs
-    print customplan.MJDs
-    print customplan.airmasses
-    print customplan.band
-    print customplan.limmag
+    #customplan = obsplan(obsname = "Blanco-DECam", band = 'g', mode = 'custom', nfields = 50, nepochspernight = 1, ncontnights = 30, nnights = 30, nightfraction = 0.5, nread = 2, startmoonphase = 0, maxmoonphase = 7, doplot = True)
+

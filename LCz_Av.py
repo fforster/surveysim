@@ -46,7 +46,7 @@ class LCz_Av(object):
             self.LCz.mags(Dm = self.Dm)
 
             for j in range(self.nz):
-                
+
                 # add interpolating function
                 self.magAvf.append(interp1d(self.LCz.timesz[j], self.LCz.bandmag[j], bounds_error = False, fill_value = 40))
 
@@ -54,9 +54,11 @@ class LCz_Av(object):
         self.magAvf = zip(*[iter(self.magAvf)]*self.nz)
 
     # define characteristic Av distribution scale
-    def set_Avdistribution(self, lAv):
-        
-        self.lAv = lAv
+    def set_Avdistribution(self, **kwargs):
+
+        self.lAv = 0.187
+        if "lAv" in kwargs.keys():
+            self.lAv = kwargs["lAv"]
         
         if self.nAv != 1:
             probs = np.exp(-self.Av / self.lAv)
@@ -159,7 +161,7 @@ if __name__  == "__main__":
     plt.savefig("plots/LCz_Av_test.png")
     
     # generate Av probability distribution
-    SN_Av.set_Avdistribution(lAv)
+    SN_Av.set_Avdistribution(lAv = lAv)
 
     fig, ax = plt.subplots(ncols = 2)
     values = np.random.random(10000)

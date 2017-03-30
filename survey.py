@@ -23,7 +23,8 @@ class survey(object):
         self.efficiency = kwargs["efficiency"]
         self.Avs = kwargs["Avs"]
         self.Rv = kwargs["Rv"]
-        self.lAv = kwargs["lAv"]
+        if "lAv" in kwargs.keys():
+            self.lAv = kwargs["lAv"]
         self.filtername = kwargs["filtername"]
         self.nz = kwargs["nz"]
 
@@ -125,7 +126,7 @@ class survey(object):
         self.LCz_Av.compute_mags(plotmodel = True)
 
         # generate Av probability distribution
-        self.LCz_Av.set_Avdistribution(self.lAv)
+        self.LCz_Av.set_Avdistribution(lAv = self.lAv)
 
     # sample light curves from the survey    
     def sample_events(self, **kwargs):
@@ -154,10 +155,12 @@ class survey(object):
         self.nsimz = np.zeros(self.nz) # number of simulated LCs at different redshifts
         self.simdts = np.zeros(self.nz)
         self.ndetections = np.zeros(self.nz)
+        self.ndetectionsdiff = np.zeros(self.nz)
         self.detprob = np.zeros(self.nz)
+        self.detprobdiff = np.zeros(self.nz)
         self.simtexps = np.zeros(self.nsim)
         self.simiAvs = np.zeros(self.nsim, dtype = int)
-        self.simLCs = np.ones((self.nsim, len(self.obsplan.MJDs))) * 40.
+        self.simLCs = np.ones((self.nsim, len(self.obsplan.MJDs))) * 40. # assume 40 mag pre-explosion
         
         # simulate light curves and store them
         l1 = 0
@@ -170,11 +173,14 @@ class survey(object):
                 # simulate and count detections
                 simdt, simtexp, simiAv, simmags = self.LCz_Av.simulate_randomLC(nsim = self.nsimz[iz], iz = iz, MJDs = self.obsplan.MJDs, maxrestframeage = self.maxrestframeage)
                 ndetections = np.sum(map(lambda mags: np.sum(mags <= self.obsplan.limmag) >= self.minndetections, simmags))
+                ndetectionsdiff = np.sum(map(lambda mags: np.sum(mags <= self.obsplan.limmag - 2.5 * np.log10(np.sqrt(2.))) >= self.minndetections, simmags))
 
                 # fill arrays with light curve information and statistics
                 self.simdts[iz] = simdt
                 self.ndetections[iz] = ndetections
+                self.ndetectionsdiff[iz] = ndetectionsdiff
                 self.detprob[iz] = 1. * ndetections / self.nsimz[iz]
+                self.detprobdiff[iz] = 1. * ndetectionsdiff / self.nsimz[iz]
                 l2 = int(l1 + self.nsimz[iz])
                 self.simtexps[l1: l2] = simtexp
                 self.simiAvs[l1: l2] = simiAv
@@ -189,6 +195,9 @@ class survey(object):
             save = kwargs["save"]
 
         print "      Plotting light curves and statistics..."
+
+        if save:
+            np.save("npy/simLCs_zs-CDF_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), {"zs": self.zs, "cumtotalSNe": self.cumtotalSNe})
         
         fig, ax = plt.subplots() 
         ax.plot(self.zs, self.cumtotalSNe, label = r"$\int_0^z \eta ~\frac{SFR(z)}{1+z} ~T_{\rm sim} ~\frac{dV(z)}{dz d\Omega} ~\Delta\Omega ~n_{\rm fields} ~dz $", c = 'k', zorder = 100)
@@ -196,23 +205,26 @@ class survey(object):
         hist, edges = np.histogram(self.simzs, bins = self.zedges)
         ax.plot((edges[:-1] + edges[1:]) / 2., np.cumsum(hist) * scale, label = "Explosions", c = 'r', lw = 5, alpha = 0.5, drawstyle = 'steps-post')
         ax.plot(self.zs, np.cumsum(self.ndetections) * scale, label = "Detections", c = 'b', lw = 5, drawstyle = 'steps-post')
+        ax.plot(self.zs, np.cumsum(self.ndetectionsdiff) * scale, label = "Detections (diff.)", c = 'g', lw = 5, drawstyle = 'steps-post')
         ax.legend(loc = 2, fontsize = 14, framealpha = 0.7)
-        ax.set_title("Total detections: %.1f" % (1. * np.sum(self.ndetections) / self.nsim * self.cumtotalSNe[-1]))
+        ax.set_title("Total detections: %.1f, %.1f (diff.)" % (1. * np.sum(self.ndetections) / self.nsim * self.cumtotalSNe[-1], 1. * np.sum(self.ndetectionsdiff) / self.nsim * self.cumtotalSNe[-1]))
         ax.set_xlabel("z")
         ax.set_ylabel("Event cumulative distribution")
         if save:
             plt.savefig("plots/simLCs_expvsdet_%s_%s.png" % (self.obsplan.planname, self.LCz.modelname))
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize = (13, 7))
         map(lambda LC: ax.plot(self.obsplan.MJDs, LC, alpha = 0.1), self.simLCs[np.random.choice(range(self.nsim), size = 5000, replace = True)])
-        ax.plot(self.obsplan.MJDs, self.obsplan.limmag, lw = 5, c = 'r', label = "lim. mag.")
+        ax.plot(self.obsplan.MJDs, self.obsplan.limmag, c = 'r', label = "lim. mag.")
+        ax.plot(self.obsplan.MJDs, self.obsplan.limmag - 2.5 * np.log10(np.sqrt(2.)), c = 'r', ls = ':', label = "lim. mag. (diff.)")
+        ax.set_xlim(min(self.obsplan.MJDs), max(self.obsplan.MJDs))
         ax.set_ylim(max(self.obsplan.limmag) + 0.5, min(self.simLCs.flatten()) - 0.5)
         ax.set_xlabel("MJD [days]")
         ax.set_ylabel("%s mag" % self.filtername)
         ax.legend()
 
         plt.xticks(rotation = 90, ha = 'left')
-        plt.xticks(np.arange(min(self.obsplan.MJDs) - 2, max(self.obsplan.MJDs) + 2, 2))
+        plt.xticks(np.arange(min(self.obsplan.MJDs) - 2, max(self.obsplan.MJDs) + 2, int((max(self.obsplan.MJDs) - min(self.obsplan.MJDs)) / 150.)))
         plt.tick_params(pad = 0)
         plt.tick_params(axis='x', which='major', labelsize=10)
         plt.tight_layout()
@@ -237,7 +249,9 @@ class survey(object):
             np.save("npy/simLCs_texp_%s_%s.npy" % (self.obsplan.planname, self.LCz.modelname), self.simtexps)
 
         fig, ax = plt.subplots()
-        ax.plot(self.zs, self.detprob, drawstyle = "steps", lw = 5)
+        ax.plot(self.zs, self.detprob, drawstyle = "steps", lw = 5, label = "Det. prob.")
+        ax.plot(self.zs, self.detprobdiff, drawstyle = "steps", lw = 5, label = "Det. prob. (diff.)")
+        ax.legend(loc = 3)
         ax.set_xlabel("z")
         ax.set_ylabel("Detection probability")
         if save:
@@ -267,10 +281,16 @@ if __name__  == "__main__":
 
     # start an observational plan
     if obsname == "VST-OmegaCam":
-        customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+        plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
     elif obsname == "KMTNet":
-        customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+        plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+    elif obsname == "KMTNet17B":
+        #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
+        #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'custom', nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, ncontnights = 82, nnights = 82, startmoonphase = 3, maxmoonphase = 15, doplot = True)
+        plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
         #customplan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 23, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 1., nread = 4, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+    elif obsname == "SNLS":
+        plan = obsplan(obsname = "CFHT-MegaCam", band = filtername, mode = 'file', inputfile = "SNLS_%s.dat" % filtername, nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True)
 
     # light curve model
     SN = StellaModel(dir = modeldir, modelfile = modelfile, doplot = True)
@@ -293,7 +313,7 @@ if __name__  == "__main__":
     efficiency = knorm * IIPfrac
 
     # start survey
-    newsurvey = survey(obsplan = customplan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = knorm * IIPfrac, filtername = filtername, nz = nz)
+    newsurvey = survey(obsplan = plan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = knorm * IIPfrac, filtername = filtername, nz = nz)
 
     # estimate maximum survey redshift
     newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 2)
