@@ -30,8 +30,8 @@ class obsplan(object):
         seeing_r_CTIO = 0.75
         self.ETC = ETC(observatory = self.obs, seeing_r_arcsec = seeing_r_CTIO)
 
-        # initialize DECam tools
-        DT = DECam_tools("../HiTS-public")
+        ## initialize DECam tools
+        #DT = DECam_tools("../HiTS-public")
 
         # plot
         if "doplot" in kwargs.keys():
