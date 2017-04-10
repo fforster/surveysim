@@ -13,6 +13,7 @@ import cos_calc
 
 #from pylab import *
 
+sys.path.append("../surveysim")
 from constants import *
 from extinction import *
 
@@ -152,7 +153,7 @@ class LCz(object):
 
         if self.filtername in ugrizy:
 
-            bandfilter = np.loadtxt('filters/DECam_transmission_total.txt').transpose()
+            bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/DECam_transmission_total.txt').transpose()
             iband = 0
             for i in range(len(ugrizy)):
                 if ugrizy[i] == self.filtername:
@@ -162,7 +163,7 @@ class LCz(object):
 
         elif self.filtername in UBVRI:
 
-            bandfilter = np.loadtxt('filters/Bessel_%s-1.txt' % self.filtername).transpose()
+            bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/Bessel_%s-1.txt' % self.filtername).transpose()
             lfilter = bandfilter[0] * 10. # AA
             tfilter = bandfilter[1] / 100. # fraction
             idxsort = np.argsort(lfilter)
