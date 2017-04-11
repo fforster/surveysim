@@ -98,7 +98,7 @@ class observatory(object):
                 # mirror, lens, filter and CCD efficiencies at filters
                 self.primary_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 0.97, 'V': 0.97, 'Rc': 0.97, 'Ic': 0.96}
                 self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 1., 'V': 1., 'Rc': 1., 'Ic': 1.}
-                self.filter_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 83.8, 'V': 0.84, 'Rc': 0.86, 'Ic': 0.77}
+                self.filter_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 0.84, 'V': 0.84, 'Rc': 0.86, 'Ic': 0.77}
                 self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5, 'B': 0.91, 'V': 0.89, 'Rc': 0.92, 'Ic': 0.85}
 
                 # geographical location (requires ephem)
