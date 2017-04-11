@@ -25,3 +25,6 @@ OmegaM = 0.27
 OmegaL = 0.73
 ster_sqdeg = (180. / np.pi)**2 # 1 ster in square degrees (~3282.8)
 
+# magnitudes to flux
+def mag2flux(mag):
+    return 10**(-(mag + 48.6) / 2.5)

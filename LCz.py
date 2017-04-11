@@ -38,7 +38,7 @@ class LCz(object):
     # object variables required for what follows are
     # modelname, ntimes, nlambda, times (ntimes) [days], lambda (nlambda) [AA], flux (ntimes x nlambda) [erg/s/AA] and doplot
 
-    def __init__(modelname, times, lambdas, flux, doplot = False):
+    def __init__(self, modelname, times, lambdas, flux, doplot = False):
         
         self.modelname = modelname
         self.times = times  # days
@@ -450,7 +450,7 @@ class StellaModel(LCz):
         # read file
         try:
             filename = "%s/%s" % (self.dir, self.modelfile)
-            #print "Opening model file %s" % filename
+            print "Opening model file %s" % filename
             data = open(filename, 'r')
         except:
             print "Cannot open file %s" % self.modelfile
