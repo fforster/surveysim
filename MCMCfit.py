@@ -159,7 +159,7 @@ class MCMCfit(object):
         self.flux = kwargs["flux"]
         self.e_flux = kwargs["e_flux"]
         self.filters = kwargs["filters"]
-        self.name = kwargs["name"]
+        self.objname = kwargs["objname"]
         self.bandcolors = kwargs["bandcolors"]
 
         self.uniquefilters = np.unique(self.filters)
@@ -316,7 +316,7 @@ class MCMCfit(object):
     def lnlike(self, theta, fixedvars, parvals):
         
         if not np.isfinite(np.sum(theta)):
-            return -1e32
+            return -np.inf
         
         parvals[np.invert(fixedvars)] = theta
 
@@ -335,13 +335,13 @@ class MCMCfit(object):
     def lnprior(self, theta, fixedvars, parbounds):
 
         if not np.isfinite(np.sum(theta)):
-            return -1e32
+            return -np.inf
         
         bounds = parbounds[np.invert(fixedvars)]
         lnprior = 0
         for idx in range(len(theta)):
             if theta[idx] < bounds[idx][0] or theta[idx] > bounds[idx][1]:
-                return -1e32
+                return -np.inf
             else:
                 lnprior = lnprior + np.log(self.priors[idx](theta[idx]))
 
@@ -351,15 +351,15 @@ class MCMCfit(object):
     def lnprob(self, theta, fixedvars, parvals, parbounds):
         
         if not np.isfinite(np.sum(theta)):
-            return -1e32
+            return -np.inf
 
         lp = self.lnprior(theta, fixedvars, parbounds)
         if not np.isfinite(lp):
-            return -1e32
+            return -np.inf
 
         lnprob = lp + self.lnlike(theta, fixedvars, parvals)
         if not np.isfinite(lnprob):
-            return -1e32
+            return -np.inf
 
         return lnprob
     
@@ -400,16 +400,16 @@ class MCMCfit(object):
             ax[j].set_ylabel(labels[j])
             for i in range(nwalkers):
                 ax[j].plot(sampler.chain[i, :, j], alpha = 0.2)
-        plt.savefig("plots/MCMC_%s_%s_evol.png" % (self.modelname, SNname))
+        plt.savefig("plots/MCMC_%s_%s_evol.png" % (self.modelname, self.objname))
 
         # extract samples and convert to normal units
         samples = sampler.chain[:, nburn:, :].reshape((-1, ndim))
         samplescorner = np.array(samples)
 
         # do corner plot
-        truths = solfit
+        truths = bestfit
         fig = corner.corner(samplescorner, labels = labels, truths = truths)
-        plt.savefig("plots/MCMC_%s_%s_corner.png" % (self.modelname, SNname))
+        plt.savefig("plots/MCMC_%s_%s_corner.png" % (self.modelname, self.objname))
 
         
         # show sample
@@ -431,18 +431,18 @@ class MCMCfit(object):
             scale, texp, logz, logAv = parvals[:4]
             pars = parvals[4:]
             print "Parameters:", scale, texp, logz, logAv, pars
-            LCmag = MCMC.evalmodel(texp, logz, logAv, pars)
+            LCmag = self.evalmodel(texp, logz, logAv, pars)
 
-            for idx, band in enumerate(MCMC.uniquefilters):
-                mask = MCMC.maskband[band]
+            for idx, band in enumerate(self.uniquefilters):
+                mask = self.maskband[band]
                 ax[idx].axvline(texp, c = 'gray')
-                ax[idx].plot(MCMC.mjd[mask], scale * mag2flux(LCmag[band]), label = "%s" % band, c = self.bandcolors[band], alpha = 0.05)
+                ax[idx].plot(self.mjd[mask], scale * mag2flux(LCmag[band]), label = "%s" % band, c = self.bandcolors[band], alpha = 0.05)
             
                 #ax.set_ylim
                 ax[idx].set_ylabel(r"f$_{\nu}$ [erg/s/cm$^2$/Hz]", fontsize = 14)
                 ax[idx].set_xlabel("MJD [days]", fontsize = 14)
 
-            plt.savefig("plots/MCMC_%s_%s_models.png" % (self.modelname, SNname))
+            plt.savefig("plots/MCMC_%s_%s_models.png" % (self.modelname, self.objname))
 
         
         
@@ -560,7 +560,7 @@ if __name__ == "__main__":
     MCMC.setmetric(metric = np.array([10., 1e51, 1e-3, 1.]), logscale = np.array([False, False, True, True], dtype = bool))
         
     # set observations
-    MCMC.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, name = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    MCMC.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
 
     # start plotting
     fig, ax = plt.subplots(figsize = (12, 7))
@@ -641,7 +641,9 @@ if __name__ == "__main__":
     ax.set_title("scale: %5.3f, texp: %f, Av: %f, mdot: %3.1e, rcsm: %3.1f" % (scale, texp, np.exp(logAv), mdot, rcsm), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
     ax.set_xlim(min(MCMC.mjd), max(MCMC.mjd) + 100)
-    plt.savefig("plots/%s_bestfit.png" % (SNname))
+    plt.savefig("plots/%s_%s_bestfit.png" % (MCMC.objname, MCMC.modelname))
+
+    sys.exit()
 
     # set a priori distributions
     from scipy.stats import lognorm, norm, uniform  # leave this here

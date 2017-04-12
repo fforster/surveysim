@@ -100,7 +100,7 @@ class obsplan(object):
                     else:
                         print "WARNING: observational plan incorrectly formatted"
                         sys.exit()
-            if "mjds" in params.keys():
+            elif "mjds" in params.keys():
                 self.MJDs = []
                 for mjd in params["mjds"].split(","):
                     self.MJDs = np.hstack([self.MJDs, float(mjd)])

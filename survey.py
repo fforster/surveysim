@@ -336,7 +336,7 @@ if __name__  == "__main__":
     newsurvey = survey(obsplan = plan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = efficiency, filtername = filtername, nz = nz, maxrestframeage = maxrestframeage)
 
     # estimate maximum survey redshift
-    newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 2)
+    newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 5)
 
     # compute redshifts
     newsurvey.compute_zs()
