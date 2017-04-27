@@ -301,7 +301,9 @@ if __name__  == "__main__":
     elif obsname == "KMTNetSNsurvey":
         plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
     elif obsname == "KMTNet17B":
-        plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
+        plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'file', inputfile = "KMTNet17B.dat", nfields = 3, nepochspernight = 1, nightfraction = 0.5 / 4., nread = 3, doplot = True)
+    elif obsname == "Clay-MegaCam17B":
+        plan = obsplan(obsname = "Clay-MegaCam", band = filtername, mode = 'file', inputfile = "Clay-MegaCam17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 0.5, nread = 1, doplot = True)
     elif obsname == "SNLS":
         plan = obsplan(obsname = "CFHT-MegaCam", band = filtername, mode = 'file', inputfile = "SNLS_%s.dat" % filtername, nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True)
     else:

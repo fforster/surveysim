@@ -97,7 +97,7 @@ class observatory(object):
                 
                 # mirror, lens, filter and CCD efficiencies at filters
                 self.primary_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 0.97, 'V': 0.97, 'Rc': 0.97, 'Ic': 0.96}
-                self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 1., 'V': 1., 'Rc': 1., 'Ic': 1.}
+                self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 0.8, 'V': 0.8, 'Rc': 0.8, 'Ic': 0.8}
                 self.filter_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1., 'B': 0.84, 'V': 0.84, 'Rc': 0.86, 'Ic': 0.77}
                 self.CCD_eff = {'u': 0.6, 'g': 0.85, 'r': 0.86, 'i': 0.86, 'z': 0.85, 'Y': 0.5, 'B': 0.91, 'V': 0.89, 'Rc': 0.92, 'Ic': 0.85}
 
@@ -133,6 +133,32 @@ class observatory(object):
                     self.location.lat = "-24:37:34.79"
                     self.location.lon = "-70:24:14.27"
                     self.location.elevation = 2635 # m
+                    
+            elif kwargs["observatory"] == "Clay-MegaCam":
+
+                self.area = 33.18
+                self.FoV = 0.17
+                self.pixscale = 0.16 # assuming binning
+                self.RON = 5. # e-
+                self.gain = 3.5 # e-/ADU
+                self.readouttime = 45. # s
+
+                self.filterchange = 8 # s # GUESS
+                self.slewtime = 30. # s # GUESS
+                self.vig = 1.0 # vignetting # GUESS
+
+                # mirror, lens, filter and CCD efficiencies at filters
+                self.primary_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
+                self.corrector_eff = {'u': 1., 'g': 1., 'r': 1., 'i': 1., 'z': 1., 'Y': 1.}
+                self.filter_eff = {'u': 0.8, 'g': 0.95, 'r': 0.95, 'i': 0.95, 'z': 0.95, 'Y': 1. }
+                self.CCD_eff = {'u': 0.6, 'g': 0.8, 'r': 0.75, 'i': 0.55, 'z': 0.2, 'Y': 0.1} # rough guess based on figure
+                
+                # geographical location (requires ephem)
+                if ephemimport:
+                    self.location = ephem.Observer()
+                    self.location.lat = "-29:00:52.56"
+                    self.location.lon = "-70:41:33.36"
+                    self.location.elevation = 2380 # m
                     
             elif kwargs["observatory"] == "LSST":
                 
