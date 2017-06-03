@@ -129,16 +129,17 @@ if __name__  == "__main__":
         dVdzdOmega[i] = cspeed / (Hnot * 1e5 * np.sqrt((1. + zs[i])**3. * OmegaM + OmegaL)) * Dc[i]**2
 
     # light curves given model and cosmology
-    SN = StellaModel(dir = "models", modelfile = "15z002E1.dat", doplot = False)
+    SN = StellaModel(dir = "models/Nozomu", modelfile = "15z002E1.dat", doplot = False)
 
     # attenuations
     lAv = 0.187
-    Avs = np.linspace(0, 4. * lAv, 10)# np.hstack([0, np.logspace(-1.5, 0, 10)])
+    nAv = 2
+    Avs = np.linspace(0, 4. * lAv, nAv)# np.hstack([0, np.logspace(-1.5, 0, 10)])
 
     # start new object with model light curves at different redshifts and Avs
     SN_Av = LCz_Av(LCz = SN, Av = Avs, Rv = 4.5, zs = zs, DL = DL, Dm = Dm, filtername = 'g')
     SN_Av.compute_mags()
-
+    
     # plot magnitudes after Av
     fig, ax = plt.subplots(figsize = (14, 8))
     jet = cm = plt.get_cmap('jet') 

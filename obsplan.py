@@ -19,9 +19,22 @@ class obsplan(object):
 
     def __init__(self, **kwargs):
 
+
         self.obsname = kwargs['obsname']  # Blanco-DECam, Subaru-HSC, LSST
         self.band = kwargs['band'] # ugrizy
         self.mode = kwargs['mode'] # custom, some file prefix (TODO)
+
+        # only for lsst maf
+        if self.mode == 'maf':
+            self.MJDs = kwargs["MJDs"]
+            self.limmag = kwargs["limmag"]
+            self.nfields = 1.
+            self.obs = observatory(observatory = self.obsname)
+            #self.exptime = kwargs["visitExpTime"]
+            #self.airmasses = kwargs["airmass"]
+            #self.skymags = kwargs["fieldSkyBrightness"]
+            self.planname = "maf"
+            return
 
         # create observatory
         self.obs = observatory(observatory = self.obsname)
@@ -115,7 +128,7 @@ class obsplan(object):
             # custom plan name
             self.planname = "%s-nf%i-ne%i-nr%i-nn%i_%s_%s" % (self.obsplanfile[:-4], self.nfields, self.nepochspernight, self.nread, len(self.MJDs), self.obsname, self.band)
             print "Observation plan name:", self.planname
-
+                        
         # overhead time
         self.overhead = max(self.obs.readouttime, self.obs.slewtime)
         

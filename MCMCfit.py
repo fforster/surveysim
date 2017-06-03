@@ -99,16 +99,18 @@ class MCMCfit(object):
             if not np.array_equal(np.load("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands))), self.params):
                 print "params array does not match loaded value, using saved values..."
                 self.params = np.load("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands)))
-            self.allmags = {}
-            for band in bands:
-                self.allmags[band] = np.load("allmags/%s_%s_allmags.npy" % (self.modelname, band))
+            #self.allmags = {}
+            #for band in bands:
+            #    self.allmags[band] = np.load("allmags/%s_%s_allmags.npy" % (self.modelname, band))
+            #return
 
-            return
-
+        # start computing or loading specific models
         nruns = len(self.files) * len(bands)
-        print "Computing %i models..." % nruns
-        print self.paramnames
-        print self.paramunits
+
+        if not doload:
+            print "Computing %i models..." % nruns
+            print self.paramnames
+            print self.paramunits
 
         start_time = time.time()
         
@@ -117,7 +119,8 @@ class MCMCfit(object):
         aux = 0
         for filename, params in zip(self.files, self.params):
 
-            print filename
+            if not doload:
+                print filename
 
             for band in bands:
 
@@ -125,13 +128,26 @@ class MCMCfit(object):
                     print "File: %s, params: %s, band: %s, remaining time: %f min" % (filename, params, band, remtime / 60.)
                 else:
                     print "File: %s, params: %s, band: %s" % (filename, params, band)
-            
-                SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
-                SN_Av = LCz_Av(LCz = SN, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = band, doplot = False)
-                SN_Av.compute_mags()
-                mags = np.array([SN_Av.magAvf[iAv][iz](self.times) for iz, iAv in itertools.product(range(len(self.zs)), range(len(self.Avs)))]).reshape((len(self.zs), len(self.Avs), len(self.times)))
+
+
+                npydir = "npy/%s/%s" % (self.modelname, band)
+                if doload:
+                    mags = np.load("%s/%s.npy" % (npydir, filename))
+                else:
+                    npyfile = "%s/%s.npy" % (npydir, filename)
+                    if not os.path.exists(npyfile):
+                        SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
+                        SN_Av = LCz_Av(LCz = SN, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = band, doplot = False)
+                        SN_Av.compute_mags()
+                        mags = np.array([SN_Av.magAvf[iAv][iz](self.times) for iz, iAv in itertools.product(range(len(self.zs)), range(len(self.Avs)))]).reshape((len(self.zs), len(self.Avs), len(self.times)))
+                        if save:
+                            if not os.path.exists(npydir):
+                                os.makedirs(npydir)
+                            np.save(npyfile, mags)
+                    else:
+                        mags = np.load("%s/%s.npy" % (npydir, filename))
+
                 mags = mags[np.newaxis, :]
-                
                 if band in self.allmags.keys():
                     self.allmags[band] = np.vstack([self.allmags[band], mags])
                 else:
@@ -142,14 +158,14 @@ class MCMCfit(object):
 
                 remtime = ellapsed_time / aux * (nruns - aux) # sec
                     
-        # save
-        if dosave:
-            np.save("allmags/%s_%s_Avs.npy" % (self.modelname, "".join(bands)), self.Avs)
-            np.save("allmags/%s_%s_zs.npy" % (self.modelname, "".join(bands)), self.zs)
-            np.save("allmags/%s_%s_times.npy" % (self.modelname, "".join(bands)), self.times)
-            np.save("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands)), self.params)
-            for band in bands:
-                np.save("allmags/%s_%s_allmags.npy" % (self.modelname, band), self.allmags[band])
+        ## save
+        #if dosave:
+        #    np.save("allmags/%s_%s_Avs.npy" % (self.modelname, "".join(bands)), self.Avs)
+        #    np.save("allmags/%s_%s_zs.npy" % (self.modelname, "".join(bands)), self.zs)
+        #    np.save("allmags/%s_%s_times.npy" % (self.modelname, "".join(bands)), self.times)
+        #    np.save("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands)), self.params)
+        #    for band in bands:
+        #        np.save("allmags/%s_%s_allmags.npy" % (self.modelname, band), self.allmags[band])
 
             
     # set observational data to interpolate
@@ -194,8 +210,8 @@ class MCMCfit(object):
     def paramdist(self, p1, p2):
 
             self.notlogscale = np.invert(self.logscale)
-            return np.sqrt(np.sum(((p1[self.notlogscale] - p2[self.notlogscale]) / self.metric[self.notlogscale])**2) + \
-                           np.sum(np.log10((p1[self.logscale] / self.metric[self.logscale] + 1e-4) / (p2[self.logscale] / self.metric[self.logscale] + 1e-4))**2))
+            return np.sqrt(np.sum(((p1[self.notlogscale] - p2[self.notlogscale]) / self.metric[self.notlogscale])**2) + 1e3 * \
+                           np.sum(np.log10((p1[self.logscale] / self.metric[self.logscale] + 1e-6) / (p2[self.logscale] / self.metric[self.logscale] + 1e-6))**2))
 
     # radial basis function
     def RBF(self, dist, scale):
@@ -203,7 +219,7 @@ class MCMCfit(object):
         return np.exp(-(dist / scale)**2)
             
     # Function that interpolates the model at given parameter set, z, Av, texp and observed times
-    def evalmodel(self, scale, texp, logz, logAv, pars, nice = False):
+    def evalmodel(self, scale, texp, logz, logAv, pars, nice = False, closest = False):
 
         if not hasattr(self, "paramdist"):
 
@@ -217,21 +233,33 @@ class MCMCfit(object):
         fAv = idxAv - int(idxAv)
 
         # find best matching parameters and radial basis function weights
+        print pars
         distances = np.array(map(lambda p: self.paramdist(p, pars), self.params))
-        npt = 1 # number of nearest neighbours to consider
-        idxbest = np.argsort(distances)#[:npt] # best models to consider
-        RBFs = self.RBF(distances[idxbest], 2. * np.average(distances[idxbest[:2]])) # set scale
-        RBFs = RBFs / np.sum(RBFs) # normalize
-        # remove tail of weight distribution
-        cumsumRBFs = np.cumsum(RBFs)
-        maskRBF = np.invert(np.array(cumsumRBFs > 0.9, dtype = bool))
-        idxbest = idxbest[maskRBF]
-        RBFs = RBFs[maskRBF]
-        RBFs = RBFs / np.sum(RBFs)
+
+        ##HACK##
+        mask = np.array((self.params[:, 6] == 1) & (self.params[:, 2] == 1e-3) & (self.params[:, 1] <= 5e50))
+        distances[mask] = 1e9
+        ########
+        
+        idxbest = np.argsort(distances) # best models to consider
+        if closest:
+            idxbest = np.atleast_1d(idxbest[0])
+            print "Distance:", distances[idxbest], "best match:", self.params[idxbest]
+            RBFs = np.atleast_1d(1.)
+        else:
+            RBFs = self.RBF(distances[idxbest], 2. * np.average(distances[idxbest[:2]])) # set scale
+            RBFs = RBFs / np.sum(RBFs) # normalize
+            if np.sum(mask) > 0:
+                RBFs[mask] = 0
+            # remove tail of weight distribution
+            cumsumRBFs = np.cumsum(RBFs)
+            maskRBF = np.invert(np.array(cumsumRBFs > 0.9, dtype = bool))
+            idxbest = idxbest[maskRBF]
+            RBFs = RBFs[maskRBF]
+            RBFs = RBFs / np.sum(RBFs)
 
         # light curve interpolation
         intLC = {}
-        weights = {}
         for band in self.uniquefilters:
             intLC[band] = 0
 
@@ -247,7 +275,6 @@ class MCMCfit(object):
                 for band in self.uniquefilters:
                     mask = self.maskband[band]
 
-                    weights[band] = []
                     for idx, rbf in zip(idxbest, RBFs):
 
                         if nice:
@@ -316,7 +343,50 @@ class MCMCfit(object):
             theta_lsq = sol(True, theta0)
         
         return theta_lsq
-    
+
+    # test interpolation
+    def test_interpolation(self, idxvar):
+
+        print "Testing interpolation on %s" % (self.parlabels[idxvar])
+
+        fig, ax = plt.subplots(figsize = (12, 7), nrows = len(self.uniquefilters), sharex = True)
+        startvars = np.array(self.parvals[4:])
+        scale, texp, logz, logAv = self.parvals[:4]
+        jet = cm = plt.get_cmap('jet') 
+        nplot = 10
+        import matplotlib.colors as colors
+        
+        l1 = self.parbounds[idxvar, 0]
+        l2 = self.parbounds[idxvar, 1]
+        if self.logscale[idxvar - 4]:
+            vals = np.logspace(np.log10(l1), np.log10(l2), nplot)
+            cNorm  = colors.Normalize(vmin = np.log10(l1), vmax = np.log10(l2))
+            scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
+        else:
+            vals = np.linspace(l1, l2, nplot)
+            cNorm  = colors.Normalize(vmin = l1, vmax = l2)
+            scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
+        print vals
+        for val in vals:
+            if self.logscale[idxvar - 4]:
+                colorVal = scalarMap.to_rgba(np.log10(val))
+            else:
+                colorVal = scalarMap.to_rgba(val)
+            self.parvals[idxvar] = val
+            print self.parvals[idxvar]
+            LCmag = self.evalmodel(scale, texp, logz, logAv, self.parvals[4:], True, False)
+            LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.parvals[4:], True, True)
+            for idxf, band in enumerate(self.uniquefilters):
+                ax[idxf].set_ylabel(band)
+                ax[idxf].plot(self.times + texp, mag2flux(LCmag[band]), c = colorVal)
+                ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
+                ax[idxf].axvline(texp, c = 'gray')
+        ax[0].set_xlim(min(texp, min(self.mjd)) - 1, max(self.mjd) + 100)
+        ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels[4:], startvars)), fontsize = 6)
+        plt.savefig("plots/interpolation_%s_%s_%s.png" % (self.modelname, self.objname, self.parlabels[idxvar]))
+
+        self.parvals[4:] = startvars
+        
     # set a priori distributions
     def set_priors(self, priors):
 

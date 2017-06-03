@@ -126,7 +126,7 @@ class survey(object):
 
         # create LCz_Av object (use minimum Av)
         self.LCz_Av = LCz_Av(LCz = self.LCz, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = self.filtername)
-        self.LCz_Av.compute_mags(plotmodel = True)
+        self.LCz_Av.compute_mags(plotmodel = plotmodel)
 
         # generate Av probability distribution
         self.LCz_Av.set_Avdistribution(lAv = self.lAv)
@@ -134,7 +134,7 @@ class survey(object):
     # sample light curves from the survey    
     def sample_events(self, **kwargs):
 
-        print "      Sampling light curves..."
+        #print "      Sampling light curves..."
 
         # save number of simulated LCs
         self.nsim = kwargs["nsim"]
