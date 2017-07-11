@@ -28,9 +28,9 @@ class MCMCfit(object):
     def __init__(self, **kwargs):
 
         # model instrinsic physical paramater grid
-        self.paramnames = kwargs["paramnames"]
-        self.paramunits = kwargs["paramunits"]
-        self.params = kwargs["params"]
+        self.paramnames = np.array(kwargs["paramnames"], dtype = str)
+        self.paramunits = np.array(kwargs["paramunits"], dtype = str)
+        self.params = np.array(kwargs["params"])
         self.modelsdir = kwargs["modelsdir"]
         self.modelname = kwargs["modelname"]
         self.files = kwargs["files"] # dictionary with filenames given by nested keys
@@ -54,6 +54,10 @@ class MCMCfit(object):
         # number of model parameters
         self.nvar = len(self.paramnames)
 
+        # check if mdot is in the variable names
+        print self.paramnames
+        self.maskmdot = np.array([self.paramnames == 'mdots'], dtype = bool)
+        self.maskmdotvars = np.array([(self.paramnames == 'rcsm') | (self.paramnames == 'vwindinf') | (self.paramnames == 'beta')], dtype = bool)
 
     # do cosmology
     def docosmo(self):
@@ -83,34 +87,13 @@ class MCMCfit(object):
             doload = kwargs["load"]
             dosave = False
 
-        # save
-        if doload:
-
-            print "Loading models..."
-            if not np.array_equal(np.load("allmags/%s_%s_Avs.npy" % (self.modelname, "".join(bands))), self.Avs):
-                print "Avs array does not match loaded value, using saved values..."
-                self.Avs = np.load("allmags/%s_%s_Avs.npy" % (self.modelname, "".join(bands)))
-            if not np.array_equal(np.load("allmags/%s_%s_zs.npy" % (self.modelname, "".join(bands))), self.zs):
-                print "zs array does not match loaded value, using saved values..."
-                self.zs = np.load("allmags/%s_%s_zs.npy" % (self.modelname, "".join(bands)))
-            if not np.array_equal(np.load("allmags/%s_%s_times.npy" % (self.modelname, "".join(bands))), self.times):
-                print "WARNING: times array does not match loaded value, using saved values..."
-                self.times = np.load("allmags/%s_%s_times.npy" % (self.modelname, "".join(bands)))
-            if not np.array_equal(np.load("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands))), self.params):
-                print "params array does not match loaded value, using saved values..."
-                self.params = np.load("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands)))
-            #self.allmags = {}
-            #for band in bands:
-            #    self.allmags[band] = np.load("allmags/%s_%s_allmags.npy" % (self.modelname, band))
-            #return
-
         # start computing or loading specific models
         nruns = len(self.files) * len(bands)
 
         if not doload:
-            print "Computing %i models..." % nruns
-            print self.paramnames
-            print self.paramunits
+            print("Computing %i models..." % nruns)
+            print(self.paramnames)
+            print(self.paramunits)
 
         start_time = time.time()
         
@@ -120,14 +103,15 @@ class MCMCfit(object):
         for filename, params in zip(self.files, self.params):
 
             if not doload:
-                print filename
+                print(filename)
 
             for band in bands:
 
-                if "remtime" in locals():
-                    print "File: %s, params: %s, band: %s, remaining time: %f min" % (filename, params, band, remtime / 60.)
+                if "remtime" in locals() and not doload:
+                    print("File: %s, params: %s, band: %s, remaining time: %f min" % (filename, params, band, remtime / 60.))
                 else:
-                    print "File: %s, params: %s, band: %s" % (filename, params, band)
+                    if not doload:
+                        print("File: %s, params: %s, band: %s" % (filename, params, band))
 
 
                 npydir = "npy/%s/%s" % (self.modelname, band)
@@ -153,20 +137,11 @@ class MCMCfit(object):
                 else:
                     self.allmags[band] = mags
 
-                aux = aux + 1
-                ellapsed_time = time.time() - start_time
-
-                remtime = ellapsed_time / aux * (nruns - aux) # sec
+                if not doload:
+                    aux = aux + 1
+                    ellapsed_time = time.time() - start_time
+                    remtime = ellapsed_time / aux * (nruns - aux) # sec
                     
-        ## save
-        #if dosave:
-        #    np.save("allmags/%s_%s_Avs.npy" % (self.modelname, "".join(bands)), self.Avs)
-        #    np.save("allmags/%s_%s_zs.npy" % (self.modelname, "".join(bands)), self.zs)
-        #    np.save("allmags/%s_%s_times.npy" % (self.modelname, "".join(bands)), self.times)
-        #    np.save("allmags/%s_%s_params.npy" % (self.modelname, "".join(bands)), self.params)
-        #    for band in bands:
-        #        np.save("allmags/%s_%s_allmags.npy" % (self.modelname, band), self.allmags[band])
-
             
     # set observational data to interpolate
     def set_observations(self, **kwargs):
@@ -200,30 +175,30 @@ class MCMCfit(object):
             ax.set_ylabel("Flux [erg/s/cm2]")
             plt.show()
             
-    # defines the metric for interpolation
+    # defines a metric for interpolation
     def setmetric(self, **kwargs):
 
         self.metric = kwargs["metric"]
         self.logscale = kwargs["logscale"]
 
-    # defines the distance between two parameter vectors
+    # distance between two parameter vectors given the metric
     def paramdist(self, p1, p2):
 
-            self.notlogscale = np.invert(self.logscale)
-            return np.sqrt(np.sum(((p1[self.notlogscale] - p2[self.notlogscale]) / self.metric[self.notlogscale])**2) + 1e3 * \
-                           np.sum(np.log10((p1[self.logscale] / self.metric[self.logscale] + 1e-6) / (p2[self.logscale] / self.metric[self.logscale] + 1e-6))**2))
+        # distance between variables
+        dist = np.abs(p1 - p2) + 1e-2 * self.metric
 
-    # radial basis function
-    def RBF(self, dist, scale):
-
-        return np.exp(-(dist / scale)**2)
-            
+        # distance between some variables should be zero if mdot is zero in one of the two vectors
+        if np.sum(self.maskmdot) > 0:
+            if p1[self.maskmdot] == 0 or p2[self.maskmdot] == 0:
+                dist[self.maskmdotvars] = 0
+                
+        return np.product(dist)
+        
     # Function that interpolates the model at given parameter set, z, Av, texp and observed times
-    def evalmodel(self, scale, texp, logz, logAv, pars, nice = False, closest = False):
+    def evalmodel(self, scale, texp, logz, logAv, pars, nice = False, closest = False, verbose = False):
 
         if not hasattr(self, "paramdist"):
-
-            print "Please set the metric function for parameter model interpolation"
+            print("Please set the metric function for parameter model interpolation")
             sys.exit()
 
         # find z and Av indices
@@ -232,32 +207,83 @@ class MCMCfit(object):
         fz = idxz - int(idxz)
         fAv = idxAv - int(idxAv)
 
-        # find best matching parameters and radial basis function weights
-        print pars
-        distances = np.array(map(lambda p: self.paramdist(p, pars), self.params))
+        if verbose:
+            print("   Evalmodel", zip(self.paramnames, pars))
 
-        ##HACK##
-        mask = np.array((self.params[:, 6] == 1) & (self.params[:, 2] == 1e-3) & (self.params[:, 1] <= 5e50))
-        distances[mask] = 1e9
-        ########
+        # find closest values for all variables
+        parsearch = {}
+        for idx, var in enumerate(self.paramnames):
+            if var == "mdot":
+                idxmdot = idx
+            # exact match for this variable
+            if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
+                parsearch[var] = pars[idx]
+            else:
+                if min(self.params[:, idx]) > pars[idx]:
+                    parsearch[var] = min(self.params[:, idx])
+                elif max(self.params[:, idx]) < pars[idx]:
+                    parsearch[var] = max(self.params[:, idx])
+                else:
+                    parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
+
+        print(parsearch)
         
-        idxbest = np.argsort(distances) # best models to consider
-        if closest:
-            idxbest = np.atleast_1d(idxbest[0])
-            print "Distance:", distances[idxbest], "best match:", self.params[idxbest]
-            RBFs = np.atleast_1d(1.)
-        else:
-            RBFs = self.RBF(distances[idxbest], 2. * np.average(distances[idxbest[:2]])) # set scale
-            RBFs = RBFs / np.sum(RBFs) # normalize
-            if np.sum(mask) > 0:
-                RBFs[mask] = 0
-            # remove tail of weight distribution
-            cumsumRBFs = np.cumsum(RBFs)
-            maskRBF = np.invert(np.array(cumsumRBFs > 0.9, dtype = bool))
-            idxbest = idxbest[maskRBF]
-            RBFs = RBFs[maskRBF]
-            RBFs = RBFs / np.sum(RBFs)
+        if verbose:
+            print("   parsearch:", parsearch)
+                            
+        # use only models which contain closest values
+        maskclose = np.ones_like(self.params[:, 0], dtype = bool)
+        for idx, var in enumerate(self.paramnames):
 
+            if verbose:
+                print("   ", parsearch[var])
+            if size(parsearch[var]) == 1:
+                nomatch = np.abs(self.params[:, idx] - parsearch[var]) > 1e-9
+                if var != "mdot":
+                    maskclose[nomatch] = False
+                else:
+                    maskclose[nomatch] = False
+            else:
+                nomatch0 = np.abs(self.params[:, idx] - parsearch[var][0]) > 1e-9
+                nomatch1 = np.abs(self.params[:, idx] - parsearch[var][1]) > 1e-9
+                if var != "mdot":
+                    maskclose[nomatch0 & nomatch1] = False
+                else:
+                    maskclose[nomatch0 & nomatch1] = False
+
+            #TEST
+            #print(np.sum(maskclose))
+            
+        # check if interpolation is possible
+        if np.sum(maskclose) == 0:
+            print("Cannot interpolate", pars)
+            print(parsearch)
+            sys.exit()
+
+        # indices
+        idxbest = np.array(range(len(self.files)))[maskclose]
+        if verbose:
+            print("   ", self.files[idxbest])
+
+        #TEST
+        #self.idxbest = idxbest
+            
+        # compute distances from close model parameters
+        distances = np.array(map(lambda p: self.paramdist(p, pars), self.params[idxbest]))
+        
+        if closest:
+            idxbest = np.array([idxbest[np.argmin(distances)]])
+            distances = np.array([min(distances)])
+        
+        # compute weights
+        weights = 1. / (distances + 1e-20)
+        weights = weights / np.sum(weights)
+
+        print weights
+
+        #TEST
+        #self.distances = distances
+        
         # light curve interpolation
         intLC = {}
         for band in self.uniquefilters:
@@ -275,14 +301,13 @@ class MCMCfit(object):
                 for band in self.uniquefilters:
                     mask = self.maskband[band]
 
-                    for idx, rbf in zip(idxbest, RBFs):
-
+                    for idx, ww in zip(idxbest, weights):
                         if nice:
                             LCint = np.interp(self.times, self.times, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
                         else:
                             LCint = np.interp(self.mjd[mask] - texp, self.times, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])#, left = 30, right = 30)
                             
-                        intLC[band] = intLC[band] + rbf * LCint \
+                        intLC[band] = intLC[band] + ww * LCint \
                                       * (iz * fz + (1 - iz) * (1. - fz)) \
                                       * (iAv * fAv + (1 - iAv) * (1. - fAv))
 
@@ -299,8 +324,8 @@ class MCMCfit(object):
                 vals[idx] = allpars[count]
                 count = count + 1
 
-        scale, texp, logz, logAv = vals[:4]
-        pars = vals[4:]
+        scale, texp, logz, logAv = vals[:self.nvext]
+        pars = vals[self.nvext:]
 
         chi2 = 0
         modelmag = self.evalmodel(scale, texp, logz, logAv, pars)
@@ -309,7 +334,7 @@ class MCMCfit(object):
             chi2 = chi2 + np.sum((self.flux[mask] - mag2flux(modelmag[band]))**2 / self.e_flux[mask]**2)
             #if band == 'g':
             #    ax.plot(self.mjd[mask], scale * mag2flux(modelmag[band]), c = 'gray', alpha = 0.1)
-        #print vals[np.invert(fixed)], chi2
+        #print(vals[np.invert(fixed)], chi2)
         
         return chi2
         
@@ -325,9 +350,12 @@ class MCMCfit(object):
         skip = False
         if "skip" in kwargs.keys():
             skip = bool(kwargs["skip"])
-
-        print skip
+            if skip:
+                print("Skipping initial solution iteration")
         bounds = self.parbounds[np.invert(self.fixedvars)]
+
+        # number of extrinsic variables, at the start of the variables array (scale, texp, z, Av)
+        self.nvext = len(self.parlabels) - len(self.logscale)
 
         method = 'L-BFGS-B'
         options = {'disp': False}
@@ -345,52 +373,88 @@ class MCMCfit(object):
         return theta_lsq
 
     # test interpolation
-    def test_interpolation(self, idxvar):
+    def test_interpolation(self, var):
+        
+        # save initial values and get extrinsic value
+        startvars = np.array(self.parvals)
+        scale, texp, logz, logAv = self.parvals[:self.nvext]
+        
+        # find index for given variable
+        for idx, param in enumerate(self.parlabels):
+            if var == param:
+                idxvar = idx
+                break
+        print("\n\nTesting interpolation on %s variable... (%s, %i)" % (self.parlabels[idxvar], var, idxvar))
 
-        print "Testing interpolation on %s" % (self.parlabels[idxvar])
 
-        fig, ax = plt.subplots(figsize = (12, 7), nrows = len(self.uniquefilters), sharex = True)
-        startvars = np.array(self.parvals[4:])
-        scale, texp, logz, logAv = self.parvals[:4]
+        # initialize plots and color scale
+        import matplotlib.colors as colors
+        fig, ax = plt.subplots(figsize = (16, 10), nrows = len(self.uniquefilters), sharex = True)
         jet = cm = plt.get_cmap('jet') 
         nplot = 10
-        import matplotlib.colors as colors
-        
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
-        if self.logscale[idxvar - 4]:
+        if self.logscale[idxvar - self.nvext]: # var is logarithmic
             vals = np.logspace(np.log10(l1), np.log10(l2), nplot)
+            #TEST
+            #vals = [1.1e-4, 2e-4, 2.9e-4]
             cNorm  = colors.Normalize(vmin = np.log10(l1), vmax = np.log10(l2))
             scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
-        else:
+        else: # var is linear
             vals = np.linspace(l1, l2, nplot)
             cNorm  = colors.Normalize(vmin = l1, vmax = l2)
             scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
-        print vals
+
+        # vary test variable
         for val in vals:
-            if self.logscale[idxvar - 4]:
+
+            # value
+            print("%s: %s" % (self.parlabels[idxvar], val))
+            self.parvals[idxvar] = val
+
+            # color
+            if self.logscale[idxvar - self.nvext]:
                 colorVal = scalarMap.to_rgba(np.log10(val))
             else:
                 colorVal = scalarMap.to_rgba(val)
-            self.parvals[idxvar] = val
-            print self.parvals[idxvar]
-            LCmag = self.evalmodel(scale, texp, logz, logAv, self.parvals[4:], True, False)
-            LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.parvals[4:], True, True)
+
+            # light curve model evaluation (interpolation happens here)
+            LCmag = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time and interpolate models
+            #LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, True) # use dense time and use closest model
+
+            #print(self.parvals[self.nvext:])
+            #print(self.idxbest)
+            #print(self.params[self.idxbest])
+            #print(self.distances)
+            
+            # loop among bands
             for idxf, band in enumerate(self.uniquefilters):
                 ax[idxf].set_ylabel(band)
                 ax[idxf].plot(self.times + texp, mag2flux(LCmag[band]), c = colorVal)
-                ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
+                #ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
                 ax[idxf].axvline(texp, c = 'gray')
-        ax[0].set_xlim(min(texp, min(self.mjd)) - 1, max(self.mjd) + 100)
-        ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels[4:], startvars)), fontsize = 6)
-        plt.savefig("plots/interpolation_%s_%s_%s.png" % (self.modelname, self.objname, self.parlabels[idxvar]))
 
-        self.parvals[4:] = startvars
+            #TEST
+            #for idxb in self.idxbest:
+            #    LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.params[idxb], True, True) # use dense time and use closest model
+            #    for idxf, band in enumerate(self.uniquefilters):
+            #        colorVal = scalarMap.to_rgba(self.params[idxb, 0])
+            #        ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
+                
+                
+
+        # axis and save
+        ax[0].set_xlim(min(texp, min(self.mjd)) - 1, max(self.mjd) + 100)
+        ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels, startvars)), fontsize = 6)
+        plt.savefig("plots/interpolation/interpolation_%s_%s_%s.png" % (self.modelname, self.objname, self.parlabels[idxvar]))
+
+        # recover original values
+        self.parvals = np.array(startvars)
         
     # set a priori distributions
     def set_priors(self, priors):
 
-        print "Setting priors..."
+        print("Setting priors...")
         mask = np.invert(self.fixedvars)
         self.priors = priors[mask]
         bounds = self.parbounds[mask]
@@ -399,7 +463,7 @@ class MCMCfit(object):
         fig, ax = plt.subplots(nrows = len(bounds))
         for idx in range(len(bounds)):
 
-            print "   ", labels[idx]
+            print("   ", labels[idx])
 
             xs = np.linspace(bounds[idx][0], bounds[idx][1], 1000)
             ax[idx].plot(xs, self.priors[idx](xs))
@@ -417,8 +481,8 @@ class MCMCfit(object):
         
         self.parvals[np.invert(self.fixedvars)] = theta
 
-        scale, texp, logz, logAv = self.parvals[:4]
-        pars = self.parvals[4:]
+        scale, texp, logz, logAv = self.parvals[:self.nvext]
+        pars = self.parvals[self.nvext:]
 
         loglike = 0
         modelmag = self.evalmodel(scale, texp, logz, logAv, pars)
@@ -464,7 +528,7 @@ class MCMCfit(object):
     # find MCMC confidence intervals for the model parameters
     def doMCMC(self, **kwargs):
 
-        print "Estimating a posterior parameter distrution using Monte Carlo Markov Chain"
+        print("Estimating a posterior parameter distrution using Monte Carlo Markov Chain")
         
         self.bestfit = kwargs["bestfit"]
         self.nsteps = kwargs["nsteps"]
@@ -475,7 +539,7 @@ class MCMCfit(object):
         if "load" in kwargs.keys():
             doload = bool(kwargs["load"])
             
-        # select not fixed vars
+        # select vars which are not fixed
         self.labels = self.parlabels[np.invert(self.fixedvars)]
         self.fitlabels = "-".join(self.labels)
         
@@ -486,29 +550,29 @@ class MCMCfit(object):
         # initialize random walkers
         self.ndim = len(result["x"])
         walkerscale = np.maximum(np.ones(self.ndim), (np.array(self.parbounds[np.invert(self.fixedvars), 1:] - self.parbounds[np.invert(self.fixedvars), :-1])).flatten())
-        print "walkerscale:", walkerscale
+        print("walkerscale:", walkerscale)
         pos = [result["x"] + deltabestfit * np.abs(walkerscale) * np.random.randn(self.ndim) for i in range(self.nwalkers)]
 
         # initilize emcee sampler
-        sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob)#, threads = 2);
+        sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob)#, threads = 4);
 
         # filename containing sample chain
         chainname = "samples/chain_%s_%s_%s.dat" % (self.modelname, self.objname, self.fitlabels)
         
         # load samples
         if doload:
-            print "Loading previous MCMC chain..."
+            print("Loading previous MCMC chain...")
             self.chain = np.loadtxt(chainname).transpose()
             self.nsteps = int(np.max(self.chain[0]) + 1)
             self.nwalkers = int(np.max(self.chain[1]) + 1)
             self.ndim = int(np.shape(self.chain)[0] - 2)
-            print "nsteps: %i, nwalkers: %i, ndim: %i" % (self.nsteps, self.nwalkers, self.ndim)
-            print "Original shape:", np.shape(self.chain)
+            print("nsteps: %i, nwalkers: %i, ndim: %i" % (self.nsteps, self.nwalkers, self.ndim))
+            print("Original shape:", np.shape(self.chain))
             self.chain = np.reshape(self.chain[2:], (self.ndim, self.nsteps, self.nwalkers))
             self.chain = np.swapaxes(self.chain, 1, 2) # test
             self.chain = np.swapaxes(self.chain, 0, 1)
             self.chain = np.swapaxes(self.chain, 1, 2)
-            print "New shape:", np.shape(self.chain)
+            print("New shape:", np.shape(self.chain))
         
         else:
             f = open(chainname, "w")
@@ -518,12 +582,14 @@ class MCMCfit(object):
                 position = result[0]
                 f = open(chainname, "a")
                 for k in range(position.shape[0]):
+                    if np.mod(idx, 2) == 0:
+                        print("%4i %4i %s" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
                     f.write("%i %i %s\n" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
-            f.close()
+                f.close()
             self.chain = sampler.chain
-
+        
             self.acceptance_fraction = np.mean(sampler.acceptance_fraction)
-            print "Ensemble Sampler acceptance fraction: ", self.acceptance_fraction
+            print("Ensemble Sampler acceptance fraction: ", self.acceptance_fraction)
 
                 
     # find MCMC confidence intervals for the model parameters
@@ -536,17 +602,17 @@ class MCMCfit(object):
         correctedlogs = np.zeros(self.ndim, dtype = bool)
 
         if correctlogs:
-            print "Correcting logarithmic variables..."
+            print("Correcting logarithmic variables...")
             for idx, lab in enumerate(self.labels):
-                print idx, lab
+                print(idx, lab)
                 if lab[:3] == 'log':
-                    print lab, "->", lab[3:]
+                    print(lab, "->", lab[3:])
                     self.chain[:, :, idx] = np.exp(self.chain[:, :, idx])
                     self.labels[idx] = self.labels[idx][3:]
                     correctedlogs[idx] = True
 
         # plot parameter evolution
-        print "Plotting chain evolution..."
+        print("Plotting chain evolution...")
         fig, ax = plt.subplots(nrows = self.ndim, sharex = True, figsize = (16, 10))
         for j in range(self.ndim):
             ax[j].set_ylabel(self.labels[j])
@@ -559,13 +625,13 @@ class MCMCfit(object):
         samplescorner = np.array(samples)
 
         # do corner plot
-        print "Doing corner plot..."
+        print("Doing corner plot...")
         fig = corner.corner(samplescorner, labels = self.labels, truths = self.bestfit)
         plt.savefig("plots/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels))
 
         
         # show sample
-        print "Plotting model sample"
+        print("Plotting model sample")
         fig, ax = plt.subplots(figsize = (14, 7))
 
         for idx, band in enumerate(self.uniquefilters):
@@ -586,9 +652,9 @@ class MCMCfit(object):
             self.parvals[np.invert(self.fixedvars)] = samples[i]
 
             # check best solution
-            scale, texp, logz, logAv = self.parvals[:4]
-            pars = self.parvals[4:]
-            print "Parameters:", scale, texp, logz, logAv, pars
+            scale, texp, logz, logAv = self.parvals[:self.nvext]
+            pars = self.parvals[self.nvext:]
+            print("Parameters:", scale, texp, logz, logAv, pars)
 
             LCmag = self.evalmodel(scale, texp, logz, logAv, pars, True)
 
@@ -608,222 +674,222 @@ class MCMCfit(object):
 
         
         
-if __name__ == "__main__":
-
-    print "Test run...\n"
-
-    # load DES models
-    DESdir = "/home/fforster/Work/DES"
-    dirs = os.listdir(DESdir)
-    SNe = defaultdict(list)
-    zSNe = {}
-
-    # read data
-    for SN in dirs:
-        
-        if SN[:3] == 'DES' and SN[-3:] != 'txt':
-            
-            SNe[SN] = defaultdict(list)
-
-            # read redshift
-            info = open("%s/%s/%s.info" % (DESdir, SN, SN), 'r')
-            zcmb = float(re.findall("Zcmb:\s(.*)\n", info.read())[0])
-            zSNe[SN] = float(zcmb)
-            name = SN
-
-            # read photometry
-            for f in os.listdir("%s/%s" % (DESdir, SN)):
-
-                # extract band
-                band = f[-1]
-
-                # loop among allowed bands
-                if band in ['u', 'g', 'r', 'i', 'z']:
-                    
-                    SNe[SN][band] = defaultdict(list)
-
-                    # extract data
-                    mjd, mag, e_mag = np.loadtxt("%s/%s/%s.out_DES%s" % (DESdir, SN, SN, band)).transpose()
-                    SNe[SN][band]["MJD"] = mjd
-                    SNe[SN][band]["mag"] = mag
-                    SNe[SN][band]["e_mag"] = e_mag
-
-    # plot SNe
-    SNname = "DES15X2mku"
-    for SN in SNe.keys():
-
-        if SN != SNname:
-            continue
-        
-        zcmb = zSNe[SN]
-    
-        for band in SNe[SN].keys():
-
-            mjd = SNe[SN][band]["MJD"]
-            mag = SNe[SN][band]["mag"]
-            e_mag = SNe[SN][band]["e_mag"]
-            
-            mask = (mjd > 57300) & (mjd < 57500)
-            mjd = mjd[mask]
-            mag = mag[mask]
-            e_mag = e_mag[mask]
-
-            flux = mag2flux(mag)
-            e_flux = mag2flux(mag + e_mag) - flux
-            filters = np.array(map(lambda i: band, mjd))
-            
-            if "sn_mjd" not in locals():
-                sn_mjd = np.array(mjd, dtype = float)
-                sn_flux = flux
-                sn_e_flux = e_flux
-                sn_filters = filters
-            else:
-                sn_mjd = np.hstack([sn_mjd, mjd])
-                sn_flux = np.hstack([sn_flux, flux])
-                sn_e_flux = np.hstack([sn_e_flux, e_flux])
-                sn_filters = np.hstack([sn_filters, filters])
-
-
-    # Theoretical  models
-
-    modelname = "yoon12msun"
-    modelsdir = "/home/fforster/Work/surveysim/models"
-    data = np.loadtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7)).transpose()
-    data[data == 'no'] = 0
-    modelfile, modelmsun, modele51, modelmdot, modelrcsm = data
-    
-    modelmsun = np.array(modelmsun, dtype = float)
-    modele51 = np.array(modele51, dtype = float)
-    modelmdot = np.array(modelmdot, dtype = float)
-    modelrcsm = np.array(modelrcsm, dtype = float) / 1e15
-
-    params = np.vstack([modelmsun, modele51, modelmdot, modelrcsm]).transpose()
-    files = np.array(map(lambda name: "%s.fr" % name, modelfile))
-
-    # Redshift, Avs and time
-    nz = 30
-    ntimes = 100
-    nAvs = 10
-    zs = np.logspace(-3, 0, nz)
-    times = np.logspace(-3, 3, ntimes)
-    Avs = np.logspace(-4, 1, nAvs)
-    Rv = 3.1
-
-    # initialize MCMCfit model
-    MCMC = MCMCfit(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["Mass", "E51", "Mdot", "Rcsm"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm"], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
-
-    # do cosmology
-    MCMC.docosmo()
-
-    # compute models in given bands
-    MCMC.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#save = True)#, 'r'])#, 'i', 'z'])
-
-    # set metric
-    MCMC.setmetric(metric = np.array([10., 1e51, 1e-3, 1.]), logscale = np.array([False, False, True, True], dtype = bool))
-        
-    # set observations
-    MCMC.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
-
-    # start plotting
-    fig, ax = plt.subplots(figsize = (12, 7))
-
-    for band in MCMC.uniquefilters:
-        mask = MCMC.maskband[band]
-        ax.errorbar(MCMC.mjd[mask], MCMC.flux[mask], yerr = MCMC.e_flux[mask], marker = 'o', c = MCMC.bandcolors[band], lw = 0, elinewidth = 1)
-
-    # actual model
-    #filename = files[np.argmin(map(lambda p: MCMC.paramdist(par, p), params))]
-    #h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
-    #cosmo = cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, zcmb)
-    #DL = cosmo[4] # Mpc
-    #Dm = cosmo[5] # Mpc
-    #for band in MCMC.uniquefilters:
-    #    SN = StellaModel(dir = "/home/fforster/Work/Model_LCs/models/yoon12msun", modelfile = filename, doplot = False)
-    #    SN_Av = LCz_Av(LCz = SN, Av = np.atleast_1d(min(Avs)), Rv = Rv, zs = np.atleast_1d(zcmb), DL = np.atleast_1d(DL), Dm = np.atleast_1d(Dm), filtername = band, doplot = False)
-    #    SN_Av.compute_mags()
-    #    mags = SN_Av.magAvf[0][0](MCMC.times)
-    #    ax.plot(MCMC.times + texp, scale * mag2flux(mags), label = "%s" % band, lw = 1, alpha = 0.8, c = bandcolors[band])
-
-    # find best fit
-    scale = 0.8
-    texp = sn_mjd[np.argmax(np.abs(sn_flux[1:] - sn_flux[:-1]))]# + 14.
-    logz = np.log(zcmb)
-    logAv = np.log(min(Avs))
-    Msun = 12
-    foe = 1e51
-    mdot = 1e-3
-    rcsm = 0.3
-    parvals = np.array([scale, texp, logz, logAv, Msun, foe, mdot, rcsm])
-    parbounds = np.array([[0.1, 10.], [texp - 10, texp + 10], [np.log(1e-3), np.log(1.)], [np.log(min(Avs)), np.log(1.)], [12, 12], [1e51, 1e51], [1e-12, 1e-2], [0.3, 3]])
-    parlabels = np.array(["scale", "texp", "logz", "logAv", "Msun", "foe", "mdot", "rcsm"])
-    fixedvars = np.array([False, False, True, False, True, True, False, False], dtype = bool)
-    theta0 = parvals[np.invert(fixedvars)]
-    
-    sol = MCMC.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals)
-    if not sol.success:
-        print "WARNING: initial estimation does not converge"
-        sys.exit()
-    
-    # recover variables
-    aux = 0
-    for idx, fix in enumerate(fixedvars):
-        if not fix:
-            val = sol.x[aux]
-            aux = aux + 1
-        else:
-            val = parvals[idx]
-        if idx == 0:
-            scale = val
-        elif idx == 1:
-            texp = val
-        elif idx == 2:
-            logz = val
-        elif idx == 3:
-            logAv = val
-        elif idx == 4:
-            Msun = val
-        elif idx == 5:
-            foe = val
-        elif idx == 6:
-            mdot = val
-        elif idx == 7:
-            rcsm = val
-    
-    # check best solution
-    pars = np.array([Msun, foe, mdot, rcsm])
-    print "Best fit parameters:", scale, texp, logz, logAv, pars
-    LCmag = MCMC.evalmodel(scale, texp, logz, logAv, pars)
-
-    ax.axvline(texp, c = 'gray')
-    for band in MCMC.uniquefilters:
-        mask = MCMC.maskband[band]
-        ax.scatter(MCMC.mjd[mask], scale * mag2flux(LCmag[band]), label = "%s" % band, lw = 0, c = MCMC.bandcolors[band], marker = 'o', alpha = 0.3, s = 200)
-        
-    ax.set_title("scale: %5.3f, texp: %f, Av: %f, mdot: %3.1e, rcsm: %3.1f" % (scale, texp, np.exp(logAv), mdot, rcsm), fontsize = 8)
-    ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
-    ax.set_xlim(min(MCMC.mjd), max(MCMC.mjd) + 100)
-    plt.savefig("plots/Bestfit_%s_%s_%s.png" % (MCMC.modelname, MCMC.objname, MCMC.fitlabels))
-
-    sys.exit()
-
-    # set a priori distributions
-    from scipy.stats import lognorm, norm, uniform  # leave this here
-    priors = np.array([lambda scale: lognorm.pdf(scale, 1.), \
-                       lambda texp: norm.pdf(texp, loc = theta0[1], scale = 5), \
-                       None, \
-                       lambda logAv: norm.pdf(logAv, loc = np.log(1e-2), scale = 3), \
-                       None, \
-                       None, \
-                       lambda mdot: lognorm.pdf(mdot / 1e-4, 1.), \
-                       lambda rcsm: norm.pdf(rcsm, loc = (3 + 0.3) / 2., scale = (3 - 0.3) / 2)])
-    MCMC.set_priors(priors)
-
-    solfit = np.array(sol.x)
-    print solfit
-    print MCMC.lnlike(solfit, fixedvars, parvals)
-    print MCMC.lnprior(solfit, fixedvars, parbounds)
-    print MCMC.lnprob(solfit, fixedvars, parvals, parbounds)
-
-    # start MCMC
-    MCMC.doMCMC(bestfit = solfit, fixedvars = fixedvars, parvals = parvals, parbounds = parbounds, nwalkers = 2, deltabestfit = 1e-4, nsteps = 500, nburn = 100, parlabels = parlabels) 
-
+#if __name__ == "__main__":
+#
+#    print("Test run...\n")
+#
+#    # load DES models
+#    DESdir = "/home/fforster/Work/DES"
+#    dirs = os.listdir(DESdir)
+#    SNe = defaultdict(list)
+#    zSNe = {}
+#
+#    # read data
+#    for SN in dirs:
+#        
+#        if SN[:3] == 'DES' and SN[-3:] != 'txt':
+#            
+#            SNe[SN] = defaultdict(list)
+#
+#            # read redshift
+#            info = open("%s/%s/%s.info" % (DESdir, SN, SN), 'r')
+#            zcmb = float(re.findall("Zcmb:\s(.*)\n", info.read())[0])
+#            zSNe[SN] = float(zcmb)
+#            name = SN
+#
+#            # read photometry
+#            for f in os.listdir("%s/%s" % (DESdir, SN)):
+#
+#                # extract band
+#                band = f[-1]
+#
+#                # loop among allowed bands
+#                if band in ['u', 'g', 'r', 'i', 'z']:
+#                    
+#                    SNe[SN][band] = defaultdict(list)
+#
+#                    # extract data
+#                    mjd, mag, e_mag = np.loadtxt("%s/%s/%s.out_DES%s" % (DESdir, SN, SN, band)).transpose()
+#                    SNe[SN][band]["MJD"] = mjd
+#                    SNe[SN][band]["mag"] = mag
+#                    SNe[SN][band]["e_mag"] = e_mag
+#
+#    # plot SNe
+#    SNname = "DES15X2mku"
+#    for SN in SNe.keys():
+#
+#        if SN != SNname:
+#            continue
+#        
+#        zcmb = zSNe[SN]
+#    
+#        for band in SNe[SN].keys():
+#
+#            mjd = SNe[SN][band]["MJD"]
+#            mag = SNe[SN][band]["mag"]
+#            e_mag = SNe[SN][band]["e_mag"]
+#            
+#            mask = (mjd > 57300) & (mjd < 57500)
+#            mjd = mjd[mask]
+#            mag = mag[mask]
+#            e_mag = e_mag[mask]
+#
+#            flux = mag2flux(mag)
+#            e_flux = mag2flux(mag + e_mag) - flux
+#            filters = np.array(map(lambda i: band, mjd))
+#            
+#            if "sn_mjd" not in locals():
+#                sn_mjd = np.array(mjd, dtype = float)
+#                sn_flux = flux
+#                sn_e_flux = e_flux
+#                sn_filters = filters
+#            else:
+#                sn_mjd = np.hstack([sn_mjd, mjd])
+#                sn_flux = np.hstack([sn_flux, flux])
+#                sn_e_flux = np.hstack([sn_e_flux, e_flux])
+#                sn_filters = np.hstack([sn_filters, filters])
+#
+#
+#    # Theoretical  models
+#
+#    modelname = "yoon12msun"
+#    modelsdir = "/home/fforster/Work/surveysim/models"
+#    data = np.loadtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7)).transpose()
+#    data[data == 'no'] = 0
+#    modelfile, modelmsun, modele51, modelmdot, modelrcsm = data
+#    
+#    modelmsun = np.array(modelmsun, dtype = float)
+#    modele51 = np.array(modele51, dtype = float)
+#    modelmdot = np.array(modelmdot, dtype = float)
+#    modelrcsm = np.array(modelrcsm, dtype = float) / 1e15
+#
+#    params = np.vstack([modelmsun, modele51, modelmdot, modelrcsm]).transpose()
+#    files = np.array(map(lambda name: "%s.fr" % name, modelfile))
+#
+#    # Redshift, Avs and time
+#    nz = 30
+#    ntimes = 100
+#    nAvs = 10
+#    zs = np.logspace(-3, 0, nz)
+#    times = np.logspace(-3, 3, ntimes)
+#    Avs = np.logspace(-4, 1, nAvs)
+#    Rv = 3.1
+#
+#    # initialize MCMCfit model
+#    MCMC = MCMCfit(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["Mass", "E51", "Mdot", "Rcsm"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm"], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
+#
+#    # do cosmology
+#    MCMC.docosmo()
+#
+#    # compute models in given bands
+#    MCMC.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#save = True)#, 'r'])#, 'i', 'z'])
+#
+#    # set metric
+#    MCMC.setmetric(metric = np.array([10., 1e51, 1e-3, 1.]), logscale = np.array([False, False, True, True], dtype = bool))
+#        
+#    # set observations
+#    MCMC.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+#
+#    # start plotting
+#    fig, ax = plt.subplots(figsize = (12, 7))
+#
+#    for band in MCMC.uniquefilters:
+#        mask = MCMC.maskband[band]
+#        ax.errorbar(MCMC.mjd[mask], MCMC.flux[mask], yerr = MCMC.e_flux[mask], marker = 'o', c = MCMC.bandcolors[band], lw = 0, elinewidth = 1)
+#
+#    # actual model
+#    #filename = files[np.argmin(map(lambda p: MCMC.paramdist(par, p), params))]
+#    #h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
+#    #cosmo = cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, zcmb)
+#    #DL = cosmo[4] # Mpc
+#    #Dm = cosmo[5] # Mpc
+#    #for band in MCMC.uniquefilters:
+#    #    SN = StellaModel(dir = "/home/fforster/Work/Model_LCs/models/yoon12msun", modelfile = filename, doplot = False)
+#    #    SN_Av = LCz_Av(LCz = SN, Av = np.atleast_1d(min(Avs)), Rv = Rv, zs = np.atleast_1d(zcmb), DL = np.atleast_1d(DL), Dm = np.atleast_1d(Dm), filtername = band, doplot = False)
+#    #    SN_Av.compute_mags()
+#    #    mags = SN_Av.magAvf[0][0](MCMC.times)
+#    #    ax.plot(MCMC.times + texp, scale * mag2flux(mags), label = "%s" % band, lw = 1, alpha = 0.8, c = bandcolors[band])
+#
+#    # find best fit
+#    scale = 0.8
+#    texp = sn_mjd[np.argmax(np.abs(sn_flux[1:] - sn_flux[:-1]))]# + 14.
+#    logz = np.log(zcmb)
+#    logAv = np.log(min(Avs))
+#    Msun = 12
+#    foe = 1e51
+#    mdot = 1e-3
+#    rcsm = 0.3
+#    parvals = np.array([scale, texp, logz, logAv, Msun, foe, mdot, rcsm])
+#    parbounds = np.array([[0.1, 10.], [texp - 10, texp + 10], [np.log(1e-3), np.log(1.)], [np.log(min(Avs)), np.log(1.)], [12, 12], [1e51, 1e51], [1e-12, 1e-2], [0.3, 3]])
+#    parlabels = np.array(["scale", "texp", "logz", "logAv", "Msun", "foe", "mdot", "rcsm"])
+#    fixedvars = np.array([False, False, True, False, False, False, False, False], dtype = bool)
+#    theta0 = parvals[np.invert(fixedvars)]
+#
+#    sol = MCMC.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals)
+#    if not sol.success:
+#        print("WARNING: initial estimation does not converge")
+#        sys.exit()
+#    
+#    # recover variables
+#    aux = 0
+#    for idx, fix in enumerate(fixedvars):
+#        if not fix:
+#            val = sol.x[aux]
+#            aux = aux + 1
+#        else:
+#            val = parvals[idx]
+#        if idx == 0:
+#            scale = val
+#        elif idx == 1:
+#            texp = val
+#        elif idx == 2:
+#            logz = val
+#        elif idx == 3:
+#            logAv = val
+#        elif idx == 4:
+#            Msun = val
+#        elif idx == 5:
+#            foe = val
+#        elif idx == 6:
+#            mdot = val
+#        elif idx == 7:
+#            rcsm = val
+#    
+#    # check best solution
+#    pars = np.array([Msun, foe, mdot, rcsm])
+#    print("Best fit parameters:", scale, texp, logz, logAv, pars)
+#    LCmag = MCMC.evalmodel(scale, texp, logz, logAv, pars)
+#
+#    ax.axvline(texp, c = 'gray')
+#    for band in MCMC.uniquefilters:
+#        mask = MCMC.maskband[band]
+#        ax.scatter(MCMC.mjd[mask], scale * mag2flux(LCmag[band]), label = "%s" % band, lw = 0, c = MCMC.bandcolors[band], marker = 'o', alpha = 0.3, s = 200)
+#        
+#    ax.set_title("scale: %5.3f, texp: %f, Av: %f, mdot: %3.1e, rcsm: %3.1f" % (scale, texp, np.exp(logAv), mdot, rcsm), fontsize = 8)
+#    ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
+#    ax.set_xlim(min(MCMC.mjd), max(MCMC.mjd) + 100)
+#    plt.savefig("plots/Bestfit_%s_%s_%s.png" % (MCMC.modelname, MCMC.objname, MCMC.fitlabels))
+#
+#    sys.exit()
+#
+#    # set a priori distributions
+#    from scipy.stats import lognorm, norm, uniform  # leave this here
+#    priors = np.array([lambda scale: lognorm.pdf(scale, 1.), \
+#                       lambda texp: norm.pdf(texp, loc = theta0[1], scale = 5), \
+#                       None, \
+#                       lambda logAv: norm.pdf(logAv, loc = np.log(1e-2), scale = 3), \
+#                       None, \
+#                       None, \
+#                       lambda mdot: lognorm.pdf(mdot / 1e-4, 1.), \
+#                       lambda rcsm: norm.pdf(rcsm, loc = (3 + 0.3) / 2., scale = (3 - 0.3) / 2)])
+#    MCMC.set_priors(priors)
+#
+#    solfit = np.array(sol.x)
+#    print(solfit)
+#    print(MCMC.lnlike(solfit, fixedvars, parvals))
+#    print(MCMC.lnprior(solfit, fixedvars, parbounds))
+#    print(MCMC.lnprob(solfit, fixedvars, parvals, parbounds))
+#
+#    # start MCMC
+#    MCMC.doMCMC(bestfit = solfit, fixedvars = fixedvars, parvals = parvals, parbounds = parbounds, nwalkers = 2, deltabestfit = 1e-4, nsteps = 500, nburn = 100, parlabels = parlabels) 
+#

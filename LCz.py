@@ -71,7 +71,7 @@ class LCz(object):
             self.L[i] = np.sum(self.flux[i] * self.dlambda)
 
         if self.doplot:
-            print "Plotting integrated energy"
+            print("Plotting integrated energy")
 
             plt.clf()
             ax = fig.add_subplot(1,1,1)
@@ -230,7 +230,7 @@ class LCz(object):
 
         if self.doplot:
             
-            print "Plotting redshifted spectra and transmission filter..."
+            print("Plotting redshifted spectra and transmission filter...")
             fig, ax = plt.subplots()
             ax.set_xlabel(r'$\lambda$ [\AA]')
             ax.set_ylabel(r'$\log_{10}$ flux [erg s$^{-1}$ \AA$^{-1}$]')
@@ -313,9 +313,9 @@ class LCz(object):
                 # find max post SBO
                 mask = (self.timesz[i] > self.tendpeak[i])
                 self.tmax[i] = self.timesz[i][mask][np.argmin(self.bandmag[i][mask])]
-                print "Redshift: %4.2f, start of peak: %f obs. days, peak: %f obs. days, end of peak: %f obs. days, 1 day after end of peak: %f obs. days, maximum: %f obs. days" % (self.zs[i], self.tstartpeak[i], self.tpeak[i], self.tendpeak[i], self.tday1[i], self.tmax[i])
+                print("Redshift: %4.2f, start of peak: %f obs. days, peak: %f obs. days, end of peak: %f obs. days, 1 day after end of peak: %f obs. days, maximum: %f obs. days" % (self.zs[i], self.tstartpeak[i], self.tpeak[i], self.tendpeak[i], self.tday1[i], self.tmax[i]))
                 #if self.tpeak[i] > maxlim:
-                #    print "WARNING: tpeak looks too high"
+                #    print("WARNING: tpeak looks too high")
                 #    sys.exit()
         else:
             
@@ -336,7 +336,7 @@ class LCz(object):
             # plot absolute magnitudes as seen at different redshifts
             # -------------------------------------------------------
 
-            print "Plotting absolute redshifted magnitudes..."
+            print("Plotting absolute redshifted magnitudes...")
 
             plt.clf()
             ax = fig.add_subplot(1,1,1)
@@ -388,7 +388,7 @@ class LCz(object):
             # plot apparent magnitude for different redshifts
             # -----------------------------------------------
         
-            print "Plotting apparent magnitudes at different redshifts..."
+            print("Plotting apparent magnitudes at different redshifts...")
 
             plt.clf()
             ax = fig.add_subplot(1,1,1)
@@ -425,7 +425,7 @@ class LCz(object):
                 ax.set_xlim(0, max(self.tmax))
                 plt.savefig("plots/%s_%s_mag_premax.png" % (self.modelname, self.filtername))
                 
-                print self.tpeak, self.tendpeak
+                print(self.tpeak, self.tendpeak)
                 ax.set_xlim(min(self.tpeak), max(self.tendpeak))
                 plt.savefig("plots/%s_%s_mag_peak.png" % (self.modelname, self.filtername))
 
@@ -450,10 +450,10 @@ class StellaModel(LCz):
         # read file
         try:
             filename = "%s/%s" % (self.dir, self.modelfile)
-            print "Opening model file %s" % filename
+            print("Opening model file %s" % filename)
             data = open(filename, 'r')
         except:
-            print "Cannot open file %s" % self.modelfile
+            print("Cannot open file %s" % self.modelfile)
             sys.exit()
             
         # extract wavelengths
@@ -483,7 +483,7 @@ class T11(StellaModel):
 
     def __init__(self, **kwargs):
 
-        print kwargs.keys()
+        print(kwargs.keys())
         
 
         super(StellaModel, self).__init__(self, **kwargs)
@@ -831,7 +831,7 @@ class SNPiro16(object):
         timeL, log10L  = np.loadtxt(self.lumfile).transpose()
         timeT, T  = np.loadtxt(self.Tefffile).transpose()
         if len(log10L) != len(T) or np.max(timeL - timeT) != 0:
-            print "WARNING: model L and Teff have different dimensions or times are not consistent"
+            print("WARNING: model L and Teff have different dimensions or times are not consistent")
             sys.exit()
         mask = np.isfinite(log10L) & np.isfinite(T)
         self.timemodel = timeL[mask] / days2sec # days
@@ -1032,7 +1032,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
 
     filtername = sys.argv[1]
-    print filtername
+    print(filtername)
 
     # times
     times = np.logspace(-4, 2.4, 200) * 24. * 60. * 60. # sec
@@ -1161,7 +1161,7 @@ if __name__ == "__main__":
     #NS.mags(Dm = Dm, filtername = 'r')
     #ax.plot(tdays, NS.absmagz[0], c = 'r', label = "$NS ~M_{15}: %3.1f,~ E_{51}: %3.1f,~ R_{500}: %3.1f,~ r, A_{V} = 1, R_{V} = 3.1$" % (NS.SN.M15, NS.SN.E51, NS.SN.R500), ls = ':')
     ##
-    #print T11pars.models[9]
+    #print(T11pars.models[9])
     #SN = T11(dir = "models", modelfile = "15z002E1.dat", doplot = False)
     #SN.luminosity()
     #SN.redshift(zs = zs, DL = DL)
@@ -1193,7 +1193,7 @@ if __name__ == "__main__":
     fig.subplots_adjust(wspace = 0.01, hspace = 0.01)
     plt.savefig("plots/NS10_fig3.png")
 
-    #print "Done"
+    #print("Done")
 
     # plot example NS10 model similar to Figure 7
     fig, ax = plt.subplots(nrows = 2, sharex = True)
@@ -1293,7 +1293,7 @@ if __name__ == "__main__":
             ax[ix, iy].set_xlabel("Time [days]", fontsize = 10)
         ax[ix, iy].legend(fontsize = 6, loc = 4, framealpha = 0.6)
         
-        print ix, iy
+        print(ix, iy)
         ix = ix + 1
         if np.mod(ix, 4) == 0:
             iy = iy + 1
@@ -1344,7 +1344,7 @@ if __name__ == "__main__":
 
     for SN, Mzams, Rpresn, E51 in zip(T11pars.models[idx], T11pars.Mzams[idx], T11pars.Rpresn[idx], T11pars.E51[idx]):
 
-        print "E51", E51, "Msun", Mzams, "Rsun", Rpresn
+        print("E51", E51, "Msun", Mzams, "Rsun", Rpresn)
         v2 = E51 / (Mzams / 15.) # E51/M15
         rv2 = (Rpresn / 500.) * v2 # R500 R51 / M15
         fv2 = np.sqrt(v2)
@@ -1541,7 +1541,7 @@ if __name__ == "__main__":
     (popt, pcov) = curve_fit(linearfit, np.log10(riseRW[0]), np.log10(riseRW[1]), p0 = (0, 1))
     (aRW, bRW) = popt
     ax[0].plot(riseRW[0], 10**aRW * riseRW[0]**bRW, c = 'b')
-    print bT11, bNS, bRW
+    print(bT11, bNS, bRW)
     ax[0].set_xscale('log')
     ax[0].set_yscale('log')
     ax[0].legend(loc = 2)
@@ -1560,7 +1560,7 @@ if __name__ == "__main__":
     (popt, pcov) = curve_fit(linearfit, np.log10(riseRW[0]), riseRW[2], p0 = (-17, 1))
     (afRW, bfRW) = popt
     ax[1].plot(riseRW[0], afRW + bfRW * np.log10(riseRW[0]), c = 'b')
-    print bfT11, bfNS, bfRW
+    print(bfT11, bfNS, bfRW)
     ax[1].set_xscale('log')
     ax[1].legend(loc = 2)
     ax[1].set_xlabel("$R_{500} E_{51} / M_{15}$")
@@ -1615,7 +1615,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(ncols = 2, nrows = 2, figsize = (15, 10))
     for SN, Mzams, Rpresn, E51 in zip(T11pars.models[idx], T11pars.Mzams[idx], T11pars.Rpresn[idx], T11pars.E51[idx]):
 
-        print E51, Mzams, Rpresn
+        print(E51, Mzams, Rpresn)
         v2 = E51 / (Mzams / 15.)
         rv2 = (Rpresn / 500.) * v2
         fv2 = np.sqrt(E51 / (Mzams / 15.))
@@ -1702,7 +1702,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     for SN, Mzams, Rpresn, E51 in zip(T11pars.models[idx], T11pars.Mzams[idx], T11pars.Rpresn[idx], T11pars.E51[idx]):
 
-        print E51, Mzams, Rpresn
+        print(E51, Mzams, Rpresn)
         v2 = E51 / (Mzams / 15.)
         rv2 = (Rpresn / 500.) * v2
         fv2 = np.sqrt(E51 / (Mzams / 15.))

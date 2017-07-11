@@ -34,7 +34,7 @@ class LCz_Av(object):
 
         for i in range(self.nAv):
 
-            #print "Av: %f" % self.Av[i]
+            #print("Av: %f" % self.Av[i])
             #self.LCz.luminosity()
             self.LCz.attenuate(Av = self.Av[i], Rv = self.Rv)
             self.LCz.redshift(zs = self.zs, DL = self.DL)
@@ -64,7 +64,7 @@ class LCz_Av(object):
             probs = np.exp(-self.Av / self.lAv)
             cumsum = np.cumsum(probs)
             cumsum = cumsum / np.sum(np.exp(-np.hstack([self.Av, np.arange(max(self.Av) + self.Av[1] - self.Av[0], 10. * max(self.Av), self.Av[1] - self.Av[0])]) / self.lAv))
-            print "lAvs:", self.lAv, ", Avs:", self.Av, ", cumulative sum for Avs:", cumsum
+            print("lAvs:", self.lAv, ", Avs:", self.Av, ", cumulative sum for Avs:", cumsum)
             self.random2iAv = interp1d(cumsum, np.array(range(len(self.Av)), dtype = int) + 1, kind = 'zero', bounds_error = False, fill_value = (0, self.nAv - 1))
         
     # generate random light curve at a given redshift (given by zs[iz]) and times in MJD
@@ -75,7 +75,7 @@ class LCz_Av(object):
         MJDs = kwargs["MJDs"]
         maxrestframeage = kwargs["maxrestframeage"] # days
 
-        #print np.shape(self.LCz.timesz), np.argmin(np.abs(maxrestframeage - self.LCz.times))
+        #print(np.shape(self.LCz.timesz), np.argmin(np.abs(maxrestframeage - self.LCz.times)))
         maxobserverage = self.LCz.timesz[iz][np.argmin(np.abs(maxrestframeage - self.LCz.times))]
         tmin = np.min(MJDs) - maxobserverage
         tmax = np.max(MJDs)

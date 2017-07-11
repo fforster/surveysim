@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     for model in ["FM90", "CCM89+O94"]:
 
-        print model
+        print(model)
 
         for Rv in [2., 4., 6.]:
 
