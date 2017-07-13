@@ -22,7 +22,7 @@ from cos_calc import *
 
 
 # class to fit an  MCMC model to data given a grid of models
-class MCMCfit(object):
+class LCz_Av_params(object):
 
     # initialize grid of models
     def __init__(self, **kwargs):
@@ -55,7 +55,7 @@ class MCMCfit(object):
         self.nvar = len(self.paramnames)
 
         # check if mdot is in the variable names
-        print self.paramnames
+        print(self.paramnames)
         self.maskmdot = np.array([self.paramnames == 'mdots'], dtype = bool)
         self.maskmdotvars = np.array([(self.paramnames == 'rcsm') | (self.paramnames == 'vwindinf') | (self.paramnames == 'beta')], dtype = bool)
 
@@ -226,7 +226,8 @@ class MCMCfit(object):
                 else:
                     parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
 
-        print(parsearch)
+        if verbose:
+            print(parsearch)
         
         if verbose:
             print("   parsearch:", parsearch)
@@ -278,8 +279,9 @@ class MCMCfit(object):
         # compute weights
         weights = 1. / (distances + 1e-20)
         weights = weights / np.sum(weights)
-
-        print weights
+        
+        if verbose:
+            print(weights)
 
         #TEST
         #self.distances = distances
@@ -391,7 +393,7 @@ class MCMCfit(object):
         import matplotlib.colors as colors
         fig, ax = plt.subplots(figsize = (16, 10), nrows = len(self.uniquefilters), sharex = True)
         jet = cm = plt.get_cmap('jet') 
-        nplot = 10
+        nplot = 100
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
         if self.logscale[idxvar - self.nvext]: # var is logarithmic
@@ -554,7 +556,7 @@ class MCMCfit(object):
         pos = [result["x"] + deltabestfit * np.abs(walkerscale) * np.random.randn(self.ndim) for i in range(self.nwalkers)]
 
         # initilize emcee sampler
-        sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob)#, threads = 4);
+        sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob)
 
         # filename containing sample chain
         chainname = "samples/chain_%s_%s_%s.dat" % (self.modelname, self.objname, self.fitlabels)
@@ -577,15 +579,14 @@ class MCMCfit(object):
         else:
             f = open(chainname, "w")
             f.write("# %s\n" % self.labels)
-            f.close()
-            for idx, result in enumerate(sampler.sample(pos, iterations=self.nsteps)):
+            for idx, result in enumerate(sampler.sample(pos, iterations = self.nsteps)):
                 position = result[0]
-                f = open(chainname, "a")
                 for k in range(position.shape[0]):
                     if np.mod(idx, 2) == 0:
                         print("%4i %4i %s" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
                     f.write("%i %i %s\n" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
-                f.close()
+            f.close()
+                
             self.chain = sampler.chain
         
             self.acceptance_fraction = np.mean(sampler.acceptance_fraction)

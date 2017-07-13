@@ -18,7 +18,7 @@ from constants import *
 from LCz import *
 from LCz_Av import *
 
-from MCMCfit import *
+from LCz_Av_params import *
 
 sys.path.append("../cos_calc")
 from cos_calc import *
@@ -223,32 +223,32 @@ if __name__ == "__main__":
 
     
     # initialize MCMCfit model
-    MCMC = MCMCfit(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
+    MCMC = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
 
     # do cosmology
-    MCMC.docosmo()
+    LCs.docosmo()
 
     # compute models in given bands
-    MCMC.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
+    LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
     
     # set metric
-    MCMC.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
+    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
         
     # set observations
-    MCMC.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     
     # actual model
-    #filename = files[np.argmin(map(lambda p: MCMC.paramdist(par, p), params))]
+    #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]
     #h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
     #cosmo = cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, zcmb)
     #DL = cosmo[4] # Mpc
     #Dm = cosmo[5] # Mpc
-    #for band in MCMC.uniquefilters:
+    #for band in LCs.uniquefilters:
     #    SN = StellaModel(dir = "/home/fforster/Work/Model_LCs/models/yoon12msun", modelfile = filename, doplot = False)
     #    SN_Av = LCz_Av(LCz = SN, Av = np.atleast_1d(min(Avs)), Rv = Rv, zs = np.atleast_1d(zcmb), DL = np.atleast_1d(DL), Dm = np.atleast_1d(Dm), filtername = band, doplot = False)
     #    SN_Av.compute_mags()
-    #    mags = SN_Av.magAvf[0][0](MCMC.times)
-    #    ax.plot(MCMC.times + texp, scale * mag2flux(mags), label = "%s" % band, lw = 1, alpha = 0.8, c = bandcolors[band])
+    #    mags = SN_Av.magAvf[0][0](LCs.times)
+    #    ax.plot(LCs.times + texp, scale * mag2flux(mags), label = "%s" % band, lw = 1, alpha = 0.8, c = bandcolors[band])
     #
 
 
@@ -270,13 +270,13 @@ if __name__ == "__main__":
     beta = 2.5
     parvals = np.array([scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-9, 1e-2], [1., 1.], [10, 10], [1., 5.]])
+    parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
     parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "mdot", "rcsm", "vwindinf", "beta"])
     fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
  
     # initialize with previous parameters
     theta0 = parvals[np.invert(fixedvars)]
-    sol = MCMC.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
+    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
     
     # exit if not convergence
     if not sol.success:
@@ -285,24 +285,24 @@ if __name__ == "__main__":
         sys.exit()
     
     # recover variables
-    MCMC.parvals[np.invert(MCMC.fixedvars)] = sol.x
-    scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta = MCMC.parvals
+    LCs.parvals[np.invert(LCs.fixedvars)] = sol.x
+    scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta = LCs.parvals
 
     # check best solution
-    print("Best fit parameters:", zip(parlabels, MCMC.parvals))
-    LCmag = MCMC.evalmodel(scale, texp, logz, logAv, MCMC.parvals[4:], True, False)
+    print("Best fit parameters:", zip(parlabels, LCs.parvals))
+    LCmag = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:], True, False)
     fig, ax = plt.subplots(figsize = (12, 7))
     modelplot = {}
     texpplot = ax.axvline(texp, c = 'gray', alpha = 1)
-    for band in MCMC.uniquefilters:
-        mask = MCMC.maskband[band]
-        ax.errorbar(MCMC.mjd[mask], MCMC.flux[mask], yerr = MCMC.e_flux[mask], marker = 'o', c = MCMC.bandcolors[band], lw = 0, elinewidth = 1)
-        modelplot[band] = ax.plot(MCMC.times + texp, scale * mag2flux(LCmag[band]), label = "%s" % band, c = MCMC.bandcolors[band])
-    ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
+    for band in LCs.uniquefilters:
+        mask = LCs.maskband[band]
+        ax.errorbar(LCs.mjd[mask], LCs.flux[mask], yerr = LCs.e_flux[mask], marker = 'o', c = LCs.bandcolors[band], lw = 0, elinewidth = 1)
+        modelplot[band] = ax.plot(LCs.times + texp, scale * mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band])
+    #title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
-    ax.set_xlim(min(texp, min(MCMC.mjd)) - 1, max(MCMC.mjd) + 50)
+    ax.set_xlim(min(texp, min(LCs.mjd)) - 1, max(LCs.mjd) + 50)
 
-    dointeractive = True
+    dointeractive = False
     if dointeractive:
         # slider axes
         texp_slider_ax =   fig.add_axes([0.15, 0.985, 0.75, 0.015], axisbg='w')
@@ -318,13 +318,13 @@ if __name__ == "__main__":
         # slider objects
         texp_slider = Slider(texp_slider_ax, 'texp', texp0 - 20, texp0 + 20, valinit=texp0, dragging = False)
         scale_slider = Slider(scale_slider_ax, 'log scale', -3., 1., valinit=1., dragging = False)
-        z_slider = Slider(z_slider_ax, 'logz', MCMC.parbounds[MCMC.parlabels == 'logz'][0][0], MCMC.parbounds[MCMC.parlabels == 'logz'][0][1], valinit=MCMC.parvals[MCMC.parlabels == 'logz'][0], dragging = False)
-        av_slider = Slider(av_slider_ax, 'logAv', MCMC.parbounds[MCMC.parlabels == 'logAv'][0][0], MCMC.parbounds[MCMC.parlabels == 'logAv'][0][1], valinit=MCMC.parvals[MCMC.parlabels == 'logAv'][0], dragging = False)
+        z_slider = Slider(z_slider_ax, 'logz', LCs.parbounds[LCs.parlabels == 'logz'][0][0], LCs.parbounds[LCs.parlabels == 'logz'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logz'][0], dragging = False)
+        av_slider = Slider(av_slider_ax, 'logAv', LCs.parbounds[LCs.parlabels == 'logAv'][0][0], LCs.parbounds[LCs.parlabels == 'logAv'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logAv'][0], dragging = False)
         
-        mass_slider = Slider(mass_slider_ax, 'mass', MCMC.parbounds[MCMC.parlabels == 'mass'][0][0], MCMC.parbounds[MCMC.parlabels == 'mass'][0][1], valinit=MCMC.parvals[MCMC.parlabels == 'mass'][0], dragging = False)
-        energy_slider = Slider(energy_slider_ax, 'energy', MCMC.parbounds[MCMC.parlabels == 'energy'][0][0], MCMC.parbounds[MCMC.parlabels == 'energy'][0][1], valinit=MCMC.parvals[MCMC.parlabels == 'energy'][0], dragging = False)
-        mdot_slider = Slider(mdot_slider_ax, 'log mdot', np.log10(MCMC.parbounds[MCMC.parlabels == 'mdot'][0][0]), np.log10(MCMC.parbounds[MCMC.parlabels == 'mdot'][0][1]), valinit=np.log10(MCMC.parvals[MCMC.parlabels == 'mdot'][0]), dragging = False)
-        beta_slider = Slider(beta_slider_ax, 'beta', MCMC.parbounds[MCMC.parlabels == 'beta'][0][0], MCMC.parbounds[MCMC.parlabels == 'beta'][0][1], valinit=MCMC.parvals[MCMC.parlabels == 'beta'][0], dragging = False)
+        mass_slider = Slider(mass_slider_ax, 'mass', LCs.parbounds[LCs.parlabels == 'mass'][0][0], LCs.parbounds[LCs.parlabels == 'mass'][0][1], valinit=LCs.parvals[LCs.parlabels == 'mass'][0], dragging = False)
+        energy_slider = Slider(energy_slider_ax, 'energy', LCs.parbounds[LCs.parlabels == 'energy'][0][0], LCs.parbounds[LCs.parlabels == 'energy'][0][1], valinit=LCs.parvals[LCs.parlabels == 'energy'][0], dragging = False)
+        mdot_slider = Slider(mdot_slider_ax, 'log mdot', np.log10(LCs.parbounds[LCs.parlabels == 'mdot'][0][0]), np.log10(LCs.parbounds[LCs.parlabels == 'mdot'][0][1]), valinit=np.log10(LCs.parvals[LCs.parlabels == 'mdot'][0]), dragging = False)
+        beta_slider = Slider(beta_slider_ax, 'beta', LCs.parbounds[LCs.parlabels == 'beta'][0][0], LCs.parbounds[LCs.parlabels == 'beta'][0][1], valinit=LCs.parvals[LCs.parlabels == 'beta'][0], dragging = False)
         
         def slider_update(val):
         
@@ -333,19 +333,21 @@ if __name__ == "__main__":
             texp = texp_slider.val
             logz = z_slider.val
             logAv = av_slider.val
-            MCMC.parvals[MCMC.parlabels == 'mass'] = mass_slider.val
-            MCMC.parvals[MCMC.parlabels == 'mass'] = mass_slider.val
-            MCMC.parvals[MCMC.parlabels == 'energy'] = energy_slider.val
-            MCMC.parvals[MCMC.parlabels == 'mdot'] = 10**mdot_slider.val
-            MCMC.parvals[MCMC.parlabels == 'beta'] = beta_slider.val
+            LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
+            LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
+            LCs.parvals[LCs.parlabels == 'energy'] = energy_slider.val
+            LCs.parvals[LCs.parlabels == 'mdot'] = 10**mdot_slider.val
+            LCs.parvals[LCs.parlabels == 'beta'] = beta_slider.val
             # compute new model
-            LCmag = MCMC.evalmodel(scale, texp, logz, logAv, MCMC.parvals[MCMC.nvext:], True, False)
+            LCmag = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[LCs.nvext:], True, False)
             texpplot.set_xdata(texp)
             fig.canvas.draw()
             # update plots
-            for band in MCMC.uniquefilters:
+            for band in LCs.uniquefilters:
                 modelplot[band][0].set_ydata(scale * mag2flux(LCmag[band]))
-                modelplot[band][0].set_xdata(MCMC.times + texp)
+                modelplot[band][0].set_xdata(LCs.times + texp)
+                ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
+
                 fig.canvas.draw_idle()
                 
             
@@ -360,17 +362,18 @@ if __name__ == "__main__":
         
         
         plt.show()
-        plt.savefig("plots/Bestfit_%s_%s.png" % (MCMC.modelname, MCMC.objname))
+        plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
         
         sys.exit()
         
-    dotest = True
+    dotest = False
+    
     if  dotest:
         print("Testing interpolation\n\n")
-        MCMC.test_interpolation("mass")
-        MCMC.test_interpolation("energy")
-        MCMC.test_interpolation("beta")
-        MCMC.test_interpolation("mdot")
+        LCs.test_interpolation("mass")
+        LCs.test_interpolation("energy")
+        LCs.test_interpolation("beta")
+        LCs.test_interpolation("mdot")
         sys.exit()
 
 
@@ -381,6 +384,7 @@ if __name__ == "__main__":
     
     # set prior distributions
     from scipy.stats import lognorm, norm, uniform  # leave this here, otherwise it fails!
+
     priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.1), \
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 3.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
@@ -391,12 +395,34 @@ if __name__ == "__main__":
                        lambda rcsm: norm.pdf(rcsm, loc = 1., scale = 1.), \
                        None, \
                        lambda beta: lognorm.pdf(beta / 7., 1.)])
-    MCMC.set_priors(priors)
+    
+    #def scaleprior(scale):
+    #    return norm.pdf(scale, loc = 1., scale = 0.1)
+    #def texpprior(texp):
+    #    return norm.pdf(texp, loc = theta0[1], scale = 3.)
+    #def logzprior(logz):
+    #    return norm.pdf(logz, loc = np.log(0.18), scale = 2)
+    #def logAvprior(logAv):
+    #    return norm.pdf(logAv, loc = np.log(0.01), scale = 0.5)
+    #def massprior(mass):
+    #    return norm.pdf(mass, loc = 14, scale = 3)
+    #def energyprior(energy):
+    #    return norm.pdf(energy, loc = 1., scale = 1.)
+    #def mdotprior(mdot):
+    #    return lognorm.pdf(mdot / 1e-4, 1.)
+    #def rcsmprior(rcsm):
+    #    return norm.pdf(rcsm, loc = 1., scale = 1.)
+    #def betaprior(beta):
+    #    return lognorm.pdf(beta / 7., 1.)
+    #
+    #priors = np.array([scaleprior, texpprior, logzprior, logAvprior, massprior, energyprior, mdotprior, rcsmprior, None, betaprior])
+    
+    LCs.set_priors(priors)
     
     # start MCMC
-    MCMC.doMCMC(bestfit = np.array(sol.x), nwalkers = 400, deltabestfit = 1e-5, nsteps = 1000, nburn = 100, parlabels = parlabels, load = False) 
+    LCs.doMCMC(bestfit = np.array(sol.x), nwalkers = 400, deltabestfit = 1e-5, nsteps = 1000, nburn = 100, parlabels = parlabels, load = False) 
 
     # plot results
-    MCMC.plotMCMC(nburn = 500, correctlogs = True)
+    LCs.plotMCMC(nburn = 500, correctlogs = True)
 
 
