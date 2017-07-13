@@ -5,6 +5,7 @@ from constants import *
 from obsplan import *
 from LCz import *
 from LCz_Av import *
+from LCz_Av_params import *
 from SFHs import *
 
 # Cosmology stuff
@@ -12,19 +13,21 @@ sys.path.append("../cos_calc")
 import cos_calc
 
 # class that defines a survey
-class survey(object):
+class survey_singlemodel(object):
 
     # initialize: needs observation plan, model, Avs, Rv, filtername, number of redshift bins
     def __init__(self, **kwargs):
 
         self.obsplan = kwargs["obsplan"]
-        self.LCz = kwargs["LCz"]
         self.SFH = kwargs["SFH"]
         self.efficiency = kwargs["efficiency"]
+
+        self.LCz = kwargs["LCz"]
         self.Avs = kwargs["Avs"]
         self.Rv = kwargs["Rv"]
         if "lAv" in kwargs.keys():
             self.lAv = kwargs["lAv"]
+
         self.filtername = kwargs["filtername"]
         self.nz = kwargs["nz"]
 
@@ -335,7 +338,7 @@ if __name__  == "__main__":
     nz = 20 #20 #20
 
     # start survey
-    newsurvey = survey(obsplan = plan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = efficiency, filtername = filtername, nz = nz, maxrestframeage = maxrestframeage)
+    newsurvey = survey_singlemodel(obsplan = plan, LCz = SN, Avs = Avs, Rv = Rv, lAv = lAv, SFH = SFH, efficiency = efficiency, filtername = filtername, nz = nz, maxrestframeage = maxrestframeage)
 
     # estimate maximum survey redshift
     newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 5)
