@@ -213,8 +213,6 @@ class LCz_Av_params(object):
         # find closest values for all variables
         parsearch = {}
         for idx, var in enumerate(self.paramnames):
-            if var == "mdot":
-                idxmdot = idx
             # exact match for this variable
             if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
                 parsearch[var] = pars[idx]
@@ -473,8 +471,7 @@ class LCz_Av_params(object):
 
         plt.tight_layout()
         plt.savefig("plots/priors.png")
-                
-
+        
     # log likelihood
     def lnlike(self, theta):
         

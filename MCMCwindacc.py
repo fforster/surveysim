@@ -28,9 +28,11 @@ if __name__ == "__main__":
 
     print("Markov chain Monte Carlo model fitting...\n")
     
-    dodes = True
-    dohits = False
+    dodes = False
+    dohits = True
 
+    dointeractive = sys.argv[1] == "True"
+    
     #########################
     # Observational data
     #########################
@@ -79,7 +81,7 @@ if __name__ == "__main__":
         SNname = "DES15X2mku"
         SNname = "DES13C2jtx"
         SNname = "DES15S2eaq"
-        SNname = "DES15X1lzp"
+        #SNname = "DES15X1lzp"
         
         for SN in SNe.keys():
     
@@ -138,9 +140,12 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------
 
     elif dohits:
-        SNname = "SNHiTS15aw"
+        SNname = "SNHiTS15A"
+        SNname = "SNHiTS15P"
+        SNname = "SNHiTS15D"
+        #SNname = "SNHiTS15aw"
         #SNname = "SNHiTS15K"
-        SNname = "SNHiTS14B"
+        #SNname = "SNHiTS14B"
         (MJDs, MJDrefs, ADUs, e_ADUs, mags, e1_mags, e2_mags, sn_filters) \
             = np.loadtxt("/home/fforster/Work/HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
         sn_mjd = np.array(MJDs, dtype = float)
@@ -174,6 +179,18 @@ if __name__ == "__main__":
             fixz = False
         if SNname == "SNHiTS14B":
             texp0 = 56717
+            zcmb = 0.3
+            fixz = False
+        if SNname == 'SNHiTS15A':
+            texp0 = 57067
+            zcmb = 0.3
+            fixz = False
+        if SNname == 'SNHiTS15P':
+            texp0 = 57074
+            zcmb = 0.3
+            fixz = False
+        if SNname == 'SNHiTS15D':
+            texp0 = 57068
             zcmb = 0.3
             fixz = False
 
@@ -223,7 +240,7 @@ if __name__ == "__main__":
 
     
     # initialize MCMCfit model
-    MCMC = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
+    LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
 
     # do cosmology
     LCs.docosmo()
@@ -267,7 +284,7 @@ if __name__ == "__main__":
     mdot = 1e-5
     rcsm = 1. # 1e15
     vwindinf = 10.
-    beta = 2.5
+    beta = 5
     parvals = np.array([scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
     parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
@@ -276,7 +293,7 @@ if __name__ == "__main__":
  
     # initialize with previous parameters
     theta0 = parvals[np.invert(fixedvars)]
-    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
+    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = False)
     
     # exit if not convergence
     if not sol.success:
@@ -300,9 +317,8 @@ if __name__ == "__main__":
         modelplot[band] = ax.plot(LCs.times + texp, scale * mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band])
     #title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
-    ax.set_xlim(min(texp, min(LCs.mjd)) - 1, max(LCs.mjd) + 50)
+    ax.set_xlim(min(texp, min(LCs.mjd)) - 1, max(LCs.mjd) + 10)
 
-    dointeractive = False
     if dointeractive:
         # slider axes
         texp_slider_ax =   fig.add_axes([0.15, 0.985, 0.75, 0.015], axisbg='w')

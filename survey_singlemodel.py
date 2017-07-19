@@ -5,7 +5,6 @@ from constants import *
 from obsplan import *
 from LCz import *
 from LCz_Av import *
-from LCz_Av_params import *
 from SFHs import *
 
 # Cosmology stuff
