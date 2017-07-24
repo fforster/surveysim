@@ -1,9 +1,10 @@
 import numpy as np
-import re, sys, os
+import re, sys, os, getopt
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 from matplotlib.widgets import Slider
+import pickle
 
 from collections import defaultdict
 import itertools
@@ -26,17 +27,49 @@ from cos_calc import *
                 
 if __name__ == "__main__":
 
-    print("Markov chain Monte Carlo model fitting...\n")
-    
+    # default values
+    dointeractive = False
+    dohits = False
     dodes = False
-    dohits = True
+    verbose = False
+    overwrite = False
+    
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "ip:s:n:b:o:vh", ["interactive", "project=", "supernova=", "nsteps=", "burnin=", "overwrite=", "verbose", "help"])
+    except getopt.GetoptError:
+        print 'doastro.py --help'
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
+            print("e.g. python ./MCMCwindacc.py --interactive --project DES --supernova DES15E2avs --nsteps 1000 --burnin 500 --verbose")
+        elif opt in ('i', '--interactive'):
+            dointeractive = True
+        elif opt in ('-p', '--project'):
+            if arg == 'HiTS':
+                dohits = True
+            elif arg == 'DES':
+                dodes = True
+        elif opt in ('-s', '--supernova'):
+            SNname = arg
+            print SNname
+        elif opt in ('-n', '--nsteps'):
+            nsteps = int(arg)
+        elif opt in ('-b', '--burnin'):
+            burnin = int(arg)
+        elif opt in ('-o', '--overwrite'):
+            overwrite = True
+        elif opt in ('-v', '--verbose'):
+            verbose = True
 
-    dointeractive = sys.argv[1] == "True"
+    if 'SNname' not in locals():
+        print("Need to define supernova name")
+        sys.exit()
+    
+    print("Markov chain Monte Carlo model fitting...\n")
     
     #########################
     # Observational data
     #########################
-
     
     # DES SNe
     # -----------------------------
@@ -78,10 +111,11 @@ if __name__ == "__main__":
                         SNe[SN][band]["mag"] = mag
                         SNe[SN][band]["e_mag"] = e_mag
     
-        SNname = "DES15X2mku"
-        SNname = "DES13C2jtx"
-        SNname = "DES15S2eaq"
+        #SNname = "DES15X2mku"
+        #SNname = "DES13C2jtx"
+        #SNname = "DES15S2eaq"
         #SNname = "DES15X1lzp"
+        #SNname = "DES15E2avs"
         
         for SN in SNe.keys():
     
@@ -96,19 +130,20 @@ if __name__ == "__main__":
                 mjd = SNe[SN][band]["MJD"]
                 mag = SNe[SN][band]["mag"]
                 e_mag = SNe[SN][band]["e_mag"]
+                
+                #if SNname == "DES15X2mku":
+                #    mask = (mjd > 57300) & (mjd < 57500)
+                #elif SNname == "DES13C2jtx":
+                #    mask = (mjd > 56450) & (mjd < 56700)
+                #elif SNname == "DES15S2eaq":
+                #    mask = (mjd > 57200) & (mjd < 57500)
+                #elif SNname == "DES15X1lzp":
+                #    mask = (mjd > 57300) & (mjd < 57500)
 
-                if SNname == "DES15X2mku":
-                    mask = (mjd > 57300) & (mjd < 57500)
-                elif SNname == "DES13C2jtx":
-                    mask = (mjd > 56450) & (mjd < 56700)
-                elif SNname == "DES15S2eaq":
-                    mask = (mjd > 57200) & (mjd < 57500)
-                elif SNname == "DES15X1lzp":
-                    mask = (mjd > 57300) & (mjd < 57500)
-                    
-                mjd = mjd[mask]
-                mag = mag[mask]
-                e_mag = e_mag[mask]
+                if "mask" in locals():
+                    mjd = mjd[mask]
+                    mag = mag[mask]
+                    e_mag = e_mag[mask]
     
                 flux = mag2flux(mag)
                 e_flux = mag2flux(mag + e_mag) - flux
@@ -125,29 +160,35 @@ if __name__ == "__main__":
                     sn_e_flux = np.hstack([sn_e_flux, e_flux])
                     sn_filters = np.hstack([sn_filters, filters])
 
-        mask = sn_filters == 'g'
-        texp0 = sn_mjd[mask][np.argmax(np.diff(np.abs(sn_flux[mask])))]
-        if SNname == "DES15X2mku":
-            texp0 = 57325
-        elif SNname == "DES13C2jtx":
-            texp0 = 56550
-        elif SNname == "DES15S2eaq":
-            texp0 = 57275
-        elif SNname == "DES15Xlzp":
-            texp0 = 57320
+        maskg = sn_filters == 'g'
+        texp0 = sn_mjd[maskg][1 + np.argmax(np.diff(np.abs(sn_flux[maskg])))]
+
+        #if np.argmax(sn_flux[maskg]) == 0:
+        #    texp0 = sn_mjd[maskg][np.argmax(sn_flux[maskg])]
+        #if SNname == "DES15X2mku":
+        #    texp0 = 57325
+        #elif SNname == "DES13C2jtx":
+        #    texp0 = 56550
+        #elif SNname == "DES15S2eaq":
+        #    texp0 = 57275
+        #elif SNname == "DES15X1lzp":
+        #    texp0 = 57320
 
     # HiTS SNe
     # -----------------------------------------------------------------
 
     elif dohits:
-        SNname = "SNHiTS15A"
-        SNname = "SNHiTS15P"
-        SNname = "SNHiTS15D"
+        #SNname = "SNHiTS15A"
+        #SNname = "SNHiTS15P"
+        #SNname = "SNHiTS15D"
         #SNname = "SNHiTS15aw"
         #SNname = "SNHiTS15K"
         #SNname = "SNHiTS14B"
+        #SNname = "SNHiTS15B"
+        
         (MJDs, MJDrefs, ADUs, e_ADUs, mags, e1_mags, e2_mags, sn_filters) \
             = np.loadtxt("/home/fforster/Work/HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
+
         sn_mjd = np.array(MJDs, dtype = float)
         sn_adu = np.array(ADUs, dtype = float)
         sn_e_adu = np.array(e_ADUs, dtype = float)
@@ -156,49 +197,67 @@ if __name__ == "__main__":
         sn_e_flux = np.array(sn_e_adu)
         maskg = sn_filters == 'g'
         if np.sum(maskg) > 0:
-            factorg = mag2flux(sn_mag[maskg][-1]) / sn_adu[maskg][-1]
+            idxmax = np.argmax(sn_adu[maskg])
+            factorg = mag2flux(sn_mag[maskg][idxmax]) / sn_adu[maskg][idxmax]
             sn_flux[maskg] = sn_flux[maskg] * factorg
             sn_e_flux[maskg] = sn_e_flux[maskg] * factorg
         maskr = sn_filters == 'r'
-        if np.sum(maskr) > 0:
+        if np.sum(maskr) > 0 and dor:
             factorr = mag2flux(sn_mag[maskr][-1]) / sn_adu[maskr][-1]
             sn_flux[maskr] = sn_flux[maskr] * factorr
             sn_e_flux[maskr] = sn_e_flux[maskr] * factorr
-        texp0 = 57077.
+        #texp0 = 57077.
 
+        if SNname == "SNHiTS14B":
+            sn_mjd = np.hstack([sn_mjd, sn_mjd[-1] + 5., sn_mjd[-1] + 20.])
+            sn_flux = np.hstack([sn_flux, mag2flux(22.4), mag2flux(22.9)])
+            sn_e_flux = np.hstack([sn_e_flux, sn_e_flux[-1], sn_e_flux[-1]])
+            sn_filters = np.hstack([sn_filters, 'g', 'g'])
+            
         mask = sn_filters == 'g'
         texp0 = sn_mjd[mask][np.argmax(np.diff(sn_flux[mask]))]
         fixz = False
+
         if SNname == "SNHiTS15aw":
-            texp0 = 57074
             zcmb = 0.0663
             fixz = True
+        elif SNname == 'SNHiTS15B':
+            zcmb = 0.23
+            fixz = True
+
         if SNname == "SNHiTS15K":
-            texp0 = 57067
             zcmb = 0.18
-            fixz = False
         if SNname == "SNHiTS14B":
-            texp0 = 56717
             zcmb = 0.3
-            fixz = False
         if SNname == 'SNHiTS15A':
-            texp0 = 57067
             zcmb = 0.3
-            fixz = False
         if SNname == 'SNHiTS15P':
-            texp0 = 57074
             zcmb = 0.3
-            fixz = False
         if SNname == 'SNHiTS15D':
-            texp0 = 57068
             zcmb = 0.3
-            fixz = False
 
     else:
         print("Define observations...")
         sys.exit()
 
-        
+
+    # if a previous interactive estimation of the parameters existed
+    par0 = {}
+    if not dointeractive:
+        if os.path.exists("initial_pars/%s.pkl" % SNname):
+            par0 = pickle.load(open("initial_pars/%s.pkl" % SNname, 'rb'))
+            print par0
+            if 'MJDmin' in par0.keys() and 'MJDmax' in par0.keys():
+                mask = (sn_mjd > par0['MJDmin']) & (sn_mjd < par0['MJDmax'])
+                sn_mjd = sn_mjd[mask]
+                sn_flux = sn_flux[mask]
+                sn_e_flux = sn_e_flux[mask]
+                sn_filters = sn_filters[mask]
+    else:
+        if not overwrite and os.path.exists("initial_pars/%s.pkl" % SNname):
+            sys.exit()
+
+                
     # Theoretical  models
     # -------------------------------------------------------------
 
@@ -222,7 +281,7 @@ if __name__ == "__main__":
         files = np.array(map(lambda name: "%s.fr" % name, modelfile))
     except:
         files = "%s.fr" % modelfile
-    print(files)
+    #print(files)
 
     # Redshift, Avs and time
     nz = 30
@@ -272,19 +331,35 @@ if __name__ == "__main__":
     # -----------------------------------
     # ----- Initial guess ---------------
     # -----------------------------------
-    
-    
+
+
+
     # find best fit
     scale = 1.0
-    texp = texp0
+    if 'texp' in par0.keys():
+        texp = par0['texp']
+    else:
+        texp = texp0
     logz = np.log(zcmb)
     logAv = np.log(0.1)#min(Avs))
+    #if 'mass' in par0.keys():
+    #    mass = par0['mass']
+    #else:
     mass = 14.
+    #if 'energy' in par0.keys():
+    #    energy = par0['energy']
+    #else:
     energy = 1. # foe
-    mdot = 1e-5
+    #if 'mdot' in par0.keys():
+    #    mdot = par0['mdot']
+    #else:
+    mdot = 1e-6
+    #if 'beta' in par0.keys():
+    #    beta = par0['beta']
+    #else:
+    beta = 3.
     rcsm = 1. # 1e15
     vwindinf = 10.
-    beta = 5
     parvals = np.array([scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
     parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
@@ -293,7 +368,7 @@ if __name__ == "__main__":
  
     # initialize with previous parameters
     theta0 = parvals[np.invert(fixedvars)]
-    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = False)
+    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
     
     # exit if not convergence
     if not sol.success:
@@ -312,19 +387,35 @@ if __name__ == "__main__":
     modelplot = {}
     texpplot = ax.axvline(texp, c = 'gray', alpha = 1)
     for band in LCs.uniquefilters:
+        if np.size(LCmag[band]) == 1:
+            if LCmag[band] == 0:
+                print("Error in %s" % SNname)
+                sys.exit()
         mask = LCs.maskband[band]
-        ax.errorbar(LCs.mjd[mask], LCs.flux[mask], yerr = LCs.e_flux[mask], marker = 'o', c = LCs.bandcolors[band], lw = 0, elinewidth = 1)
-        modelplot[band] = ax.plot(LCs.times + texp, scale * mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band])
+        if np.sum(mask) > 0:
+            ax.errorbar(LCs.mjd[mask], LCs.flux[mask], yerr = LCs.e_flux[mask], marker = 'o', c = LCs.bandcolors[band], lw = 0, elinewidth = 1)
+            modelplot[band] = ax.plot(LCs.times + texp, scale * mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band])
     #title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
     ax.set_xlim(min(texp, min(LCs.mjd)) - 1, max(LCs.mjd) + 10)
 
     if dointeractive:
+
+        # TextBox with limits
+        MJDminall = 1e99
+        MJDmaxall = -1e99
+        for band in LCs.uniquefilters:
+            MJDminall = min(MJDminall, min(LCs.mjd[LCs.maskband[band]]))
+            MJDmaxall = max(MJDmaxall, max(LCs.mjd[LCs.maskband[band]]))
+        
         # slider axes
         texp_slider_ax =   fig.add_axes([0.15, 0.985, 0.75, 0.015], axisbg='w')
-        scale_slider_ax  = fig.add_axes([0.15, 0.97, 0.75, 0.015], axisbg='w')
-        z_slider_ax =      fig.add_axes([0.15, 0.955, 0.75, 0.015], axisbg='w')
+        #scale_slider_ax  = fig.add_axes([0.15, 0.97, 0.75, 0.015], axisbg='w')
+        if not fixz: 
+            z_slider_ax =      fig.add_axes([0.15, 0.955, 0.75, 0.015], axisbg='w')
         av_slider_ax =     fig.add_axes([0.15, 0.94, 0.75, 0.015], axisbg='w')
+        MJDmin_slider_ax = fig.add_axes([0.15, 0.925, 0.75, 0.015], axisbg='w')
+        MJDmax_slider_ax = fig.add_axes([0.15, 0.91, 0.75, 0.015], axisbg='w')
         
         mass_slider_ax = fig.add_axes([0.15, 0.045, 0.75, 0.015], axisbg='w')
         energy_slider_ax = fig.add_axes([0.15, 0.03, 0.75, 0.015], axisbg='w')
@@ -332,9 +423,14 @@ if __name__ == "__main__":
         beta_slider_ax = fig.add_axes([0.15, 0.0, 0.75, 0.015], axisbg='w')
         
         # slider objects
-        texp_slider = Slider(texp_slider_ax, 'texp', texp0 - 20, texp0 + 20, valinit=texp0, dragging = False)
-        scale_slider = Slider(scale_slider_ax, 'log scale', -3., 1., valinit=1., dragging = False)
-        z_slider = Slider(z_slider_ax, 'logz', LCs.parbounds[LCs.parlabels == 'logz'][0][0], LCs.parbounds[LCs.parlabels == 'logz'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logz'][0], dragging = False)
+        MJDmin_slider = Slider(MJDmin_slider_ax, 'MJD min', MJDminall, MJDmaxall, valinit=MJDminall, dragging = True)
+        MJDmax_slider = Slider(MJDmax_slider_ax, 'MJD max', MJDminall, MJDmaxall, valinit=MJDmaxall, dragging = True)
+        texp_slider = Slider(texp_slider_ax, 'texp', MJDminall, MJDmaxall, valinit=texp0, dragging = False)
+        #scale_slider = Slider(scale_slider_ax, 'log10 scale', -3., 1., valinit=1., dragging = False)
+        if not fixz:
+            z_slider = Slider(z_slider_ax, 'logz', LCs.parbounds[LCs.parlabels == 'logz'][0][0], LCs.parbounds[LCs.parlabels == 'logz'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logz'][0], dragging = False)
+        else:
+            logz = LCs.parvals[LCs.parlabels == 'logz'][0]
         av_slider = Slider(av_slider_ax, 'logAv', LCs.parbounds[LCs.parlabels == 'logAv'][0][0], LCs.parbounds[LCs.parlabels == 'logAv'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logAv'][0], dragging = False)
         
         mass_slider = Slider(mass_slider_ax, 'mass', LCs.parbounds[LCs.parlabels == 'mass'][0][0], LCs.parbounds[LCs.parlabels == 'mass'][0][1], valinit=LCs.parvals[LCs.parlabels == 'mass'][0], dragging = False)
@@ -345,15 +441,20 @@ if __name__ == "__main__":
         def slider_update(val):
         
             # update values
-            scale = 10**scale_slider.val
+            #scale = 10**scale_slider.val
+            scale = 1.
             texp = texp_slider.val
-            logz = z_slider.val
+            if not fixz:
+                logz = z_slider.val
+            else:
+                logz = LCs.parvals[LCs.parlabels == 'logz'][0]
             logAv = av_slider.val
             LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
             LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
             LCs.parvals[LCs.parlabels == 'energy'] = energy_slider.val
             LCs.parvals[LCs.parlabels == 'mdot'] = 10**mdot_slider.val
             LCs.parvals[LCs.parlabels == 'beta'] = beta_slider.val
+
             # compute new model
             LCmag = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[LCs.nvext:], True, False)
             texpplot.set_xdata(texp)
@@ -365,22 +466,25 @@ if __name__ == "__main__":
                 ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
 
                 fig.canvas.draw_idle()
-                
+
+
+        def limits_update(val):
+            ax.set_xlim(MJDmin_slider.val, MJDmax_slider.val)
             
+        MJDmin_slider.on_changed(limits_update)
+        MJDmax_slider.on_changed(limits_update)
         texp_slider.on_changed(slider_update)
-        scale_slider.on_changed(slider_update)
-        z_slider.on_changed(slider_update)
+        #scale_slider.on_changed(slider_update)
+        if not fixz:
+            z_slider.on_changed(slider_update)
         av_slider.on_changed(slider_update)
         mass_slider.on_changed(slider_update)
         energy_slider.on_changed(slider_update)
         mdot_slider.on_changed(slider_update)
         beta_slider.on_changed(slider_update)
         
-        
         plt.show()
         plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
-        
-        sys.exit()
         
     dotest = False
     
@@ -392,7 +496,20 @@ if __name__ == "__main__":
         LCs.test_interpolation("mdot")
         sys.exit()
 
+    # recover values
+    if dointeractive:
 
+        par0['texp'] = texp0
+        par0['MJDmin'] = MJDmin_slider.val
+        par0['MJDmax'] = MJDmax_slider.val
+        par0['texp'] = texp_slider.val
+        par0['mass'] = mass_slider.val
+        par0['energy'] = energy_slider.val
+        par0['mdot'] = mdot_slider.val
+        par0['beta'] = beta_slider.val
+        pickle.dump(par0, open("initial_pars/%s.pkl" % SNname, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+        sys.exit()
+    
     # -------------------------
     # ---- MCMC ---------------
     # -------------------------
@@ -436,9 +553,9 @@ if __name__ == "__main__":
     LCs.set_priors(priors)
     
     # start MCMC
-    LCs.doMCMC(bestfit = np.array(sol.x), nwalkers = 400, deltabestfit = 1e-5, nsteps = 1000, nburn = 100, parlabels = parlabels, load = False) 
+    LCs.doMCMC(bestfit = np.array(sol.x), nwalkers = 400, deltabestfit = 1e-5, nsteps = nsteps, nburn = burnin, parlabels = parlabels, load = False) 
 
     # plot results
-    LCs.plotMCMC(nburn = 500, correctlogs = True)
+    LCs.plotMCMC(nburn = burnin, correctlogs = True, correctmdot = True)
 
 

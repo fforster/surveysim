@@ -596,7 +596,10 @@ class LCz_Av_params(object):
         nburn = kwargs["nburn"]
         correctlogs = False
         if "correctlogs" in kwargs.keys():
-            correctlogs = bool(kwargs["correctlogs"])
+            correctlogs = bool(kwargs["correctlogs"]) 
+        correctmdot = False
+        if "correctmdot" in kwargs.keys():
+            correctmdot = bool(kwargs["correctmdot"])
         correctedlogs = np.zeros(self.ndim, dtype = bool)
 
         if correctlogs:
@@ -608,6 +611,15 @@ class LCz_Av_params(object):
                     self.chain[:, :, idx] = np.exp(self.chain[:, :, idx])
                     self.labels[idx] = self.labels[idx][3:]
                     correctedlogs[idx] = True
+
+        correctmdot = True
+        if correctmdot:
+            for idx, lab in enumerate(self.labels):
+                if lab == 'mdot':
+                    idxmdot = idx
+                    print(lab, "->", "log10mdot")
+                    self.chain[:, :, idx] = np.log10(self.chain[:, :, idx])
+                    self.labels[idx] = "log10mdot"
 
         # plot parameter evolution
         print("Plotting chain evolution...")
@@ -643,6 +655,8 @@ class LCz_Av_params(object):
 
         if correctlogs and np.sum(correctedlogs) > 0:
             samples[:, correctedlogs] = np.log(samples[:, correctedlogs])
+        if correctmdot:
+            samples[:, idxmdot] = 10**(samples[:, idxmdot])
         
         for idxsel, i in enumerate(idxselection):
 
