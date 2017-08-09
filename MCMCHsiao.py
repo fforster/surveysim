@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     if dodes:
         
-        DESdir = "/home/fforster/Work/DES"
+        DESdir = "../DES"
         dirs = os.listdir(DESdir)
         SNe = defaultdict(list)
         zSNe = {}
@@ -198,7 +198,7 @@ if __name__ == "__main__":
         #SNname = "SNHiTS15B"
 
         (MJDs, MJDrefs, ADUs, e_ADUs, mags, e1_mags, e2_mags, sn_filters) \
-            = np.loadtxt("/home/fforster/Work/HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
+            = np.loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
 
         sn_mjd = np.array(MJDs, dtype = float)
         sn_mjdref = np.array(MJDrefs, dtype = float)
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     # Theoretical  models
     # -------------------------------------------------------------
 
-    modelsdir = "/home/fforster/Work/surveysim/models"
+    modelsdir = "models"
     modelname = "Hsiao"
     modelfile = "snflux_1a.dat"
     files = np.array([modelfile], dtype = str)
