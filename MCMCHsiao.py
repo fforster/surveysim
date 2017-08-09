@@ -3,7 +3,6 @@ import re, sys, os, getopt
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-from matplotlib.widgets import Slider
 import pickle
 
 from collections import defaultdict
@@ -71,6 +70,9 @@ if __name__ == "__main__":
             dotest = True
         elif opt in ('-v', '--verbose'):
             verbose = True
+
+    if dointeractive:
+        from matplotlib.widgets import Slider
 
     if 'SNname' not in locals():
         print("Need to define supernova name")
