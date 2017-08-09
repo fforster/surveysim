@@ -528,12 +528,7 @@ if __name__ == "__main__":
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 3.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
                        lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 1.), \
-                       lambda mass: norm.pdf(mass, loc = 14, scale = 3), \
-                       lambda energy: norm.pdf(energy, loc = 1., scale = 1.), \
-                       lambda mdot: lognorm.pdf(mdot / 1e-4, 1.), \
-                       lambda rcsm: norm.pdf(rcsm, loc = 1., scale = 1.), \
-                       None, \
-                       lambda beta: lognorm.pdf(beta / 7., 1.)])
+                       lambda stretch: norm.pdf(stretch, loc = 1., scale = 0.3)])
     
     #def scaleprior(scale):
     #    return norm.pdf(scale, loc = 1., scale = 0.1)
