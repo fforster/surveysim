@@ -250,7 +250,7 @@ class LCz_Av_params(object):
         
             if verbose:
                 print("   ", parsearch[var])
-            if len(parsearch[var]) == 1:
+            if np.size(parsearch[var]) == 1:
                 nomatch = np.abs(self.params[:, idx] - parsearch[var]) > 1e-9
                 if var != "mdot":
                     maskclose[nomatch] = False
