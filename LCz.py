@@ -349,7 +349,7 @@ class LCz(object):
             for i in range(self.nz):
 
                 colorVal = scalarMap.to_rgba(i)
-                
+
                 ax.plot(self.timesz[i], self.absmagz[i], color = colorVal, label = "z: %5.3f" % self.zs[i])
                 idx90 = np.argmin(np.abs(self.times - 90.))
                 ax.text(self.timesz[i, idx90], self.absmagz[i, idx90], "z: %4.2f" % self.zs[i], color = colorVal, fontsize = 8) # show label at 90 days restframe
@@ -476,8 +476,44 @@ class StellaModel(LCz):
             self.flux[i, :] = 10**(-(fluxes[1:] + 48.6) / 2.5)  # dI/dnu [erg/s/cm2/Hz]
             self.flux[i, :] = self.flux[i, :] * (cspeedAAs / self.lambdas**2) # [erg/s/cm2/AA]
             self.flux[i, :] = self.flux[i, :] * (4. * np.pi * (10. * pc2cm)**2) # [erg/s/AA]
-            
-                
+
+# Hsiao model based on columns time, lambdas and flux
+class Hsiao(LCz):
+
+    def __init__(self, **kwargs):
+
+        self.dir = kwargs["dir"]
+        self.modelfile = kwargs["modelfile"]
+        self.modelname = self.modelfile
+        self.doplot = False
+        if "doplot" in kwargs.keys():
+            self.doplot = kwargs["doplot"]
+        self.extmodel = "CCM89+O94"
+        self.dopeaks = False
+        
+        # read file
+        try:
+            filename = "%s/%s" % (self.dir, self.modelfile)
+            print("Opening model file %s" % filename)
+            data = np.loadtxt(filename).transpose()
+        except:
+            print("Cannot open file %s" % self.modelfile)
+            sys.exit()
+
+        # extract times
+        self.times = np.unique(data[0])
+        self.times = self.times - min(self.times)
+        self.ntimes = np.shape(self.times)[0]
+        
+        # extract wavelengths
+        self.lambdas = np.unique(data[1])
+        self.nlambdas = np.shape(self.lambdas)[0]
+
+        # extract fluxes
+        scale = 10**47.802 # this gives -19.46 mag at max in B
+        self.flux = np.reshape(scale * data[2], (self.ntimes, self.nlambdas))
+
+
 # empirical evolution of SN light curves from Tominaga et al.
 class T11(StellaModel):
 

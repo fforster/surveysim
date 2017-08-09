@@ -43,10 +43,10 @@ if __name__ == "__main__":
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
-            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
-            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --overwrite --verbose (interactively choose starting points, overwrite previously defined values)")
-            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 500 (run MCMC chain with 1000 steps, 400 walkers, burnin of 500)")
-            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 800 --loadMCMC --verbose (load MCMC chain for plotting, can choose new burnin value)")
+            print("e.g. python ./MCMCHsiao.py --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
+            print("e.g. python ./MCMCHsiao.py --project DES --supernova DES15E2avs --interactive --overwrite --verbose (interactively choose starting points, overwrite previously defined values)")
+            print("e.g. python ./MCMCHsiao.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 500 (run MCMC chain with 1000 steps, 400 walkers, burnin of 500)")
+            print("e.g. python ./MCMCHsiao.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 800 --loadMCMC --verbose (load MCMC chain for plotting, can choose new burnin value)")
         elif opt in ('-p', '--project'):
             if arg == 'HiTS':
                 dohits = True
@@ -285,15 +285,20 @@ if __name__ == "__main__":
             zcmb = 0.2
             fixz = False
 
+
     else:
         print("Define observations...")
         sys.exit()
+
 
     # Theoretical  models
     # -------------------------------------------------------------
 
     modelsdir = "/home/fforster/Work/surveysim/models"
-    modelname = "MoriyaWindAcc"
+    modelname = "Hsiao"
+    modelfile = "snflux_1a.dat"
+    files = np.array([modelfile], dtype = str)
+    params = np.array([1.])[:, np.newaxis]
 
     # if a previous interactive estimation of the parameters existed
     par0 = {}
@@ -311,32 +316,7 @@ if __name__ == "__main__":
         if not overwrite and os.path.exists("initial_pars/%s/%s.pkl" % (modelname, SNname)):
             print "Exiting, initial parameter estimation already exists", dotest 
             sys.exit()
-
-    print par0
-
-    # load models
-    # --------------------------
     
-    data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
-    data[data == 'no'] = 0
-    modelfile, modelmsun, modele51, modelmdot, modelrcsm, modelvwind0, modelvwindinf, modelbeta = data
-
-    modelfile = np.array(modelfile, dtype = str)
-    modelmsun = np.array(modelmsun, dtype = float)
-    modelfoe = np.array(modele51, dtype = float) / 1e51
-    modelmdot = np.array(modelmdot, dtype = float)
-    modelrcsm = np.array(modelrcsm, dtype = float) / 1e15
-    modelvwind0 = np.array(modelvwind0, dtype = float)  # do not use this
-    modelvwindinf = np.array(modelvwindinf, dtype = float)
-    modelbeta = np.array(modelbeta, dtype = float)
-
-    params = np.vstack([modelmsun, modelfoe, modelmdot, modelrcsm, modelvwindinf, modelbeta]).transpose()
-    try:
-        files = np.array(map(lambda name: "%s.fr" % name, modelfile))
-    except:
-        files = "%s.fr" % modelfile
-    #print(files)
-
     # Redshift, Avs and time
     nz = 30
     ntimes = 100
@@ -346,27 +326,25 @@ if __name__ == "__main__":
     Avs = np.logspace(-4, 1, nAvs)
     Rv = 3.25
 
-
     # ----------------------------
     # ------- MCMC fitter --------
     # ----------------------------
 
     
     # initialize MCMCfit model
-    LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
+    LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ['stretch'], paramunits = [''], params = params, dostretch = True, zs = zs, Avs = Avs, Rv = Rv, times = times)
 
     # do cosmology
     LCs.docosmo()
 
     # compute models in given bands
-    LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
-    
+    LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True) #, 'r'])#, 'i', 'z'])
     # set metric
-    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
+    LCs.setmetric(metric = np.array([1.]), logscale = [False])
         
     # set observations
     LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
-    
+
     # actual model
     #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]
     #h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
@@ -387,7 +365,6 @@ if __name__ == "__main__":
     # -----------------------------------
 
 
-
     # find best fit
     scale = 1.0
     if 'texp' in par0.keys():
@@ -399,30 +376,13 @@ if __name__ == "__main__":
     else:
         logz = np.log(zcmb)
     logAv = np.log(0.1)#min(Avs))
-    if 'mass' in par0.keys():
-        mass = par0['mass']
-    else:
-        mass = 14.
-    if 'energy' in par0.keys():
-        energy = par0['energy']
-    else:
-        energy = 1. # foe
-    if 'mdot' in par0.keys():
-        mdot = 10**par0['mdot']
-    else:
-        mdot = 1e-6
-    if 'beta' in par0.keys():
-        beta = par0['beta']
-    else:
-        beta = 3.
+    stretch = 1.
         
-    rcsm = 1. # 1e15
-    vwindinf = 10.
-    parvals = np.array([scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta])
+    parvals = np.array([scale, texp, logz, logAv, stretch])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "mdot", "rcsm", "vwindinf", "beta"])
-    fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
+    parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [0.5, 1.5]])
+    parlabels = np.array(["scale", "texp", "logz", "logAv", "stretch"])
+    fixedvars = np.array([False,     False,  fixz,   False, False], dtype = bool)  # rcsm and vwinf should be True with current model grid
  
     # initialize with previous parameters
     theta0 = parvals[np.invert(fixedvars)]
@@ -436,12 +396,12 @@ if __name__ == "__main__":
     
     # recover variables
     LCs.parvals[np.invert(LCs.fixedvars)] = sol.x
-    scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta = LCs.parvals
-
+    scale, texp, logz, logAv, stretch = LCs.parvals
+    
     # check best solution
     print("Best fit parameters:", zip(parlabels, LCs.parvals))
     print("...")
-    print LCs.parvals[4:]
+    print "Intrinsic variables solution", LCs.parvals[4:]
     LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:], True, False)
 
     fig, ax = plt.subplots(figsize = (12, 7))
@@ -477,27 +437,23 @@ if __name__ == "__main__":
         av_slider_ax =     fig.add_axes([0.15, 0.94, 0.75, 0.015], axisbg='w')
         MJDmin_slider_ax = fig.add_axes([0.15, 0.925, 0.75, 0.015], axisbg='w')
         MJDmax_slider_ax = fig.add_axes([0.15, 0.91, 0.75, 0.015], axisbg='w')
-        
-        mass_slider_ax = fig.add_axes([0.15, 0.045, 0.75, 0.015], axisbg='w')
-        energy_slider_ax = fig.add_axes([0.15, 0.03, 0.75, 0.015], axisbg='w')
-        mdot_slider_ax = fig.add_axes([0.15, 0.015, 0.75, 0.015], axisbg='w')
-        beta_slider_ax = fig.add_axes([0.15, 0.0, 0.75, 0.015], axisbg='w')
+        if LCs.dostretch:
+            stretch_slider_ax = fig.add_axes([0.15, 0.045, 0.75, 0.015], axisbg='w')
         
         # slider objects
-        MJDmin_slider = Slider(MJDmin_slider_ax, 'MJD min', MJDminall, MJDmaxall, valinit=MJDminall, dragging = True)
+        MJDmin_slider = Slider(MJDmin_slider_ax, 'MJD min', MJDminall - 20, MJDmaxall, valinit=MJDminall, dragging = True)
         MJDmax_slider = Slider(MJDmax_slider_ax, 'MJD max', MJDminall, MJDmaxall, valinit=MJDmaxall, dragging = True)
-        texp_slider = Slider(texp_slider_ax, 'texp', MJDminall, MJDmaxall, valinit=texp0, dragging = False)
+        texp_slider = Slider(texp_slider_ax, 'texp', MJDminall - 20, MJDmaxall, valinit=texp0, dragging = False)
         #scale_slider = Slider(scale_slider_ax, 'log10 scale', -3., 1., valinit=1., dragging = False)
         if not fixz:
             logz_slider = Slider(logz_slider_ax, 'logz', LCs.parbounds[LCs.parlabels == 'logz'][0][0], LCs.parbounds[LCs.parlabels == 'logz'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logz'][0], dragging = False)
         else:
             logz = LCs.parvals[LCs.parlabels == 'logz'][0]
         av_slider = Slider(av_slider_ax, 'logAv', LCs.parbounds[LCs.parlabels == 'logAv'][0][0], LCs.parbounds[LCs.parlabels == 'logAv'][0][1], valinit=LCs.parvals[LCs.parlabels == 'logAv'][0], dragging = False)
-        
-        mass_slider = Slider(mass_slider_ax, 'mass', LCs.parbounds[LCs.parlabels == 'mass'][0][0], LCs.parbounds[LCs.parlabels == 'mass'][0][1], valinit=LCs.parvals[LCs.parlabels == 'mass'][0], dragging = False)
-        energy_slider = Slider(energy_slider_ax, 'energy', LCs.parbounds[LCs.parlabels == 'energy'][0][0], LCs.parbounds[LCs.parlabels == 'energy'][0][1], valinit=LCs.parvals[LCs.parlabels == 'energy'][0], dragging = False)
-        mdot_slider = Slider(mdot_slider_ax, 'log mdot', np.log10(LCs.parbounds[LCs.parlabels == 'mdot'][0][0]), np.log10(LCs.parbounds[LCs.parlabels == 'mdot'][0][1]), valinit=np.log10(LCs.parvals[LCs.parlabels == 'mdot'][0]), dragging = False)
-        beta_slider = Slider(beta_slider_ax, 'beta', LCs.parbounds[LCs.parlabels == 'beta'][0][0], LCs.parbounds[LCs.parlabels == 'beta'][0][1], valinit=LCs.parvals[LCs.parlabels == 'beta'][0], dragging = False)
+
+        if LCs.dostretch:
+            stretch_slider = Slider(stretch_slider_ax, 'stretch', 0.5, 1.5, valinit=1., dragging = False)
+
         
         def slider_update(val):
         
@@ -510,11 +466,9 @@ if __name__ == "__main__":
             else:
                 logz = LCs.parvals[LCs.parlabels == 'logz'][0]
             logAv = av_slider.val
-            LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
-            LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
-            LCs.parvals[LCs.parlabels == 'energy'] = energy_slider.val
-            LCs.parvals[LCs.parlabels == 'mdot'] = 10**mdot_slider.val
-            LCs.parvals[LCs.parlabels == 'beta'] = beta_slider.val
+            if LCs.dostretch:
+                stretch = stretch_slider.val
+                LCs.parvals[LCs.nvext] = stretch
 
             # compute new model
             LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[LCs.nvext:], True, False)
@@ -524,7 +478,9 @@ if __name__ == "__main__":
             for band in LCs.uniquefilters:
                 modelplot[band][0].set_ydata(scale * (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])))
                 modelplot[band][0].set_xdata(LCs.times + texp)
-                ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
+                ax.relim()
+                ax.autoscale_view()
+                ax.set_title("scale: %5.3f, texp: %f, Av: %f" % (scale, texp, np.exp(logAv)), fontsize = 8)
 
                 fig.canvas.draw_idle()
 
@@ -539,23 +495,14 @@ if __name__ == "__main__":
         if not fixz:
             logz_slider.on_changed(slider_update)
         av_slider.on_changed(slider_update)
-        mass_slider.on_changed(slider_update)
-        energy_slider.on_changed(slider_update)
-        mdot_slider.on_changed(slider_update)
-        beta_slider.on_changed(slider_update)
+        if LCs.dostretch:
+            stretch_slider.on_changed(slider_update)
         
         plt.show()
         plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
 
     if dotest:
-        LCs.parvals[-4] = 5e-4 # mdot
-        LCs.parvals[-1] = 3.5 # beta
-        LCs.parvals[-5] = 1. # energy
-        print("Testing interpolation\n\n")
-        LCs.test_interpolation("mass")
-        LCs.test_interpolation("energy")
-        LCs.test_interpolation("beta")
-        LCs.test_interpolation("mdot")
+        print("Test")
         sys.exit()
 
     # recover values
@@ -564,10 +511,6 @@ if __name__ == "__main__":
         par0['MJDmin'] = MJDmin_slider.val
         par0['MJDmax'] = MJDmax_slider.val
         par0['texp'] = texp_slider.val
-        par0['mass'] = mass_slider.val
-        par0['energy'] = energy_slider.val
-        par0['mdot'] = mdot_slider.val
-        par0['beta'] = beta_slider.val
         if not fixz:
             par0['logz'] = logz_slider.val
         pickle.dump(par0, open("initial_pars/%s/%s.pkl" % (modelname, SNname), 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
@@ -581,7 +524,7 @@ if __name__ == "__main__":
     # set prior distributions
     from scipy.stats import lognorm, norm, uniform  # leave this here, otherwise it fails!
 
-    priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.1), \
+    priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.3), \
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 3.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
                        lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 1.), \
@@ -618,5 +561,6 @@ if __name__ == "__main__":
     # start MCMC
     LCs.doMCMC(bestfit = np.array(sol.x), nwalkers = nwalkers, deltabestfit = 1e-5, nsteps = nsteps, nburn = burnin, parlabels = parlabels, load = loadMCMC) 
 
-    # plot results
-    np.array(LCs.plotMCMC(nburn = burnin, correctlogs = True, correctmdot = True))
+    # plot results (and save lnlikes)
+    LCs.plotMCMC(nburn = burnin, correctlogs = True)
+

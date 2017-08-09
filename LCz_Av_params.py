@@ -35,6 +35,10 @@ class LCz_Av_params(object):
         self.modelname = kwargs["modelname"]
         self.files = kwargs["files"] # dictionary with filenames given by nested keys
 
+        self.dostretch = False
+        if "dostretch" in kwargs.keys():
+            self.dostretch = kwargs["dostretch"]
+
         # model additional interpolation parameters
         self.zs = np.atleast_1d(kwargs["zs"]) # must be np.logspace(...)
         self.Avs = np.atleast_1d(kwargs["Avs"]) # must be np.logspace(...)
@@ -53,7 +57,7 @@ class LCz_Av_params(object):
 
         # number of model parameters
         self.nvar = len(self.paramnames)
-
+        
         # check if mdot is in the variable names
         print(self.paramnames)
         self.maskmdot = np.array([self.paramnames == 'mdots'], dtype = bool)
@@ -120,7 +124,11 @@ class LCz_Av_params(object):
                 else:
                     npyfile = "%s/%s.npy" % (npydir, filename)
                     if not os.path.exists(npyfile):
-                        SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
+
+                        if not self.dostretch:
+                            SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
+                        else:
+                            SN = Hsiao(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
                         SN_Av = LCz_Av(LCz = SN, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = band, doplot = False)
                         SN_Av.compute_mags()
                         mags = np.array([SN_Av.magAvf[iAv][iz](self.times) for iz, iAv in itertools.product(range(len(self.zs)), range(len(self.Avs)))]).reshape((len(self.zs), len(self.Avs), len(self.times)))
@@ -148,6 +156,11 @@ class LCz_Av_params(object):
 
         # observations
         self.mjd = kwargs["mjd"]
+        self.mjdref = 0
+        self.doref = False
+        if "mjdref" in kwargs.keys():
+            self.mjdref = kwargs["mjdref"]
+            self.doref = True
         self.flux = kwargs["flux"]
         self.e_flux = kwargs["e_flux"]
         self.filters = kwargs["filters"]
@@ -212,6 +225,7 @@ class LCz_Av_params(object):
 
         # find closest values for all variables
         parsearch = {}
+
         for idx, var in enumerate(self.paramnames):
             # exact match for this variable
             if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
@@ -223,7 +237,7 @@ class LCz_Av_params(object):
                     parsearch[var] = max(self.params[:, idx])
                 else:
                     parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
-
+        
         if verbose:
             print(parsearch)
         
@@ -233,7 +247,7 @@ class LCz_Av_params(object):
         # use only models which contain closest values
         maskclose = np.ones_like(self.params[:, 0], dtype = bool)
         for idx, var in enumerate(self.paramnames):
-
+        
             if verbose:
                 print("   ", parsearch[var])
             if size(parsearch[var]) == 1:
@@ -249,7 +263,7 @@ class LCz_Av_params(object):
                     maskclose[nomatch0 & nomatch1] = False
                 else:
                     maskclose[nomatch0 & nomatch1] = False
-
+        
             #TEST
             #print(np.sum(maskclose))
             
@@ -258,12 +272,12 @@ class LCz_Av_params(object):
             print("Cannot interpolate", pars)
             print(parsearch)
             sys.exit()
-
+        
         # indices
         idxbest = np.array(range(len(self.files)))[maskclose]
         if verbose:
             print("   ", self.files[idxbest])
-
+        
         #TEST
         #self.idxbest = idxbest
             
@@ -281,13 +295,17 @@ class LCz_Av_params(object):
         if verbose:
             print(weights)
 
-        #TEST
-        #self.distances = distances
-        
+        # stretch: by default is the first parameters in pars
+        stretch = 1.
+        if self.dostretch:
+            stretch = pars[0]
+            
         # light curve interpolation
         intLC = {}
+        intLCref = {}
         for band in self.uniquefilters:
             intLC[band] = 0
+            intLCref[band] = 0
 
         status = False
         for iz in range(2):
@@ -303,15 +321,22 @@ class LCz_Av_params(object):
 
                     for idx, ww in zip(idxbest, weights):
                         if nice:
-                            LCint = np.interp(self.times, self.times, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+                            LCint = np.interp(self.times, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
                         else:
-                            LCint = np.interp(self.mjd[mask] - texp, self.times, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])#, left = 30, right = 30)
+                            LCint = np.interp(self.mjd[mask] - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+
+                        if self.doref:
+                            LCintref = np.interp(np.median(self.mjdref[mask]) - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
                             
                         intLC[band] = intLC[band] + ww * LCint \
                                       * (iz * fz + (1 - iz) * (1. - fz)) \
                                       * (iAv * fAv + (1 - iAv) * (1. - fAv))
+                        if self.doref:
+                            intLCref[band] = intLCref[band] + ww * LCintref \
+                                             * (iz * fz + (1 - iz) * (1. - fz)) \
+                                             * (iAv * fAv + (1 - iAv) * (1. - fAv))
 
-        return intLC
+        return intLC, intLCref
 
     # chi2: sum of differences squared divided by the variance
     def chi2(self, allpars, fixed, vals):
@@ -328,10 +353,10 @@ class LCz_Av_params(object):
         pars = vals[self.nvext:]
 
         chi2 = 0
-        modelmag = self.evalmodel(scale, texp, logz, logAv, pars)
+        modelmag, modelmagref = self.evalmodel(scale, texp, logz, logAv, pars)
         for band in self.uniquefilters:
             mask = self.maskband[band]
-            chi2 = chi2 + np.sum((self.flux[mask] - mag2flux(modelmag[band]))**2 / self.e_flux[mask]**2)
+            chi2 = chi2 + np.sum((self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))**2 / self.e_flux[mask]**2)
             #if band == 'g':
             #    ax.plot(self.mjd[mask], scale * mag2flux(modelmag[band]), c = 'gray', alpha = 0.1)
         #print(vals[np.invert(fixed)], chi2)
@@ -350,8 +375,8 @@ class LCz_Av_params(object):
         skip = False
         if "skip" in kwargs.keys():
             skip = bool(kwargs["skip"])
-            if skip:
-                print("Skipping initial solution iteration")
+            #if skip:
+            #    print("Skipping initial solution iteration")
         bounds = self.parbounds[np.invert(self.fixedvars)]
 
         # number of extrinsic variables, at the start of the variables array (scale, texp, z, Av)
@@ -389,9 +414,10 @@ class LCz_Av_params(object):
 
         # initialize plots and color scale
         import matplotlib.colors as colors
-        fig, ax = plt.subplots(figsize = (16, 10), nrows = len(self.uniquefilters), sharex = True)
+        print self.uniquefilters
+        fig, ax = plt.subplots(figsize = (5, 8), nrows = len(self.uniquefilters), sharex = True)
         jet = cm = plt.get_cmap('jet') 
-        nplot = 100
+        nplot = 20
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
         if self.logscale[idxvar - self.nvext]: # var is logarithmic
@@ -419,20 +445,23 @@ class LCz_Av_params(object):
                 colorVal = scalarMap.to_rgba(val)
 
             # light curve model evaluation (interpolation happens here)
-            LCmag = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time and interpolate models
+            LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time and interpolate models
             #LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, True) # use dense time and use closest model
 
             #print(self.parvals[self.nvext:])
             #print(self.idxbest)
             #print(self.params[self.idxbest])
             #print(self.distances)
-            
+
+            mintime = min(self.times) + texp
+            factor = 3e-29
             # loop among bands
             for idxf, band in enumerate(self.uniquefilters):
-                ax[idxf].set_ylabel(band)
-                ax[idxf].plot(self.times + texp, mag2flux(LCmag[band]), c = colorVal)
+                ax[idxf].set_ylabel("$%s$ band flux (arbitrary units)" % band, fontsize = 14)
+                ax[idxf].plot(self.times + texp - mintime, (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])) / factor, c = colorVal)
                 #ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
                 ax[idxf].axvline(texp, c = 'gray')
+                #ax[idxf].set_yticks([])
 
             #TEST
             #for idxb in self.idxbest:
@@ -444,12 +473,26 @@ class LCz_Av_params(object):
                 
 
         # axis and save
-        ax[0].set_xlim(min(texp, min(self.mjd)) - 1, max(self.mjd) + 100)
-        ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels, startvars)), fontsize = 6)
+        ax[1].set_xlim(min(texp, min(self.mjd)) - 1 - mintime, max(self.mjd) + 30 - mintime)
+        #ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels, startvars)), fontsize = 6)
+        label = var
+        if var == "mdot":
+            ax[0].set_title(r"$\dot M$ effect", fontsize = 14)
+        elif var == "beta":
+            ax[0].set_title(r"$\beta$ effect", fontsize = 14)
+        elif var == "mass":
+            ax[0].set_title(r"Mass effect", fontsize = 14)
+        elif var == "energy":
+            ax[0].set_title(r"Energy effect", fontsize = 14)
+            
+        ax[1].set_xlabel("Time since explosion [days]", fontsize = 14)
+                
+        plt.tight_layout()
         plt.savefig("plots/interpolation/interpolation_%s_%s_%s.png" % (self.modelname, self.objname, self.parlabels[idxvar]))
 
         # recover original values
         self.parvals = np.array(startvars)
+        print self.parvals
         
     # set a priori distributions
     def set_priors(self, priors):
@@ -484,10 +527,10 @@ class LCz_Av_params(object):
         pars = self.parvals[self.nvext:]
 
         loglike = 0
-        modelmag = self.evalmodel(scale, texp, logz, logAv, pars)
+        modelmag, modelmagref = self.evalmodel(scale, texp, logz, logAv, pars)
         for band in self.uniquefilters:
             mask = self.maskband[band]
-            loglike = loglike - 0.5 * np.sum((self.flux[mask] - mag2flux(modelmag[band]))**2 / self.e_flux[mask]**2)
+            loglike = loglike - 0.5 * np.sum((self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))**2 / self.e_flux[mask]**2)
         
         return loglike
 
@@ -612,7 +655,6 @@ class LCz_Av_params(object):
                     self.labels[idx] = self.labels[idx][3:]
                     correctedlogs[idx] = True
 
-        correctmdot = True
         if correctmdot:
             for idx, lab in enumerate(self.labels):
                 if lab == 'mdot':
@@ -649,15 +691,24 @@ class LCz_Av_params(object):
             ax.errorbar(self.mjd[mask], self.flux[mask], yerr = self.e_flux[mask], marker = 'o', alpha = 0.5, lw = 0, elinewidth = 1, c = self.bandcolors[band], label = "%s" % band)
 
 
-        # simulations
-        nselection = 100
-        idxselection = np.random.choice(np.array(range(self.nsteps)[nburn:]), size = nselection, replace = True)
 
         if correctlogs and np.sum(correctedlogs) > 0:
             samples[:, correctedlogs] = np.log(samples[:, correctedlogs])
         if correctmdot:
             samples[:, idxmdot] = 10**(samples[:, idxmdot])
-        
+
+        # get distribution of log likelihoods
+        nselection = 1000
+        idxselection = np.random.choice(np.array(range(self.nsteps)[nburn:]), size = nselection, replace = True)
+        lnlikes = []
+        for idxsel, i in enumerate(idxselection):
+            lnlikes.append(self.lnlike(samples[i]))
+        lnlikes = np.array(lnlikes)
+        np.save("lnlikes/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels), lnlikes)
+
+        # plot 100 light curves
+        nselection = 100
+        idxselection = np.random.choice(np.array(range(self.nsteps)[nburn:]), size = nselection, replace = True)
         for idxsel, i in enumerate(idxselection):
 
             # recover variables
@@ -668,23 +719,23 @@ class LCz_Av_params(object):
             pars = self.parvals[self.nvext:]
             print("Parameters:", scale, texp, logz, logAv, pars)
 
-            LCmag = self.evalmodel(scale, texp, logz, logAv, pars, True)
+            LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, pars, True)
 
             for idx, band in enumerate(self.uniquefilters):
                 #mask = self.maskband[band]
                 ax.axvline(texp, c = 'gray', alpha = 0.05)
                 #ax.plot(self.mjd[mask], mag2flux(LCmag[band]), label = "%s" % band, c = self.bandcolors[band], alpha = 0.05)
-                ax.plot(self.times + texp, mag2flux(LCmag[band]), c = self.bandcolors[band], alpha = 0.05)
+                ax.plot(self.times + texp, mag2flux(LCmag[band]) - mag2flux(LCmagref[band]), c = self.bandcolors[band], alpha = 0.05)
             
         ax.set_ylabel(r"f$_{\nu}$ [erg/s/cm$^2$/Hz]", fontsize = 14)
         ax.set_xlabel("MJD [days]", fontsize = 14)
-        ax.set_title("%s %s" % (self.modelname, self.objname))
+        ax.set_title("%s %s (median log likelihood: %4.1f)" % (self.modelname, self.objname, np.median(lnlikes)))
         ax.set_xlim(min(min(self.mjd), min(samples[:, 1])) - 1, max(self.mjd) + 1)
         ax.legend(loc = 2, fontsize = 10)
 
         plt.savefig("plots/MCMC_%s_%s_%s_models.png" % (self.modelname, self.objname, self.fitlabels))
 
-        
+        return lnlikes
         
 #if __name__ == "__main__":
 #

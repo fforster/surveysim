@@ -30,7 +30,6 @@ class LCz_Av(object):
             plotmodel = kwargs["plotmodel"]
             
         self.magAvf = []
-        test = []
 
         for i in range(self.nAv):
 
@@ -128,8 +127,11 @@ if __name__  == "__main__":
         Dm[i] = cosmo[5] # Mpc
         dVdzdOmega[i] = cspeed / (Hnot * 1e5 * np.sqrt((1. + zs[i])**3. * OmegaM + OmegaL)) * Dc[i]**2
 
-    # light curves given model and cosmology
+    ## light curves given model and cosmology
     SN = StellaModel(dir = "models/Nozomu", modelfile = "15z002E1.dat", doplot = False)
+
+    # light curves given model and cosmology
+    SN = Hsiao(dir = "models/Hsiao", modelfile = "snflux_1a.dat", doplot = True)
 
     # attenuations
     lAv = 0.187
@@ -152,14 +154,18 @@ if __name__  == "__main__":
         
         for j in range(SN_Av.nz):
 
-            ax.plot(SN_Av.LCz.timesz[j] - SN_Av.LCz.tstartpeak[j], SN_Av.magAvf[i][j](SN_Av.LCz.timesz[j]), c = colorVal, lw = 3. * (SN_Av.nz - j) / SN_Av.nz, alpha = 0.5)
+            if SN_Av.LCz.dopeaks:
+                ax.plot(SN_Av.LCz.timesz[j] - SN_Av.LCz.tstartpeak[j], SN_Av.magAvf[i][j](SN_Av.LCz.timesz[j]), c = colorVal, lw = 3. * (SN_Av.nz - j) / SN_Av.nz, alpha = 0.5)
+            else:
+                ax.plot(SN_Av.LCz.timesz[j], SN_Av.magAvf[i][j](SN_Av.LCz.timesz[j]), c = colorVal, lw = 3. * (SN_Av.nz - j) / SN_Av.nz, alpha = 0.5)
 
-    ax.set_ylim(26, 20)
-    ax.set_xlim(-2, 15)
+    ax.set_ylim(26, ax.get_ylim()[0])
+    ax.set_xlim(-2, 90)
     ax.set_xlabel("Time since SBO [days]")
     ax.set_xlabel("mag g")
     plt.grid()
     plt.savefig("plots/LCz_Av_test.png")
+
     
     # generate Av probability distribution
     SN_Av.set_Avdistribution(lAv = lAv)
@@ -180,7 +186,7 @@ if __name__  == "__main__":
     # generate random light curves
     simtimes = np.linspace(10, 20, 1000)
     nsim = 100
-    simdt, simtexp, simiAv, simmags = SN_Av.simulate_randomLC(nsim = nsim, iz = 0, MJDs = simtimes, maxrestframeage = 10)
+    simdt, simtexp, simiAv, simmags = SN_Av.simulate_randomLC(nsim = nsim, iz = 0, MJDs = simtimes, maxrestframeage = 30)
     
     fig, ax = plt.subplots()
     jet = cm = plt.get_cmap('jet') 
@@ -193,7 +199,7 @@ if __name__  == "__main__":
         ax.axvline(simtexp[i], c = 'gray')
 
     ax.set_xlim(min(simtimes), max(simtimes))
-    ax.set_ylim(28, 23)
+    ax.set_ylim(28, ax.get_ylim()[0])
     plt.savefig("plots/sim.png")
     
 
