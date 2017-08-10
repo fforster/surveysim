@@ -341,6 +341,10 @@ class LCz_Av_params(object):
         if not self.doref:
             for band in self.uniquefilters:
                 intLCref[band] = 40.
+        else:
+            for band in self.uniquefilters:
+                intLC[band] = intLC[band] - 2.5 * np.log10(scale)
+                intLCref[band] = intLCref[band] - 2.5 * np.log10(scale)
             
         return intLC, intLCref
 
@@ -363,9 +367,6 @@ class LCz_Av_params(object):
         for band in self.uniquefilters:
             mask = self.maskband[band]
             chi2 = chi2 + np.sum((self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))**2 / self.e_flux[mask]**2)
-            #if band == 'g':
-            #    ax.plot(self.mjd[mask], scale * mag2flux(modelmag[band]), c = 'gray', alpha = 0.1)
-        #print(vals[np.invert(fixed)], chi2)
         
         return chi2
         

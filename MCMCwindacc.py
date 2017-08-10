@@ -224,6 +224,8 @@ if __name__ == "__main__":
             sn_e_flux[maskr] = sn_e_flux[maskr] * factorr
         #texp0 = 57077.
 
+        print SNname, factorg, factorg
+
         if SNname == "SNHiTS14B":
             sn_mjdref = np.hstack([sn_mjdref, sn_mjdref[-1], sn_mjdref[-1]])
             sn_mjd = np.hstack([sn_mjd, sn_mjd[0] + 9.01680793, sn_mjd[0] + 23.85])
@@ -243,8 +245,8 @@ if __name__ == "__main__":
         elif SNname == "SNHiTS14C":
             zcmb = 0.084
             fixz = True
-        elif SNname == "SNHiTS14C":
-            zcmb = 0.084
+        elif SNname == "SNHiTS14D":
+            zcmb = 0.135
             fixz = True
         elif SNname == "SNHiTS15B":
             zcmb = 0.23
@@ -370,7 +372,8 @@ if __name__ == "__main__":
     LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
         
     # set observations
-    LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    #LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     
     # actual model
     #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]

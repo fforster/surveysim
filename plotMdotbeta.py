@@ -13,43 +13,49 @@ from sklearn.neighbors.kde import KernelDensity
 
 
 survey = sys.argv[1]
+mode = sys.argv[2]
 
-doLCs = False
-doMCMC = True
+if mode == "LCs":
+    doLCs = True
+    doMCMC = False
+elif mode == "MCMC":
+    doLCs = False
+    doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = ["SNHiTS14B",
-        "SNHiTS14N",
-        "SNHiTS14Q",
-        "SNHiTS14P",
-        #"SNHiTS15aa", Ia?
-        #"SNHiTS15ab", Ia?
-        "SNHiTS15A",
-        "SNHiTS15D",
-        "SNHiTS15F",
-        "SNHiTS15K",
-        "SNHiTS15M",
-        "SNHiTS15P",
-        "SNHiTS15X",
-        "SNHiTS15ag",
-        "SNHiTS15ah",
-        "SNHiTS15ai",
-        #"SNHiTS15aj", Ia?
-        "SNHiTS15ak",
-        "SNHiTS15aq",
-        #"SNHiTS15at", Ia?
-        #"SNHiTS15av", Ia?
-        "SNHiTS15aw",
-        "SNHiTS15ay",
-        "SNHiTS15az",
-        #"SNHiTS15ba",
-        #"SNHiTS15bb", Ia?
-        "SNHiTS15bc",
-        "SNHiTS15bl",
-        "SNHiTS15bm",
-        #"SNHiTS15bz", no usar
-        "SNHiTS15ch"]
-        #"SNHiTS15ci"]
+    HiTS = sorted(['SNHiTS14B', 'SNHiTS14N', 'SNHiTS14Q', 'SNHiTS14ac', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15K', 'SNHiTS15M', 'SNHiTS15P', 'SNHiTS15X', 'SNHiTS15ag', 'SNHiTS15ah', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15at', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15bn', 'SNHiTS15ch', 'SNHiTS14C', 'SNHiTS14D'])
+    #HiTS = ["SNHiTS14B",
+    #    "SNHiTS14N",
+    #    "SNHiTS14Q",
+    #    "SNHiTS14P",
+    #    #"SNHiTS15aa", Ia?
+    #    #"SNHiTS15ab", Ia?
+    #    "SNHiTS15A",
+    #    "SNHiTS15D",
+    #    "SNHiTS15F",
+    #    "SNHiTS15K",
+    #    "SNHiTS15M",
+    #    "SNHiTS15P",
+    #    "SNHiTS15X",
+    #    "SNHiTS15ag",
+    #    "SNHiTS15ah",
+    #    "SNHiTS15ai",
+    #    #"SNHiTS15aj", Ia?
+    #    "SNHiTS15ak",
+    #    "SNHiTS15aq",
+    #    #"SNHiTS15at", Ia?
+    #    #"SNHiTS15av", Ia?
+    #    "SNHiTS15aw",
+    #    "SNHiTS15ay",
+    #    "SNHiTS15az",
+    #    #"SNHiTS15ba",
+    #    #"SNHiTS15bb", Ia?
+    #    "SNHiTS15bc",
+    #    "SNHiTS15bl",
+    #    "SNHiTS15bm",
+    #    #"SNHiTS15bz", no usar
+    #    "SNHiTS15ch"]
+    #    #"SNHiTS15ci"]
     DES = []
 
 elif survey == 'DES':
@@ -152,7 +158,7 @@ LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.arra
 master = {}
 limlog10mdot = []
 limbeta = []
-limlog10Av = []
+limAv = []
 limz = []
 limmass = []
 limenergy = []
@@ -161,7 +167,7 @@ limtexp15 = []
 
 # control of what to do
 if doLCs:
-    fig, ax = plt.subplots(nrows = 6, ncols = 4, figsize = (10, 12))
+    fig, ax = plt.subplots(nrows = 7, ncols = 4, figsize = (10, 12))
 elif doMCMC:
     fig, ax = plt.subplots(figsize = (12, 8))
 
@@ -181,7 +187,7 @@ for m in ms:
 print ms_sel
 
 # iterate among samples files
-files = sorted(os.listdir("samples"))
+files = sorted(os.listdir("samples/nodiff"))
 model = "MoriyaWindAcc"
 for f in files:
 
@@ -191,7 +197,7 @@ for f in files:
     else:
         continue
     
-    print SN
+    print("Supernova:",  SN)
 
     if SN in HiTS or SN in DES:
 
@@ -201,19 +207,23 @@ for f in files:
         elif SN in DES:
             m = '*'
             
+        if SN != "SNHiTS15X":
+            continue
+        
         print(f)
 
-        png = f.replace("chain", "plots/MCMC").replace(".dat", "_models.png")
+        png = f.replace("chain", "plots/nodiff/MCMC").replace(".dat", "_models.png")
         pdfout = "%s %s" % (pdfout, png)
 
         if re.search(".*logz.*", f):
-            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
+            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
         else:
-            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
+            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
 
         mask = (nchain > 500)
 
         if SN in HiTS:
+
             
             (MJDs, MJDrefs, ADUs, e_ADUs, mags, e1_mags, e2_mags, sn_filters) \
                 = np.loadtxt("/home/fforster/Work/HiTS/LCs/%s.txt" % SN, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
@@ -235,18 +245,67 @@ for f in files:
                 factorr = mag2flux(sn_mag[maskr][-1]) / sn_adu[maskr][-1]
                 sn_flux[maskr] = sn_flux[maskr] * factorr
                 sn_e_flux[maskr] = sn_e_flux[maskr] * factorr
-            
+
+            print SN, factorg, factorg
+
+                
             if SN == "SNHiTS14B":
-                sn_mjd = np.hstack([sn_mjd, sn_mjd[-1] + 5., sn_mjd[-1] + 20.])
-                sn_flux = np.hstack([sn_flux, mag2flux(22.4), mag2flux(22.9)])
+                #sn_mjdref = np.hstack([sn_mjdref, sn_mjdref[-1], sn_mjdref[-1]])
+                sn_mjd = np.hstack([sn_mjd, sn_mjd[0] + 9.01680793, sn_mjd[0] + 23.85])
+                sn_flux = np.hstack([sn_flux, mag2flux(22.34), mag2flux(22.9)])
                 sn_e_flux = np.hstack([sn_e_flux, sn_e_flux[-1], sn_e_flux[-1]])
                 sn_filters = np.hstack([sn_filters, 'g', 'g'])
-            fixz = False
-            if SN == "SNHiTS15aw":
+
+            if SN == "SNHiTS14A":
+                zcmb = 0.2175
+                fixz = True
+            elif SN == "SNHiTS14Y":
+                zcmb = 0.108
+                fixz = True
+            elif SN == "SNHiTS14C":
+                zcmb = 0.084
+                fixz = True
+            elif SN == "SNHiTS14D":
+                zcmb = 0.135
+                fixz = True
+            elif SN == "SNHiTS15B":
+                zcmb = 0.23
+                fixz = True
+            elif SN == "SNHiTS15J":
+                zcmb = 0.108
+                fixz = True
+            elif SN == "SNHiTS15L":
+                zcmb = 0.15
+                fixz = True
+            elif SN == "SNHiTS15O":
+                zcmb = 0.142
+                fixz = True
+            elif SN == "SNHiTS15U":
+                zcmb = 0.308
+                fixz = True
+            elif SN == "SNHiTS15X":
+                zcmb = 0.055807
+                fixz = True
+            elif SN == "SNHiTS15ad":
+                zcmb = 0.055392
+                fixz = True
+            elif SN == "SNHiTS15al":
+                zcmb = 0.2
+                fixz = True
+            elif SN == "SNHiTS15aw":
                 zcmb = 0.0663
                 fixz = True
-            elif SN == 'SNHiTS15B':
-                zcmb = 0.23
+            elif SN == "SNHiTS15be":
+                zcmb = 0.151
+                fixz = True
+            elif SN == "SNHiTS15bs":
+                zcmb = 0.07
+                fixz = True
+            elif SN == "SNHiTS15by":
+                zcmb = 0.0524
+                fixz = True
+            elif SN == 'SNHiTS15ck':
+                zcmb = 0.042
                 fixz = True
             else:
                 zcmb = 0.2
@@ -297,16 +356,16 @@ for f in files:
                 theta0 = parvals[np.invert(fixedvars)]
                 sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
 
-                LCmag = LCs.evalmodel(scale_val, texp_val, logz_val, logAv_val, LCs.parvals[4:], True, False)
+                LCmag, LCmagref = LCs.evalmodel(scale_val, texp_val, logz_val, logAv_val, LCs.parvals[4:], True, False)
 
                 # plot light curves
                 for band in LCs.uniquefilters:
                     maskb = LCs.maskband[band]
                     if np.sum(maskb) > 0:
-                        ax[ix, iy].plot(LCs.times + texp_val, scale_val * mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
+                        ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
                         ax[ix, iy].axvline(texp_val, alpha = 0.05, c = 'gray')
             # labels                    
-            ax[ix, iy].set_yticklabels([])
+            #ax[ix, iy].set_yticklabels([])
             (x1, x2) = ax[ix, iy].get_xlim()
             (y1, y2) = ax[ix, iy].get_ylim()
             ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.05, SN, fontsize = 10, ha = 'right')
@@ -347,7 +406,7 @@ for f in files:
         limbeta.append(np.array(map(lambda x: np.percentile(beta[mask], x), [5, 50, 95])))
         limmass.append(np.array(map(lambda x: np.percentile(mass[mask], x), [5, 50, 95])))
         limenergy.append(np.array(map(lambda x: np.percentile(energy[mask], x), [5, 50, 95])))
-        limlog10Av.append(np.log10(np.exp(np.array(map(lambda x: np.percentile(logAv[mask], x), [5, 50, 95])))))
+        limAv.append(np.exp(np.array(map(lambda x: np.percentile(logAv[mask], x), [5, 50, 95]))))
         if fixz:
             limz.append(zcmb * np.ones(3))
         else:
@@ -378,7 +437,7 @@ limlog10mdot = np.array(limlog10mdot)
 limbeta = np.array(limbeta)
 limmass = np.array(limmass)
 limenergy = np.array(limenergy)
-limlog10Av = np.array(limlog10Av)
+limAv = np.array(limAv)
 limz = np.array(limz)
 limtexp14 = np.array(limtexp14)
 limtexp15 = np.array(limtexp15)
@@ -437,7 +496,7 @@ plt.tight_layout()
 plt.savefig("plots/samples/betavsz_%s.png" % survey)
 
 fig, ax = plt.subplots()
-ax.errorbar(limz[:, 1], limbeta[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
+ax.errorbar(limz[:, 1], limmass[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
             yerr = [limmass[:, 1] - limmass[:, 0], limmass[:, 2] - limmass[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
 ax.set_ylabel(r"mass [$M_\odot$]", fontsize = 14)
 ax.set_xlabel("z", fontsize = 14)
@@ -496,7 +555,7 @@ hist1D(master['texp15'], limtexp15[:, 1], "texp15", r"$t_{\rm exp}$ HiTS15A [MJD
   
 hist1D(np.exp(master['logz']), limz[:, 1], "z", "z")
 
-hist1D(np.log10(np.exp(master['logAv'])), limlog10Av[:, 1], "log10Av", r"$\log_{10}\ A_{\rm V}$")
+hist1D(np.exp(master['logAv']), limAv[:, 1], "Av", r"$A_{\rm V}$")
 
 hist1D(master['mass'], limmass[:, 1], "mass", r"mass [$M_\odot$]")
        

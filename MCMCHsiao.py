@@ -243,8 +243,8 @@ if __name__ == "__main__":
         elif SNname == "SNHiTS14C":
             zcmb = 0.084
             fixz = True
-        elif SNname == "SNHiTS14C":
-            zcmb = 0.084
+        elif SNname == "SNHiTS14D":
+            zcmb = 0.135
             fixz = True
         elif SNname == "SNHiTS15B":
             zcmb = 0.23
@@ -419,7 +419,7 @@ if __name__ == "__main__":
         mask = LCs.maskband[band]
         if np.sum(mask) > 0:
             ax.errorbar(LCs.mjd[mask], LCs.flux[mask], yerr = LCs.e_flux[mask], marker = 'o', c = LCs.bandcolors[band], lw = 0, elinewidth = 1)
-            modelplot[band] = ax.plot(LCs.times + texp, scale * (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])), label = "%s" % band, c = LCs.bandcolors[band])
+            modelplot[band] = ax.plot(LCs.times + texp, (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])), label = "%s" % band, c = LCs.bandcolors[band])
     #title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
     ax.set_xlim(min(texp, min(LCs.mjd)) - 5, max(LCs.mjd) + 10)
@@ -480,7 +480,7 @@ if __name__ == "__main__":
             fig.canvas.draw()
             # update plots
             for band in LCs.uniquefilters:
-                modelplot[band][0].set_ydata(scale * (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])))
+                modelplot[band][0].set_ydata((mag2flux(LCmag[band]) - mag2flux(LCmagref[band])))
                 modelplot[band][0].set_xdata(LCs.times + texp)
                 ax.relim()
                 ax.autoscale_view()
