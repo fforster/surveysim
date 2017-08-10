@@ -224,8 +224,8 @@ if __name__ == "__main__":
 
         if SNname == "SNHiTS14B":
             sn_mjdref = np.hstack([sn_mjdref, sn_mjdref[-1], sn_mjdref[-1]])
-            sn_mjd = np.hstack([sn_mjd, sn_mjd[-1] + 5., sn_mjd[-1] + 20.])
-            sn_flux = np.hstack([sn_flux, mag2flux(22.4), mag2flux(22.9)])
+            sn_mjd = np.hstack([sn_mjd, sn_mjd[0] + 9.01680793, sn_mjd[0] + 23.85])
+            sn_flux = np.hstack([sn_flux, mag2flux(22.34), mag2flux(22.9)])
             sn_e_flux = np.hstack([sn_e_flux, sn_e_flux[-1], sn_e_flux[-1]])
             sn_filters = np.hstack([sn_filters, 'g', 'g'])
             

@@ -161,6 +161,8 @@ class LCz_Av_params(object):
         if "mjdref" in kwargs.keys():
             self.mjdref = kwargs["mjdref"]
             self.doref = True
+            if self.mjdref is None:
+                self.doref = False
         self.flux = kwargs["flux"]
         self.e_flux = kwargs["e_flux"]
         self.filters = kwargs["filters"]
@@ -336,6 +338,10 @@ class LCz_Av_params(object):
                                              * (iz * fz + (1 - iz) * (1. - fz)) \
                                              * (iAv * fAv + (1 - iAv) * (1. - fAv))
 
+        if not self.doref:
+            for band in self.uniquefilters:
+                intLCref[band] = 40.
+            
         return intLC, intLCref
 
     # chi2: sum of differences squared divided by the variance
