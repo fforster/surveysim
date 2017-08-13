@@ -143,7 +143,7 @@ spectra["SNHiTS15cf"] = "Ia" # Nines, http://www.astronomerstelegram.org/?read=7
 # Theoretical  models
 # -------------------------------------------------------------
 
-modelsdir = "/home/fforster/Work/surveysim/models"
+modelsdir = "models"
 modelname = "MoriyaWindAcc"
 data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
 data[data == 'no'] = 0
