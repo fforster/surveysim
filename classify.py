@@ -98,15 +98,20 @@ HiTS = ["SNHiTS14B",
         # removed 14P
 
 banned = ["SNHiTS14D", # only rising part (with spectrum)
+          "SNHiTS14Z", # # small time span
           "SNHiTS14ab", # other class
           "SNHiTS14ac", # small time span
           "SNHiTS14ad", # only rising part
           "SNHiTS14ah", # bad LC
+          "SNHiTS14ag", # small time span
           "SNHiTS15at", # no information during rise according to SNII best fit
           "SNHiTS14K", # bad LC
           "SNHiTS14X", # only rising part
           "SNHiTS15B", # other class
           "SNHiTS14U", # same as 14T
+          "SNHiTS15bj", # rise after high cadence
+          "SNHiTS15bl", # rise after high cadence
+          "SNHiTS15cg", # rise after high cadence
           "SNHiTS15cb", # too many days between 1st detection and last non detection
           "SNHiTS15cj", # same as 15cb
           "SNHiTS15cl", # too many days between 1st detection and last non detection

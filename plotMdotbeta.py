@@ -27,7 +27,7 @@ elif mode == "MCMC":
     doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = sorted(['SNHiTS14A', 'SNHiTS14B', 'SNHiTS14C', 'SNHiTS14E', 'SNHiTS14M', 'SNHiTS14N', 'SNHiTS14P', 'SNHiTS14Q', 'SNHiTS14T', 'SNHiTS14Z', 'SNHiTS14ag', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15P', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bj', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15cg', 'SNHiTS15ch'])
+    HiTS = sorted(['SNHiTS14A', 'SNHiTS14B', 'SNHiTS14C', 'SNHiTS14E', 'SNHiTS14M', 'SNHiTS14N', 'SNHiTS14P', 'SNHiTS14Q', 'SNHiTS14T', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15M', 'SNHiTS15P', 'SNHiTS15X', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15au', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bm', 'SNHiTS15ch'])
     print(len(HiTS))
     #HiTS = ["SNHiTS14B",
     #    "SNHiTS14N",
@@ -258,9 +258,15 @@ for f in files:
         pdfout = "%s %s" % (pdfout, png)
 
         if re.search(".*logz.*", f):
-            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+            if fixz:
+                continue
+            else:
+                nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
         else:
-            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+            if not fixz:
+                continue
+            else:
+                nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
 
         mask = (nchain > 500)
             
