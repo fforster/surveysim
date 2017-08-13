@@ -630,7 +630,7 @@ class LCz_Av_params(object):
                 position = result[0]
                 for k in range(position.shape[0]):
                     if np.mod(idx, 2) == 0:
-                        print("%4i %4i %s" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
+                        print("%s %s %4i %4i %s" % (self.modelname, self.objname, idx, k, " ".join(map(lambda p: str(p), position[k]))))
                     f.write("%i %i %s\n" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
             f.close()
                 

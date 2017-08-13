@@ -3,7 +3,7 @@ import numpy as np
 
 from constants import *
 
-def readSNdata(project, SNname):
+def readSNdata(project, SNname, maxairmass = 1.7):
     
     if project == "DES":
         dodes = True
@@ -131,8 +131,8 @@ def readSNdata(project, SNname):
         #SNname = "SNHiTS14B"
         #SNname = "SNHiTS15B"
 
-        (MJDs, MJDrefs, ADUs, e_ADUs, mags, e1_mags, e2_mags, sn_filters) \
-            = np.loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
+        (MJDs, MJDrefs, airmass, ADUs, e_ADUs, mags, sn_filters) \
+            = np.loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 2, 5, 6, 7, 10), dtype = str).transpose()
 
         sn_mjd = np.array(MJDs, dtype = float)
         sn_mjdref = np.array(MJDrefs, dtype = float)
@@ -141,7 +141,20 @@ def readSNdata(project, SNname):
         sn_mag = np.array(mags, dtype = float)
         sn_flux = np.array(sn_adu)
         sn_e_flux = np.array(sn_e_adu)
-        maskg = sn_filters == 'g'
+
+        airmass = np.array(airmass, dtype = float)
+        mask = (airmass <= maxairmass)
+
+        sn_mjd = sn_mjd[mask]
+        sn_mjdref = sn_mjdref[mask]
+        sn_adu = sn_adu[mask]
+        sn_e_adu = sn_e_adu[mask]
+        sn_mag = sn_mag[mask]
+        sn_flux = sn_flux[mask]
+        sn_e_flux = sn_e_flux[mask]
+        sn_filters = np.array(sn_filters)[mask]
+        
+        maskg = (sn_filters == 'g')
         if np.sum(maskg) > 0:
             idxmax = np.argmax(sn_adu[maskg])
             factorg = mag2flux(sn_mag[maskg][idxmax]) / sn_adu[maskg][idxmax]

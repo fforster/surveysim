@@ -24,7 +24,7 @@ elif mode == "MCMC":
     doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = sorted(['SNHiTS14B', 'SNHiTS14C', 'SNHiTS14N', 'SNHiTS14Q', 'SNHiTS14ac', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15P', 'SNHiTS15Q', 'SNHiTS15X', 'SNHiTS15ag', 'SNHiTS15ah', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15at', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15ba', 'SNHiTS15bc', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15ch'])
+    HiTS = sorted(['SNHiTS14B', 'SNHiTS14C', 'SNHiTS14N', 'SNHiTS14Q', 'SNHiTS14ac', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15P', 'SNHiTS15Q', 'SNHiTS15X', 'SNHiTS15ag', 'SNHiTS15ah', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15ch'])
     print(len(HiTS))
     #HiTS = ["SNHiTS14B",
     #    "SNHiTS14N",
@@ -109,6 +109,33 @@ elif survey == 'DES':
        #"DES16X3km"
        ]
 
+spectra = {}
+spectra["SNHiTS15al"] = "Ia"
+spectra["SNHiTS15be"] = "Ia"
+spectra["SNHiTS15bs"] = "Ia"
+spectra["SNHiTS15by"] = "II"
+spectra["SNHiTS15bu"] = "Ia"
+spectra["SNHiTS15cf"] = "Ia"
+spectra["SNHiTS15by"] = "II"
+spectra["SNHiTS14C"] = "II" # Greta, http://www.astronomerstelegram.org/?read=5957
+spectra["SNHiTS14D"] = "II" # Emilia, blue continuum, http://www.astronomerstelegram.org/?read=5957
+spectra["SNHiTS14H"] = "Ia" # Pamela, http://www.astronomerstelegram.org/?read=6014, http://www.astronomerstelegram.org/?read=5970
+spectra["SNHiTSF"] = "Ia" # Mara, http://www.astronomerstelegram.org/?read=6014
+spectra["SNHiTSB"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
+spectra["SNHiTS15L"] = "Ia" # Natalia, http://www.astronomerstelegram.org/?read=7144
+spectra["SNHiTS15I"] = "Ia" # Olga-Lucia, http://www.astronomerstelegram.org/?read=7154
+spectra["SNHiTS15J"] = "Ia" # Teahine, http://www.astronomerstelegram.org/?read=7154
+spectra["SNHiTS15D"] = "II" # Daniela, http://www.astronomerstelegram.org/?read=7162
+spectra["SNHiTS15P"] = "II" # Rosemary, http://www.astronomerstelegram.org/?read=7162
+spectra["SNHiTS15ad"] = "Ia" # Gabriela, http://www.astronomerstelegram.org/?read=7164
+spectra["SNHiTS15aw"] = "II" # Maria Soledad, http://www.astronomerstelegram.org/?read=7246
+spectra["SNHiTS15al"] = "Ia" # Goretti, http://www.astronomerstelegram.org/?read=7291
+spectra["SNHiTS15be"] = "Ia" # Agustina, http://www.astronomerstelegram.org/?read=7291
+spectra["SNHiTS15bs"] = "Ia" # Rita, http://www.astronomerstelegram.org/?read=7291
+spectra["SNHiTS15by"] = "II" # Tanit, PS15ou, http://www.astronomerstelegram.org/?read=7291
+spectra["SNHiTS15bu"] = "Ia" # Ane, http://www.astronomerstelegram.org/?read=7335
+spectra["SNHiTS15cf"] = "Ia" # Nines, http://www.astronomerstelegram.org/?read=7335
+
 
 # Theoretical  models
 # -------------------------------------------------------------
@@ -168,8 +195,10 @@ limtexp14 = []
 limtexp15 = []
 
 # control of what to do
+nrows, ncols = 7, 4
+idxfilled = {}
 if doLCs:
-    fig, ax = plt.subplots(nrows = 6, ncols = 5, figsize = (10, 12))
+    fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize = (10, 12))
 elif doMCMC:
     fig, ax = plt.subplots(figsize = (12, 8))
 
@@ -210,9 +239,16 @@ for f in files:
             m = '*'
 
         # get array positions
-        (iy, ix) = int(np.mod(counter - 1, 5)), int((counter - 1) / 5)
+        (iy, ix) = int(np.mod(counter - 1, ncols)), int((counter - 1) / ncols)
+        idxfilled[(ix, iy)] = True
             
-        print(f)
+        if SN in HiTS:
+
+            # read observational data
+            sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
+            
+        #if not fixz:
+        #    continue
 
         png = f.replace("chain", "plots/nodiff/MCMC").replace(".dat", "_models.png")
         pdfout = "%s %s" % (pdfout, png)
@@ -223,14 +259,6 @@ for f in files:
             nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
 
         mask = (nchain > 500)
-
-        if SN in HiTS:
-
-            # read observational data
-            sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
-
-        #if not fixz:
-        #    continue
             
         # prepare light curves
         if doLCs:
@@ -286,7 +314,12 @@ for f in files:
             ax[ix, iy].set_yticklabels([])
             (x1, x2) = ax[ix, iy].get_xlim()
             (y1, y2) = ax[ix, iy].get_ylim()
-            ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.05, SN, fontsize = 10, ha = 'right')
+            label = SN
+            if SN in spectra.keys():
+                label = "%s*" % SN
+            ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.05, label, fontsize = 10, ha = 'right')
+            if fixz:
+                ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.15, r"$z=%4.2f$" % zcmb, fontsize = 10, ha = 'right')
             
             
         if not doMCMC:
@@ -341,8 +374,11 @@ for f in files:
         ax.errorbar(limlog10mdot[-1][1], limbeta[-1][1], marker = m, markersize = 10, xerr = xerr, yerr = yerr, label = SN, alpha = 0.8)
 
 if doLCs:
-    ax[5, 3].axis('off')#set_yticklabels([])
-    ax[5, 4].axis('off')#set_yticklabels([])
+    for ix in range(nrows):
+        for iy in range(ncols):
+            if (ix, iy) not in idxfilled.keys():
+                ax[ix, iy].axis('off')#set_yticklabels([])
+
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.1, hspace=0.15)
     plt.savefig("plots/samples/LCs.png")
