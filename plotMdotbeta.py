@@ -198,7 +198,8 @@ limtexp14 = []
 limtexp15 = []
 
 # control of what to do
-nrows, ncols = 7, 4
+ncols = 4
+nrows = int(np.ceil(1. * len(HiTS) / ncols))
 idxfilled = {}
 if doLCs:
     fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize = (10, 12))
