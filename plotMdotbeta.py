@@ -1,7 +1,7 @@
 import re, os, sys
 import numpy as np
 leftraru = False
-if os.getcwd() == "/home/fforster":
+if os.getcwd() == "/home/fforster/surveysim":
     leftraru = True
     import matplotlib # uncomment for using in leftraru
     matplotlib.use('Agg') # uncomment for using in leftraru
