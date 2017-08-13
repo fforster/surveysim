@@ -1,7 +1,10 @@
 import numpy as np
 import re, sys, os, getopt
-#import matplotlib # uncomment for using in leftraru
-#matplotlib.use('Agg') # uncomment for using in leftraru
+leftraru = False
+if os.getcwd() == "/home/fforster":
+    leftraru = True
+    import matplotlib # uncomment for using in leftraru
+    matplotlib.use('Agg') # uncomment for using in leftraru
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx

@@ -1,5 +1,11 @@
 import os, sys, re
 import numpy as np
+# for detecing when in the leftraru
+leftraru = False
+if os.getcwd() == "/home/fforster":
+    leftraru = True
+    import matplotlib # uncomment for using in leftraru
+    matplotlib.use('Agg') # uncomment for using in leftraru
 import matplotlib.pyplot as plt
 
 from readSNdata import *
@@ -206,7 +212,9 @@ for SN in sorted(SNII):
     s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
     #s = "%s plots/nodiff/*Moriya*%s*evol.png" % (s, SN)
     #s = "%s plots/nodiff/*Moriya*%s*corner.png" % (s, SN)
-os.system(s)
+print(s)
+if not leftraru:
+    os.system(s)
     
 s = "feh"
 print("SNe in HiTS not classified as SNe II")
@@ -217,7 +225,9 @@ for SN in HiTS:
         s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
         s = "%s plots/*Hsiao*%s*models.png" % (s, SN)
 if s != "feh":
-    os.system(s)
+    print(s)
+    if not leftraru:
+        os.system(s)
 
 print()
 s = "feh"
@@ -228,7 +238,10 @@ for SN in SNII:
         s = "%s plots/*Moriya*%s*models.png" % (s, SN)
         s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
         s = "%s plots/*Hsiao*%s*models.png" % (s, SN)
-os.system(s)
+if s != "feh":
+    print(s)
+    if not leftraru:
+        os.system(s)
 
 print("SNe classified as SNe II with spectra")
 for SN in SNII:

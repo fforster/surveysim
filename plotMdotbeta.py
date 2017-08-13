@@ -1,7 +1,10 @@
 import re, os, sys
-
 import numpy as np
-import matplotlib
+leftraru = False
+if os.getcwd() == "/home/fforster":
+    leftraru = True
+    import matplotlib # uncomment for using in leftraru
+    matplotlib.use('Agg') # uncomment for using in leftraru
 import matplotlib.pyplot as plt
 
 from sklearn.neighbors.kde import KernelDensity
