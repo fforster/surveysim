@@ -1,16 +1,17 @@
+import re, os, sys
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-import re
-import os, sys
+
+from sklearn.neighbors.kde import KernelDensity
 
 from constants import *
 from LCz import *
 from LCz_Av import *
 from LCz_Av_params import *
 
-from sklearn.neighbors.kde import KernelDensity
-
+from readSNdata import *
 
 survey = sys.argv[1]
 mode = sys.argv[2]
@@ -23,7 +24,8 @@ elif mode == "MCMC":
     doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = sorted(['SNHiTS14B', 'SNHiTS14N', 'SNHiTS14Q', 'SNHiTS14ac', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15K', 'SNHiTS15M', 'SNHiTS15P', 'SNHiTS15X', 'SNHiTS15ag', 'SNHiTS15ah', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15at', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15bn', 'SNHiTS15ch', 'SNHiTS14C', 'SNHiTS14D'])
+    HiTS = sorted(['SNHiTS14B', 'SNHiTS14C', 'SNHiTS14N', 'SNHiTS14Q', 'SNHiTS14ac', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15P', 'SNHiTS15Q', 'SNHiTS15X', 'SNHiTS15ag', 'SNHiTS15ah', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15at', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15ba', 'SNHiTS15bc', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15ch'])
+    print(len(HiTS))
     #HiTS = ["SNHiTS14B",
     #    "SNHiTS14N",
     #    "SNHiTS14Q",
@@ -167,7 +169,7 @@ limtexp15 = []
 
 # control of what to do
 if doLCs:
-    fig, ax = plt.subplots(nrows = 7, ncols = 4, figsize = (10, 12))
+    fig, ax = plt.subplots(nrows = 6, ncols = 5, figsize = (10, 12))
 elif doMCMC:
     fig, ax = plt.subplots(figsize = (12, 8))
 
@@ -206,10 +208,10 @@ for f in files:
             counter = counter + 1
         elif SN in DES:
             m = '*'
+
+        # get array positions
+        (iy, ix) = int(np.mod(counter - 1, 5)), int((counter - 1) / 5)
             
-        if SN != "SNHiTS15X":
-            continue
-        
         print(f)
 
         png = f.replace("chain", "plots/nodiff/MCMC").replace(".dat", "_models.png")
@@ -224,101 +226,17 @@ for f in files:
 
         if SN in HiTS:
 
+            # read observational data
+            sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
+
+        #if not fixz:
+        #    continue
             
-            (MJDs, MJDrefs, ADUs, e_ADUs, mags, e1_mags, e2_mags, sn_filters) \
-                = np.loadtxt("/home/fforster/Work/HiTS/LCs/%s.txt" % SN, usecols = (0, 1, 5, 6, 7, 8, 9, 10), dtype = str).transpose()
-       
-            sn_mjd = np.array(MJDs, dtype = float)
-            sn_adu = np.array(ADUs, dtype = float)
-            sn_e_adu = np.array(e_ADUs, dtype = float)
-            sn_mag = np.array(mags, dtype = float)
-            sn_flux = np.array(sn_adu)
-            sn_e_flux = np.array(sn_e_adu)
-            maskg = sn_filters == 'g'
-            if np.sum(maskg) > 0:
-                idxmax = np.argmax(sn_adu[maskg])
-                factorg = mag2flux(sn_mag[maskg][idxmax]) / sn_adu[maskg][idxmax]
-                sn_flux[maskg] = sn_flux[maskg] * factorg
-                sn_e_flux[maskg] = sn_e_flux[maskg] * factorg
-            maskr = sn_filters == 'r'
-            if np.sum(maskr) > 0:
-                factorr = mag2flux(sn_mag[maskr][-1]) / sn_adu[maskr][-1]
-                sn_flux[maskr] = sn_flux[maskr] * factorr
-                sn_e_flux[maskr] = sn_e_flux[maskr] * factorr
-
-            print SN, factorg, factorg
-
-                
-            if SN == "SNHiTS14B":
-                #sn_mjdref = np.hstack([sn_mjdref, sn_mjdref[-1], sn_mjdref[-1]])
-                sn_mjd = np.hstack([sn_mjd, sn_mjd[0] + 9.01680793, sn_mjd[0] + 23.85])
-                sn_flux = np.hstack([sn_flux, mag2flux(22.34), mag2flux(22.9)])
-                sn_e_flux = np.hstack([sn_e_flux, sn_e_flux[-1], sn_e_flux[-1]])
-                sn_filters = np.hstack([sn_filters, 'g', 'g'])
-
-            if SN == "SNHiTS14A":
-                zcmb = 0.2175
-                fixz = True
-            elif SN == "SNHiTS14Y":
-                zcmb = 0.108
-                fixz = True
-            elif SN == "SNHiTS14C":
-                zcmb = 0.084
-                fixz = True
-            elif SN == "SNHiTS14D":
-                zcmb = 0.135
-                fixz = True
-            elif SN == "SNHiTS15B":
-                zcmb = 0.23
-                fixz = True
-            elif SN == "SNHiTS15J":
-                zcmb = 0.108
-                fixz = True
-            elif SN == "SNHiTS15L":
-                zcmb = 0.15
-                fixz = True
-            elif SN == "SNHiTS15O":
-                zcmb = 0.142
-                fixz = True
-            elif SN == "SNHiTS15U":
-                zcmb = 0.308
-                fixz = True
-            elif SN == "SNHiTS15X":
-                zcmb = 0.055807
-                fixz = True
-            elif SN == "SNHiTS15ad":
-                zcmb = 0.055392
-                fixz = True
-            elif SN == "SNHiTS15al":
-                zcmb = 0.2
-                fixz = True
-            elif SN == "SNHiTS15aw":
-                zcmb = 0.0663
-                fixz = True
-            elif SN == "SNHiTS15be":
-                zcmb = 0.151
-                fixz = True
-            elif SN == "SNHiTS15bs":
-                zcmb = 0.07
-                fixz = True
-            elif SN == "SNHiTS15by":
-                zcmb = 0.0524
-                fixz = True
-            elif SN == 'SNHiTS15ck':
-                zcmb = 0.042
-                fixz = True
-            else:
-                zcmb = 0.2
-                fixz = False
-
         # prepare light curves
         if doLCs:
             
             # set observations
             LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SN, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
-
-            # get array positions
-            (iy, ix) = int(np.mod(counter - 1, 4)), int((counter - 1) / 4)
 
             # plot light curves
             for band in LCs.uniquefilters:
@@ -365,7 +283,7 @@ for f in files:
                         ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
                         ax[ix, iy].axvline(texp_val, alpha = 0.05, c = 'gray')
             # labels                    
-            #ax[ix, iy].set_yticklabels([])
+            ax[ix, iy].set_yticklabels([])
             (x1, x2) = ax[ix, iy].get_xlim()
             (y1, y2) = ax[ix, iy].get_ylim()
             ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.05, SN, fontsize = 10, ha = 'right')
@@ -424,6 +342,7 @@ for f in files:
 
 if doLCs:
     ax[5, 3].axis('off')#set_yticklabels([])
+    ax[5, 4].axis('off')#set_yticklabels([])
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.1, hspace=0.15)
     plt.savefig("plots/samples/LCs.png")
