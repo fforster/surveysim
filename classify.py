@@ -99,6 +99,7 @@ HiTS = ["SNHiTS14B",
 
 banned = ["SNHiTS14D", # only rising part (with spectrum)
           "SNHiTS14ab", # other class
+          "SNHiTS14ac", # small time span
           "SNHiTS14ad", # only rising part
           "SNHiTS14ah", # bad LC
           "SNHiTS15at", # no information during rise according to SNII best fit
