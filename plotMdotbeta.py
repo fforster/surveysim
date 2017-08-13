@@ -27,7 +27,7 @@ elif mode == "MCMC":
     doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = sorted(['SNHiTS14B', 'SNHiTS14C', 'SNHiTS14N', 'SNHiTS14Q', 'SNHiTS14ac', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15P', 'SNHiTS15Q', 'SNHiTS15X', 'SNHiTS15ag', 'SNHiTS15ah', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15ch'])
+    HiTS = sorted(['SNHiTS14A', 'SNHiTS14B', 'SNHiTS14C', 'SNHiTS14E', 'SNHiTS14M', 'SNHiTS14N', 'SNHiTS14P', 'SNHiTS14Q', 'SNHiTS14T', 'SNHiTS14Z', 'SNHiTS14ag', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15P', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bj', 'SNHiTS15bl', 'SNHiTS15bm', 'SNHiTS15cg', 'SNHiTS15ch'])
     print(len(HiTS))
     #HiTS = ["SNHiTS14B",
     #    "SNHiTS14N",
