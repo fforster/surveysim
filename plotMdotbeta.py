@@ -27,7 +27,7 @@ elif mode == "MCMC":
     doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = sorted(['SNHiTS14A', 'SNHiTS14B', 'SNHiTS14C', 'SNHiTS14E', 'SNHiTS14M', 'SNHiTS14N', 'SNHiTS14P', 'SNHiTS14Q', 'SNHiTS14T', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15M', 'SNHiTS15P', 'SNHiTS15X', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15au', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bm', 'SNHiTS15ch'])
+    HiTS = sorted(['SNHiTS14A', 'SNHiTS14B', 'SNHiTS14C', 'SNHiTS14E', 'SNHiTS14M', 'SNHiTS14N', 'SNHiTS14P', 'SNHiTS14Q', 'SNHiTS14T', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15M', 'SNHiTS15P', 'SNHiTS15X', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bm', 'SNHiTS15ch'])
     print(len(HiTS))
     #HiTS = ["SNHiTS14B",
     #    "SNHiTS14N",
@@ -123,8 +123,8 @@ spectra["SNHiTS15by"] = "II"
 spectra["SNHiTS14C"] = "II" # Greta, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14D"] = "II" # Emilia, blue continuum, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14H"] = "Ia" # Pamela, http://www.astronomerstelegram.org/?read=6014, http://www.astronomerstelegram.org/?read=5970
-spectra["SNHiTSF"] = "Ia" # Mara, http://www.astronomerstelegram.org/?read=6014
-spectra["SNHiTSB"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
+spectra["SNHiTS14F"] = "Ia" # Mara, http://www.astronomerstelegram.org/?read=6014
+spectra["SNHiTS14B"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
 spectra["SNHiTS15L"] = "Ia" # Natalia, http://www.astronomerstelegram.org/?read=7144
 spectra["SNHiTS15I"] = "Ia" # Olga-Lucia, http://www.astronomerstelegram.org/?read=7154
 spectra["SNHiTS15J"] = "Ia" # Teahine, http://www.astronomerstelegram.org/?read=7154
@@ -175,17 +175,18 @@ Avs = np.logspace(-4, 1, nAvs)
 Rv = 3.25
 
 
-# initialize MCMCfit model
-LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
-
-# do cosmology
-LCs.docosmo()
-
-# compute models in given bands
-LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
+if mode == 'LCs':
+    # initialize MCMCfit model
+    LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
     
-# set metric
-LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
+    # do cosmology
+    LCs.docosmo()
+    
+    # compute models in given bands
+    LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
+    
+    # set metric
+    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
         
 master = {}
 limlog10mdot = []
@@ -245,28 +246,28 @@ for f in files:
         # get array positions
         (iy, ix) = int(np.mod(counter - 1, ncols)), int((counter - 1) / ncols)
         idxfilled[(ix, iy)] = True
+
+        #if SN != "SNHiTS15X":
+        #    continue
             
         if SN in HiTS:
 
             # read observational data
             sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
             
-        #if not fixz:
-        #    continue
 
         png = f.replace("chain", "plots/nodiff/MCMC").replace(".dat", "_models.png")
         pdfout = "%s %s" % (pdfout, png)
 
-        if re.search(".*logz.*", f):
-            if fixz:
-                continue
-            else:
-                nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+        print(fixz)
+        if re.search(".*logz.*", f) and not fixz:
+            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+        elif fixz:
+            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
         else:
-            if not fixz:
-                continue
-            else:
-                nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+            print("Skipping file %s" % f)
+            continue
+
 
         mask = (nchain > 500)
             
@@ -280,7 +281,11 @@ for f in files:
             for band in LCs.uniquefilters:
                 maskb = LCs.maskband[band]
                 if np.sum(maskb) > 0:
-                    ax[ix, iy].errorbar(LCs.mjd[maskb], LCs.flux[maskb], yerr = LCs.e_flux[maskb], marker = 'o', c = LCs.bandcolors[band], lw = 0, elinewidth = 1, markersize = 5, alpha = 0.7)
+                    if band == 'g':
+                        marker = 'o'
+                    elif band == 'r':
+                        marker = 's'
+                    ax[ix, iy].errorbar(LCs.mjd[maskb], LCs.flux[maskb], yerr = LCs.e_flux[maskb], marker = 's', c = LCs.bandcolors[band], lw = 0, elinewidth = 1, markersize = 5, alpha = 0.7)
                     ax[ix, iy].set_xlim(min(min(texp[mask]), min(LCs.mjd)) - 1, max(LCs.mjd) + 3)
             
             # plot light curves sampled from the posterior
@@ -350,7 +355,10 @@ for f in files:
             master['energy'] = np.hstack([master['energy'], energy[mask]])
             master['logAv'] = np.hstack([master['logAv'], logAv[mask]])
             if not fixz:
-                master['logz'] = np.hstack([master['logz'], logz[mask]])
+                if 'logz' not in master.keys():
+                    master['logz'] = logz[mask]
+                else:
+                    master['logz'] = np.hstack([master['logz'], logz[mask]])
 
         if SN[:8] == 'SNHiTS14':
             if 'texp14' not in master.keys():
@@ -372,7 +380,6 @@ for f in files:
             limz.append(zcmb * np.ones(3))
         else:
             limz.append(np.exp(np.array(map(lambda x: np.percentile(logz[mask], x), [5, 50, 95]))))
-        print(SN, np.exp(np.array(map(lambda x: np.percentile(logz[mask], x), [5, 50, 95]))))
         if SN[:8] == 'SNHiTS14':
             limtexp14.append(np.array(map(lambda x: np.percentile(texp[mask], x), [5, 50, 95])))
         elif SN[:8] == 'SNHiTS15':

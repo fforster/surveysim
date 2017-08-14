@@ -51,8 +51,8 @@ spectra["SNHiTS15by"] = "II"
 spectra["SNHiTS14C"] = "II" # Greta, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14D"] = "II" # Emilia, blue continuum, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14H"] = "Ia" # Pamela, http://www.astronomerstelegram.org/?read=6014, http://www.astronomerstelegram.org/?read=5970
-spectra["SNHiTSF"] = "Ia" # Mara, http://www.astronomerstelegram.org/?read=6014
-spectra["SNHiTSB"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
+spectra["SNHiTS14F"] = "Ia" # Mara, http://www.astronomerstelegram.org/?read=6014
+spectra["SNHiTS14B"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
 spectra["SNHiTS15L"] = "Ia" # Natalia, http://www.astronomerstelegram.org/?read=7144
 spectra["SNHiTS15I"] = "Ia" # Olga-Lucia, http://www.astronomerstelegram.org/?read=7154
 spectra["SNHiTS15J"] = "Ia" # Teahine, http://www.astronomerstelegram.org/?read=7154
@@ -109,6 +109,7 @@ banned = ["SNHiTS14D", # only rising part (with spectrum)
           "SNHiTS14X", # only rising part
           "SNHiTS15B", # other class
           "SNHiTS14U", # same as 14T
+          "SNHiTS15au", # no information during rise according to SNII best fit
           "SNHiTS15bj", # rise after high cadence
           "SNHiTS15bl", # rise after high cadence
           "SNHiTS15cg", # rise after high cadence
