@@ -173,6 +173,13 @@ def readSNdata(project, SNname, maxairmass = 1.7):
             sn_flux = np.hstack([sn_flux, mag2flux(22.34), mag2flux(22.9)])
             sn_e_flux = np.hstack([sn_e_flux, sn_e_flux[-1], sn_e_flux[-1]])
             sn_filters = np.hstack([sn_filters, 'g', 'g'])
+        elif SNname == "SNHiTS14Q":
+            sn_mjdref = np.hstack([sn_mjdref, sn_mjdref[-1]])
+            sn_mjd = np.hstack([sn_mjd, sn_mjdref[-1] + 23.996])
+            sn_flux = np.hstack([sn_flux, mag2flux(23.218)])
+            sn_e_flux = np.hstack([sn_e_flux, mag2flux(23.218 - 0.12) - mag2flux(23.218)])
+            sn_filters = np.hstack([sn_filters, 'g'])
+
             
         mask = sn_filters == 'g'
         texp0 = sn_mjd[mask][np.argmax(np.diff(sn_flux[mask]))]

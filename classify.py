@@ -41,13 +41,6 @@ SNII = []
 SNIa = []
 
 spectra = {}
-spectra["SNHiTS15al"] = "Ia"
-spectra["SNHiTS15be"] = "Ia"
-spectra["SNHiTS15bs"] = "Ia"
-spectra["SNHiTS15by"] = "II"
-spectra["SNHiTS15bu"] = "Ia"
-spectra["SNHiTS15cf"] = "Ia"
-spectra["SNHiTS15by"] = "II"
 spectra["SNHiTS14C"] = "II" # Greta, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14D"] = "II" # Emilia, blue continuum, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14H"] = "Ia" # Pamela, http://www.astronomerstelegram.org/?read=6014, http://www.astronomerstelegram.org/?read=5970
@@ -94,46 +87,36 @@ HiTS = ["SNHiTS14B",
         "SNHiTS15bm",
         "SNHiTS15ch"]
 
-        # added 14ac, 15as, 15at, 15bn
-        # removed 14P
-
-banned = ["SNHiTS14D", # only rising part (with spectrum)
-          "SNHiTS14Z", # # small time span
-          "SNHiTS14ab", # other class
-          "SNHiTS14ac", # small time span
-          "SNHiTS14ad", # only rising part
-          "SNHiTS14ah", # bad LC
-          "SNHiTS14ag", # small time span
-          "SNHiTS15at", # no information during rise according to SNII best fit
-          "SNHiTS14K", # bad LC
-          "SNHiTS14X", # only rising part
-          "SNHiTS15B", # other class
+        
+banned = ["SNHiTS14K", # bad LC
           "SNHiTS14U", # same as 14T
+          "SNHiTS14ah", # bad LC
+          "SNHiTS15B", # other class
+          "SNHiTS15ap", # same as 15ao
           "SNHiTS15au", # no information during rise according to SNII best fit
-          "SNHiTS15bj", # rise after high cadence
           "SNHiTS15bl", # rise after high cadence
-          "SNHiTS15cg", # rise after high cadence
-          "SNHiTS15cb", # too many days between 1st detection and last non detection
-          "SNHiTS15cj", # same as 15cb
-          "SNHiTS15cl", # too many days between 1st detection and last non detection
-          "SNHiTS15ck", # too many days between 1st detection and last non detection
           "SNHiTS15bn", # same as bm
           "SNHiTS15bo", # same as bm
-          "SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
-          "SNHiTS15bt", # too many days between 1st detection and last non detection
           "SNHiTS15br", # too many days between 1st detection and last non detection
-          "SNHiTS15bd", # problems with data, large outliers
-          "SNHiTS15ae", # very noisy data
-          "SNHiTS15ap", # same as 15ao
+          "SNHiTS15bt", # too many days between 1st detection and last non detection
+          "SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
           "SNHiTS15ca", # same as 15bz
-          "SNHiTS15ao", # problems with data, large outliers
-          "SNHiTS14Y"] # straight line
-        
+          "SNHiTS15cj"] # same as 15cb
+
+# remove SNe with short time spans
+for SN in Moriya.keys():
+    sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata("HiTS", SN)
+    dt = max(sn_mjd) - min(sn_mjd)
+    if dt < 7:
+        print("Removed %s due to small time span (%i days)" % (SN, dt))
+        banned.append(SN)
+
+nodiff = {}
+BICIIdiff = {}
+BICIInodiff = {}
+BICIa = {}
 for SN in sorted(Moriya.keys()):
 
-    if SN in banned:
-          continue
-      
     sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata("HiTS", SN)
       
     nHsiao = 4 # texp, Av, stretch, scale
@@ -144,18 +127,29 @@ for SN in sorted(Moriya.keys()):
 
     if SN in Hsiao.keys():
 
-        x = np.log10(nMoriya * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Moriya[SN]))
+        x = np.log10(nMoriya * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Moriya[SN]))    
         xnodiff = np.log10(nMoriya * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Moriyanodiff[SN]))
-        if xnodiff < x:
+        BICIIdiff[SN] = 10**x
+        BICIInodiff[SN] = 10**xnodiff
+        donodiff = False
+        if xnodiff < x and donodiff:
+            nodiff[SN] = True
             x = xnodiff
             #xerr = np.abs(np.array([[np.arcsinh(np.median(Moriya[SN])) - np.arcsinh(np.percentile(Moriya[SN], 5)), np.arcsinh(np.percentile(Moriya[SN], 95)) - np.arcsinh(np.median(Moriya[SN]))]]))
-            nodiff = True
         else:
-            nodiff = False
+            nodiff[SN] = False
             #xerr = np.abs(np.array([[np.arcsinh(np.median(Moriyanodiff[SN])) - np.arcsinh(np.percentile(Moriyanodiff[SN], 5)), np.arcsinh(np.percentile(Moriyanodiff[SN], 95)) - np.arcsinh(np.median(Moriyanodiff[SN]))]]))
             
         y = np.log10(nHsiao * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Hsiao[SN]))
+        BICIa[SN] = 10**y
 
+        if SN in banned:
+            if SN in spectra.keys():
+                if spectra[SN] != 'II':
+                    continue
+            else:
+                continue
+      
         if (x < y) and not nodiff:
             print("---------> SN Moriya best fit with no diffLC: %s" % SN)
         #yerr = np.abs(np.array([[np.arcsinh(np.median(Hsiao[SN])) - np.arcsinh(np.percentile(Hsiao[SN], 5)), np.arcsinh(np.percentile(Hsiao[SN], 95)) - np.arcsinh(np.median(Hsiao[SN]))]]))
@@ -164,7 +158,9 @@ for SN in sorted(Moriya.keys()):
 
         marker = 'o'
         arcsinhscale = 1e-2
-        ax.text(np.minimum(x, y), np.arcsinh((y - x) / arcsinhscale), SN[6:], fontsize = 6)
+        delta = np.arcsinh((y - x) / arcsinhscale)
+        delta = np.arcsinh(10**y - 10**x)
+        ax.text(np.minimum(x, y), delta, SN[6:], fontsize = 6)
         if SN in spectra.keys():
             if spectra[SN] == "II":
                 SNII.append(SN)
@@ -190,24 +186,38 @@ for SN in sorted(Moriya.keys()):
                 color = 'r'
             elif spectra[SN] == "Ia":
                 color = 'b'
-            
-        s = 10
-        if SN in HiTS:
+
+        if marker == '*':
             s = 30
+        else:
+            s = 15
         #print("Plotting %s" % SN)
-        ax.errorbar(np.minimum(x, y), np.arcsinh((y - x) / arcsinhscale), marker = marker, markersize = s, alpha = 0.5, color = color)#, xerr = xerr, yerr = np.sqrt(yerr**2 + xerr**2))
+        ax.errorbar(np.minimum(x, y), delta, marker = marker, markersize = s, alpha = 0.5, color = color)#, xerr = xerr, yerr = np.sqrt(yerr**2 + xerr**2))
 
             #if not nodiff and SN in HiTS:
             #    print(SN)
 
 
-ax.set_xlabel("x", fontsize = 14)
 ax.axhline(0)
 plt.grid()
-ax.set_xlabel(r"$\log_{10}\ AIC_{\rm best}$")
-ax.set_ylabel(r"$\log_{10}\ AIC_{\rm Ia}\ -\ \log_{10} AIC_{\rm II}$")
+ax.set_xlabel(r"$\log_{10}\ BIC_{\rm best}$", fontsize = 14)
+ax.set_ylabel(r"${\rm arcsinh}(BIC_{\rm Ia}\ -\ BIC_{\rm II})$", fontsize = 14)
 plt.savefig("plots/classification.png")
 #plt.show()
+
+# save SNe II, SNe Ia and no diff
+fileout = open("HiTS_classification.out", "w")
+fileout.write("# SNe BICIIdiff BICIInodiff BICIa spec_class banned\n")
+for SN in sorted(Moriya.keys()): 
+    b = False
+    c = "NA"
+    if SN in banned:
+        b = True
+    if SN in spectra.keys():
+        c = spectra[SN]
+    fileout.write("%s %.2f %.2f %.2f %s %s\n" % (SN, BICIIdiff[SN], BICIInodiff[SN], BICIa[SN], c, b))
+fileout.close()
+
 
 print("HiTS", len(HiTS), sorted(HiTS))
 print("SNII", len(SNII), sorted(SNII))
@@ -216,7 +226,10 @@ print("SNIa", len(SNIa), sorted(SNIa))
 s = "feh"
 print("All SNe classified as SNe II")
 for SN in sorted(SNII):
-    s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
+    if nodiff[SN]:
+        s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
+    else:
+        s = "%s plots/*Moriya*%s*models.png" % (s, SN)
     #s = "%s plots/nodiff/*Moriya*%s*evol.png" % (s, SN)
     #s = "%s plots/nodiff/*Moriya*%s*corner.png" % (s, SN)
 print(s)

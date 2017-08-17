@@ -685,7 +685,7 @@ class LCz_Av_params(object):
 
         # do corner plot
         print("Doing corner plot...")
-        fig = corner.corner(samplescorner, labels = self.labels, truths = self.bestfit)
+        fig = corner.corner(samplescorner, labels = self.labels)#, truths = self.bestfit)
         plt.savefig("plots/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels))
 
         

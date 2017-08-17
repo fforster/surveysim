@@ -27,40 +27,18 @@ elif mode == "MCMC":
     doMCMC = True
 
 if survey == 'HiTS':
-    HiTS = sorted(['SNHiTS14A', 'SNHiTS14B', 'SNHiTS14C', 'SNHiTS14E', 'SNHiTS14M', 'SNHiTS14N', 'SNHiTS14P', 'SNHiTS14Q', 'SNHiTS14T', 'SNHiTS15A', 'SNHiTS15D', 'SNHiTS15F', 'SNHiTS15G', 'SNHiTS15K', 'SNHiTS15M', 'SNHiTS15P', 'SNHiTS15X', 'SNHiTS15ai', 'SNHiTS15ak', 'SNHiTS15aq', 'SNHiTS15as', 'SNHiTS15aw', 'SNHiTS15ay', 'SNHiTS15az', 'SNHiTS15bc', 'SNHiTS15bm', 'SNHiTS15ch'])
+
+    SNe, BICIIdiff, BICIInodiff, BICIa, spec_class, banned = np.loadtxt("HiTS_classification.out", dtype = str).transpose()
+
+    BICIIdiff = np.array(BICIIdiff, dtype = float)
+    BICIInodiff = np.array(BICIInodiff, dtype = float)
+    BICIa = np.array(BICIa, dtype = float)
+    spec_class = np.array(spec_class, dtype = str)
+    banned = np.array(banned, dtype = str)
+    HiTS = sorted(SNe[((spec_class == 'II') | (BICIIdiff < BICIa)) & (banned == 'False')])
+    print(HiTS)
     print(len(HiTS))
-    #HiTS = ["SNHiTS14B",
-    #    "SNHiTS14N",
-    #    "SNHiTS14Q",
-    #    "SNHiTS14P",
-    #    #"SNHiTS15aa", Ia?
-    #    #"SNHiTS15ab", Ia?
-    #    "SNHiTS15A",
-    #    "SNHiTS15D",
-    #    "SNHiTS15F",
-    #    "SNHiTS15K",
-    #    "SNHiTS15M",
-    #    "SNHiTS15P",
-    #    "SNHiTS15X",
-    #    "SNHiTS15ag",
-    #    "SNHiTS15ah",
-    #    "SNHiTS15ai",
-    #    #"SNHiTS15aj", Ia?
-    #    "SNHiTS15ak",
-    #    "SNHiTS15aq",
-    #    #"SNHiTS15at", Ia?
-    #    #"SNHiTS15av", Ia?
-    #    "SNHiTS15aw",
-    #    "SNHiTS15ay",
-    #    "SNHiTS15az",
-    #    #"SNHiTS15ba",
-    #    #"SNHiTS15bb", Ia?
-    #    "SNHiTS15bc",
-    #    "SNHiTS15bl",
-    #    "SNHiTS15bm",
-    #    #"SNHiTS15bz", no usar
-    #    "SNHiTS15ch"]
-    #    #"SNHiTS15ci"]
+
     DES = []
 
 elif survey == 'DES':
@@ -223,7 +201,7 @@ for m in ms:
 print ms_sel
 
 # iterate among samples files
-files = sorted(os.listdir("samples/nodiff"))
+files = sorted(os.listdir("samples"))
 model = "MoriyaWindAcc"
 for f in files:
 
@@ -256,14 +234,14 @@ for f in files:
             sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
             
 
-        png = f.replace("chain", "plots/nodiff/MCMC").replace(".dat", "_models.png")
+        png = f.replace("chain", "plots/MCMC").replace(".dat", "_models.png")
         pdfout = "%s %s" % (pdfout, png)
 
         print(fixz)
         if re.search(".*logz.*", f) and not fixz:
-            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
         elif fixz:
-            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/nodiff/%s" % f).transpose()
+            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
         else:
             print("Skipping file %s" % f)
             continue
@@ -275,7 +253,7 @@ for f in files:
         if doLCs:
             
             # set observations
-            LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SN, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+            LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SN, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
 
             # plot light curves
             for band in LCs.uniquefilters:
@@ -285,7 +263,7 @@ for f in files:
                         marker = 'o'
                     elif band == 'r':
                         marker = 's'
-                    ax[ix, iy].errorbar(LCs.mjd[maskb], LCs.flux[maskb], yerr = LCs.e_flux[maskb], marker = 's', c = LCs.bandcolors[band], lw = 0, elinewidth = 1, markersize = 5, alpha = 0.7)
+                    ax[ix, iy].errorbar(LCs.mjd[maskb], LCs.flux[maskb], yerr = LCs.e_flux[maskb], marker = marker, c = LCs.bandcolors[band], lw = 0, elinewidth = 1, markersize = 5, alpha = 0.7)
                     ax[ix, iy].set_xlim(min(min(texp[mask]), min(LCs.mjd)) - 1, max(LCs.mjd) + 3)
             
             # plot light curves sampled from the posterior
@@ -323,7 +301,7 @@ for f in files:
                 for band in LCs.uniquefilters:
                     maskb = LCs.maskband[band]
                     if np.sum(maskb) > 0:
-                        ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
+                        ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]) - mag2flux(LCmagref[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
                         ax[ix, iy].axvline(texp_val, alpha = 0.05, c = 'gray')
             # labels                    
             ax[ix, iy].set_yticklabels([])
