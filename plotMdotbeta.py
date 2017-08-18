@@ -203,6 +203,10 @@ print ms_sel
 # iterate among samples files
 files = sorted(os.listdir("samples"))
 model = "MoriyaWindAcc"
+if mode == 'MCMC':
+    fileout = open("log10mdotbeta.out", 'w')
+    fileout.write("SN log10mdotp5 log10mdotp50 log10mdotp95 betap5 betap50 betap95\n")
+
 for f in files:
 
     SNfound = re.findall("chain_%s_(.*)_.*?.dat" % (model), f)
@@ -211,7 +215,7 @@ for f in files:
     else:
         continue
     
-    print("Supernova:",  SN)
+    print(SN)
 
     if SN in HiTS or SN in DES:
 
@@ -237,7 +241,6 @@ for f in files:
         png = f.replace("chain", "plots/MCMC").replace(".dat", "_models.png")
         pdfout = "%s %s" % (pdfout, png)
 
-        print(fixz)
         if re.search(".*logz.*", f) and not fixz:
             nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
         elif fixz:
@@ -365,8 +368,11 @@ for f in files:
 
         xerr = [[limlog10mdot[-1][1] - limlog10mdot[-1][0]], [limlog10mdot[-1][2] - limlog10mdot[-1][1]]]
         yerr = [[limbeta[-1][1] - limbeta[-1][0]], [limbeta[-1][2] - limbeta[-1][1]]]
-        
+
+        fileout.write("%s %.2f %.2f %.2f %.2f %.2f %.2f\n" % (SN, limlog10mdot[-1][0], limlog10mdot[-1][1], limlog10mdot[-1][2], limbeta[-1][0], limbeta[-1][1], limbeta[-1][2]))
         ax.errorbar(limlog10mdot[-1][1], limbeta[-1][1], marker = m, markersize = 10, xerr = xerr, yerr = yerr, label = SN, alpha = 0.8)
+
+fileout.close()
 
 if doLCs:
     for ix in range(nrows):
