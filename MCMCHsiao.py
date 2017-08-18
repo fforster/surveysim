@@ -333,7 +333,7 @@ if __name__ == "__main__":
     priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.3), \
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 3.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
-                       lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 1.), \
+                       lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 2.), \
                        lambda stretch: norm.pdf(stretch, loc = 1., scale = 0.3)])
     
     #def scaleprior(scale):

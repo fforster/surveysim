@@ -394,7 +394,7 @@ if __name__ == "__main__":
     priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.01), \
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 3.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
-                       lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 1.), \
+                       lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 2.), \
                        lambda mass: norm.pdf(mass, loc = 14, scale = 3), \
                        lambda energy: norm.pdf(energy, loc = 1., scale = 1.), \
                        lambda mdot: lognorm.pdf(mdot / 1e-4, 1.), \
