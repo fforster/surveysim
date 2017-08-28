@@ -205,7 +205,7 @@ files = sorted(os.listdir("samples"))
 model = "MoriyaWindAcc"
 if mode == 'MCMC':
     fileout = open("log10mdotbeta.out", 'w')
-    fileout.write("SN log10mdotp5 log10mdotp50 log10mdotp95 betap5 betap50 betap95\n")
+    fileout.write("SN log10mdotp5 log10mdotp50 log10mdotp95 betap5 betap50 betap95 massp5 massp50 massp95 energyp5 energyp50 energyp95 zp5 zp50 zp95 Avp5 Avp50 Avp95 texpp5 texpp50 texpp95\n")
 
 for f in files:
 
@@ -216,6 +216,7 @@ for f in files:
         continue
     
     print(SN)
+
 
     if SN in HiTS or SN in DES:
 
@@ -293,7 +294,7 @@ for f in files:
                 parbounds = np.array([[0.1, 10.], [texp_val - 5, texp_val + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
                 parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "mdot", "rcsm", "vwindinf", "beta"])
                 fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
-            
+
                 # initialize with previous parameters
                 theta0 = parvals[np.invert(fixedvars)]
                 sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
@@ -306,6 +307,11 @@ for f in files:
                     if np.sum(maskb) > 0:
                         ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]) - mag2flux(LCmagref[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
                         ax[ix, iy].axvline(texp_val, alpha = 0.05, c = 'gray')
+
+                        print(parvals, min(LCmag[band]), max(mag2flux(LCmag[band])))
+                
+
+                        
             # labels                    
             ax[ix, iy].set_yticklabels([])
             (x1, x2) = ax[ix, iy].get_xlim()
@@ -369,10 +375,11 @@ for f in files:
         xerr = [[limlog10mdot[-1][1] - limlog10mdot[-1][0]], [limlog10mdot[-1][2] - limlog10mdot[-1][1]]]
         yerr = [[limbeta[-1][1] - limbeta[-1][0]], [limbeta[-1][2] - limbeta[-1][1]]]
 
-        fileout.write("%s %.2f %.2f %.2f %.2f %.2f %.2f\n" % (SN, limlog10mdot[-1][0], limlog10mdot[-1][1], limlog10mdot[-1][2], limbeta[-1][0], limbeta[-1][1], limbeta[-1][2]))
+        fileout.write("%s %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f\n" % (SN, limlog10mdot[-1][0], limlog10mdot[-1][1], limlog10mdot[-1][2], limbeta[-1][0], limbeta[-1][1], limbeta[-1][2], limmass[-1][0], limmass[-1][1], limmass[-1][2], limenergy[-1][0], limenergy[-1][1], limenergy[-1][2], limz[-1][0], limz[-1][1], limz[-1][2], limAv[-1][0], limAv[-1][1], limAv[-1][2], np.percentile(texp[mask], 5), np.percentile(texp[mask], 50), np.percentile(texp[mask], 95)))
         ax.errorbar(limlog10mdot[-1][1], limbeta[-1][1], marker = m, markersize = 10, xerr = xerr, yerr = yerr, label = SN, alpha = 0.8)
 
-fileout.close()
+if mode == "MCMC":
+    fileout.close()
 
 if doLCs:
     for ix in range(nrows):
@@ -441,6 +448,47 @@ plt.tight_layout()
 plt.savefig("plots/samples/log10mdotvsz_%s.png" % survey)
 
 fig, ax = plt.subplots()
+ax.hist2d(master['mass'], np.log10(master['mdot']))
+ax.set_xlabel("mass [Msun]")
+ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$")
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+plt.tight_layout()
+plt.savefig("plots/samples/log10mdotvsmass_hist_%s.png" % survey)
+
+
+fig, ax = plt.subplots()
+ax.errorbar(limmass[:, 1], limlog10mdot[:, 1], xerr = [limmass[:, 1] - limmass[:, 0], limmass[:, 2] - limmass[:, 1]],
+            yerr = [limlog10mdot[:, 1] - limlog10mdot[:, 0], limlog10mdot[:, 2] - limlog10mdot[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
+ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
+ax.set_xlabel("mass [Msun]", fontsize = 14)
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+plt.tight_layout()
+plt.savefig("plots/samples/log10mdotvsmass_%s.png" % survey)
+
+fig, ax = plt.subplots()
+ax.errorbar(limmass[:, 1], limbeta[:, 1], xerr = [limmass[:, 1] - limmass[:, 0], limmass[:, 2] - limmass[:, 1]],
+            yerr = [limbeta[:, 1] - limbeta[:, 0], limbeta[:, 2] - limbeta[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
+ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
+ax.set_xlabel("mass [Msun]", fontsize = 14)
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+plt.tight_layout()
+plt.savefig("plots/samples/betavsmass_%s.png" % survey)
+
+
+fig, ax = plt.subplots()
+ax.errorbar(limenergy[:, 1], limlog10mdot[:, 1], xerr = [limenergy[:, 1] - limenergy[:, 0], limenergy[:, 2] - limenergy[:, 1]],
+            yerr = [limlog10mdot[:, 1] - limlog10mdot[:, 0], limlog10mdot[:, 2] - limlog10mdot[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
+ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
+ax.set_xlabel("energy [B]", fontsize = 14)
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+plt.tight_layout()
+plt.savefig("plots/samples/log10mdotvsenergy_%s.png" % survey)
+
+fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limbeta[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
             yerr = [limbeta[:, 1] - limbeta[:, 0], limbeta[:, 2] - limbeta[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
 ax.set_ylabel(r"$\beta$", fontsize = 14)
@@ -482,7 +530,7 @@ def hist1D(allvals, medianvals, varname, xlabel, bw = None):
     # Silverman's rule
     if bw == None:
         bw = 0.9 * min(np.std(medianvals), np.abs(np.percentile(medianvals, 75) - np.percentile(medianvals, 25)) / 1.349) * len(medianvals)**(-1./5.)
-        print varname, bw
+        print(varname, bw, np.median(medianvals), np.std(medianvals), np.median(np.abs(np.median(medianvals) - medianvals)))
     kde = KernelDensity(kernel='gaussian', bandwidth = bw).fit(medianvals[:, np.newaxis])
     if varname == "z":
         X_plot = np.linspace(0, 0.55, 1000)[:, np.newaxis]
@@ -492,10 +540,10 @@ def hist1D(allvals, medianvals, varname, xlabel, bw = None):
     ax.fill_between(X_plot[:, 0], 0, np.exp(log_dens), facecolor = 'b', alpha = 0.5)
     ax.set_xlabel(xlabel, fontsize = 14)
     ax.set_ylabel("p.d.f.", fontsize = 14)
+    ax.set_ylim(0, ax.get_ylim()[1])
     plt.xticks(fontsize = 14)
     plt.yticks(fontsize = 14)
     if varname[:4] == "texp":
-        print "Time"
         plt.xticks(fontsize = 14, rotation = 30)
         plt.ticklabel_format(useOffset=False)
     plt.tight_layout()

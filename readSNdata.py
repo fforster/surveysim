@@ -1,5 +1,6 @@
 import re, os, sys
 import numpy as np
+import pandas as pd
 
 from constants import *
 
@@ -131,18 +132,21 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         #SNname = "SNHiTS14B"
         #SNname = "SNHiTS15B"
 
-        (MJDs, MJDrefs, airmass, ADUs, e_ADUs, mags, sn_filters) \
-            = np.loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 2, 5, 6, 7, 10), dtype = str).transpose()
-
-        sn_mjd = np.array(MJDs, dtype = float)
-        sn_mjdref = np.array(MJDrefs, dtype = float)
-        sn_adu = np.array(ADUs, dtype = float)
-        sn_e_adu = np.array(e_ADUs, dtype = float)
-        sn_mag = np.array(mags, dtype = float)
+        #(MJDs, MJDrefs, airmass, ADUs, e_ADUs, mags, sn_filters) \
+        #    = .loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 2, 5, 6, 7, 10), dtype = str).transpose()
+        df = pd.read_table("../HiTS/LCs/%s.dat" % SNname, sep = "\s+", comment = "#")
+        
+        sn_mjd = np.array(df["MJD"])
+        sn_mjdref = np.array(df["MJDref"])
+        airmass = np.array(df["airmasssci"])
+        sn_adu = np.array(df["ADU"])
+        sn_e_adu = np.array(df["e_ADU"])
+        sn_mag = np.array(df["mag"])
+        sn_filters = np.array(df["band"], dtype = str)
+        
         sn_flux = np.array(sn_adu)
         sn_e_flux = np.array(sn_e_adu)
 
-        airmass = np.array(airmass, dtype = float)
         mask = (airmass <= maxairmass)
 
         sn_mjd = sn_mjd[mask]
