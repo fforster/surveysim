@@ -32,4 +32,4 @@ def mag2flux(mag):
 
 # flux in in erg/cm2/s/Hz to AB magnitudes
 def flux2mag(flux):
-    return -2.5 * np.log10(10**flux) - 48.6
+    return -2.5 * np.log10(flux) - 48.6

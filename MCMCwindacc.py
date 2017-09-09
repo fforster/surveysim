@@ -234,7 +234,7 @@ if __name__ == "__main__":
  
     # initialize with previous parameters
     theta0 = parvals[np.invert(fixedvars)]
-    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
+    sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = False)
     
     # exit if not convergence
     if not sol.success:
