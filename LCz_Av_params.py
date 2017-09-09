@@ -60,7 +60,7 @@ class LCz_Av_params(object):
         
         # check if mdot is in the variable names
         print(self.paramnames)
-        self.maskmdot = np.array([self.paramnames == 'mdots'], dtype = bool)
+        self.maskmdot = np.array([self.paramnames == 'mdot'], dtype = bool)
         self.maskmdotvars = np.array([(self.paramnames == 'rcsm') | (self.paramnames == 'vwindinf') | (self.paramnames == 'beta')], dtype = bool)
 
     # do cosmology
@@ -202,7 +202,7 @@ class LCz_Av_params(object):
         # distance between variables
         dist = np.abs(p1 - p2) + 1e-2 * self.metric
 
-        # distance between some variables should be zero if mdot is zero in one of the two vectors
+        # distance between mdotvars should be zero if mdot is zero in one of the two vectors
         if np.sum(self.maskmdot) > 0:
             if p1[self.maskmdot] == 0 or p2[self.maskmdot] == 0:
                 dist[self.maskmdotvars] = 0

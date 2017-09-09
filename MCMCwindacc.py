@@ -167,7 +167,7 @@ if __name__ == "__main__":
     LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
     
     # set metric
-    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
+    LCs.setmetric(metric = np.array([1., 1., 1., 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
         
     # set observations
     if not diffLC:
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     if 'mdot' in par0.keys():
         mdot = 10**par0['mdot']
     else:
-        mdot = 1e-6
+        log10mdot = -6.
     if 'beta' in par0.keys():
         beta = par0['beta']
     else:
@@ -226,10 +226,10 @@ if __name__ == "__main__":
         
     rcsm = 1. # 1e15
     vwindinf = 10.
-    parvals = np.array([scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta])
+    parvals = np.array([scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "mdot", "rcsm", "vwindinf", "beta"])
+    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-7, -2], [1., 1.], [10, 10], [1., 5.]])
+    parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
     fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
  
     # initialize with previous parameters
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     
     # recover variables
     LCs.parvals[np.invert(LCs.fixedvars)] = sol.x
-    scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta = LCs.parvals
+    scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta = LCs.parvals
 
     # check best solution
     print("Best fit parameters:", zip(parlabels, LCs.parvals))
@@ -288,7 +288,7 @@ if __name__ == "__main__":
         
         mass_slider_ax = fig.add_axes([0.15, 0.045, 0.75, 0.015], axisbg='w')
         energy_slider_ax = fig.add_axes([0.15, 0.03, 0.75, 0.015], axisbg='w')
-        mdot_slider_ax = fig.add_axes([0.15, 0.015, 0.75, 0.015], axisbg='w')
+        log10mdot_slider_ax = fig.add_axes([0.15, 0.015, 0.75, 0.015], axisbg='w')
         beta_slider_ax = fig.add_axes([0.15, 0.0, 0.75, 0.015], axisbg='w')
         
         # slider objects
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         
         mass_slider = Slider(mass_slider_ax, 'mass', LCs.parbounds[LCs.parlabels == 'mass'][0][0], LCs.parbounds[LCs.parlabels == 'mass'][0][1], valinit=LCs.parvals[LCs.parlabels == 'mass'][0], dragging = False)
         energy_slider = Slider(energy_slider_ax, 'energy', LCs.parbounds[LCs.parlabels == 'energy'][0][0], LCs.parbounds[LCs.parlabels == 'energy'][0][1], valinit=LCs.parvals[LCs.parlabels == 'energy'][0], dragging = False)
-        mdot_slider = Slider(mdot_slider_ax, 'log mdot', np.log10(LCs.parbounds[LCs.parlabels == 'mdot'][0][0]), np.log10(LCs.parbounds[LCs.parlabels == 'mdot'][0][1]), valinit=np.log10(LCs.parvals[LCs.parlabels == 'mdot'][0]), dragging = False)
+        log10mdot_slider = Slider(log10mdot_slider_ax, 'log mdot', LCs.parbounds[LCs.parlabels == 'log10mdot'][0][0], LCs.parbounds[LCs.parlabels == 'log10mdot'][0][1], valinit=LCs.parvals[LCs.parlabels == 'log10mdot'][0], dragging = False)
         beta_slider = Slider(beta_slider_ax, 'beta', LCs.parbounds[LCs.parlabels == 'beta'][0][0], LCs.parbounds[LCs.parlabels == 'beta'][0][1], valinit=LCs.parvals[LCs.parlabels == 'beta'][0], dragging = False)
         
         def slider_update(val):
@@ -321,7 +321,7 @@ if __name__ == "__main__":
             LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
             LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
             LCs.parvals[LCs.parlabels == 'energy'] = energy_slider.val
-            LCs.parvals[LCs.parlabels == 'mdot'] = 10**mdot_slider.val
+            LCs.parvals[LCs.parlabels == 'log10mdot'] = log10mdot_slider.val
             LCs.parvals[LCs.parlabels == 'beta'] = beta_slider.val
 
             # compute new model
@@ -334,7 +334,7 @@ if __name__ == "__main__":
                 modelplot[band][0].set_xdata(LCs.times + texp)
                 ax.relim()
                 ax.autoscale_view()
-                ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
+                ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, 10**log10mdot, rcsm, beta), fontsize = 8)
 
                 fig.canvas.draw_idle()
 
@@ -351,21 +351,21 @@ if __name__ == "__main__":
         av_slider.on_changed(slider_update)
         mass_slider.on_changed(slider_update)
         energy_slider.on_changed(slider_update)
-        mdot_slider.on_changed(slider_update)
+        log10mdot_slider.on_changed(slider_update)
         beta_slider.on_changed(slider_update)
         
         plt.show()
         plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
 
     if dotest:
-        LCs.parvals[-4] = 5e-4 # mdot
+        LCs.parvals[-4] = -4. # mdot
         LCs.parvals[-1] = 3.5 # beta
         LCs.parvals[-5] = 1. # energy
         print("Testing interpolation\n\n")
         LCs.test_interpolation("mass")
         LCs.test_interpolation("energy")
         LCs.test_interpolation("beta")
-        LCs.test_interpolation("mdot")
+        LCs.test_interpolation("log10mdot")
         sys.exit()
 
     # recover values
@@ -376,7 +376,7 @@ if __name__ == "__main__":
         par0['texp'] = texp_slider.val
         par0['mass'] = mass_slider.val
         par0['energy'] = energy_slider.val
-        par0['mdot'] = mdot_slider.val
+        par0['log10mdot'] = log10mdot_slider.val
         par0['beta'] = beta_slider.val
         if not fixz:
             par0['logz'] = logz_slider.val
@@ -397,7 +397,7 @@ if __name__ == "__main__":
                        lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 2.), \
                        lambda mass: norm.pdf(mass, loc = 14, scale = 3), \
                        lambda energy: norm.pdf(energy, loc = 1., scale = 1.), \
-                       lambda mdot: lognorm.pdf(mdot / 1e-4, 1.), \
+                       lambda log10mdot: uniform.pdf(log10mdot, loc = -7, scale = 5), \
                        lambda rcsm: norm.pdf(rcsm, loc = 1., scale = 1.), \
                        None, \
                        lambda beta: lognorm.pdf(beta / 7., 1.)])
@@ -429,4 +429,4 @@ if __name__ == "__main__":
     LCs.doMCMC(bestfit = np.array(sol.x), nwalkers = nwalkers, deltabestfit = 1e-5, nsteps = nsteps, nburn = burnin, parlabels = parlabels, load = loadMCMC) 
 
     # plot results
-    np.array(LCs.plotMCMC(nburn = burnin, correctlogs = True, correctmdot = True))
+    LCs.plotMCMC(nburn = burnin, correctlogs = True)
