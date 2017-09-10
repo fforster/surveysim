@@ -397,7 +397,7 @@ if __name__ == "__main__":
                        lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 2.), \
                        lambda mass: norm.pdf(mass, loc = 14, scale = 3), \
                        lambda energy: norm.pdf(energy, loc = 1., scale = 1.), \
-                       lambda mdot: lognorm.pdf(mdot / 1e-4, 1.), \
+                       lambda mdot: lognorm.pdf(mdot / 1e2, 4.), \
                        lambda rcsm: norm.pdf(rcsm, loc = 1., scale = 1.), \
                        None, \
                        lambda beta: lognorm.pdf(beta / 7., 1.)])
