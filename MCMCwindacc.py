@@ -224,6 +224,8 @@ if __name__ == "__main__":
     else:
         beta = 3.
         
+    print par0.keys(), par0, texp
+
     rcsm = 1. # 1e15
     vwindinf = 10.
     parvals = np.array([scale, texp, logz, logAv, mass, energy, mdot, rcsm, vwindinf, beta])
@@ -267,6 +269,7 @@ if __name__ == "__main__":
     #title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
     ax.set_xlim(min(texp, min(LCs.mjd)) - 5, max(LCs.mjd) + 10)
+    plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
 
     if dointeractive:
 
@@ -391,6 +394,7 @@ if __name__ == "__main__":
     # set prior distributions
     from scipy.stats import lognorm, norm, uniform  # leave this here, otherwise it fails!
 
+    
     priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.01), \
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 3.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
