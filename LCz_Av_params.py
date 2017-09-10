@@ -60,8 +60,8 @@ class LCz_Av_params(object):
         
         # check if mdot is in the variable names
         print(self.paramnames)
-        self.maskmdot = np.array([self.paramnames == 'mdots'], dtype = bool)
-        self.maskmdotvars = np.array([(self.paramnames == 'rcsm') | (self.paramnames == 'vwindinf') | (self.paramnames == 'beta')], dtype = bool)
+        self.maskmdot = np.array(self.paramnames == 'mdot', dtype = bool)
+        self.maskmdotvars = np.array((self.paramnames == 'rcsm') | (self.paramnames == 'vwindinf') | (self.paramnames == 'beta'), dtype = bool)
 
     # do cosmology
     def docosmo(self):
@@ -205,9 +205,9 @@ class LCz_Av_params(object):
         # distance between some variables should be zero if mdot is zero in one of the two vectors
         if np.sum(self.maskmdot) > 0:
             if p1[self.maskmdot] == 0 or p2[self.maskmdot] == 0:
-                dist[self.maskmdotvars] = 0
+                dist[self.maskmdotvars] = 2e-1 * self.metric[self.maskmdotvars]
                 
-        return np.product(dist)
+        return dist
         
     # Function that interpolates the model at given parameter set, z, Av, texp and observed times
     def evalmodel(self, scale, texp, logz, logAv, pars, nice = False, closest = False, verbose = False):
@@ -229,6 +229,7 @@ class LCz_Av_params(object):
         parsearch = {}
 
         for idx, var in enumerate(self.paramnames):
+
             # exact match for this variable
             if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
                 parsearch[var] = pars[idx]
@@ -239,7 +240,7 @@ class LCz_Av_params(object):
                     parsearch[var] = max(self.params[:, idx])
                 else:
                     parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
-        
+
         if verbose:
             print(parsearch)
         
@@ -248,26 +249,55 @@ class LCz_Av_params(object):
                             
         # use only models which contain closest values
         maskclose = np.ones_like(self.params[:, 0], dtype = bool)
+        usezeromdot = False
+        if 'mdot' in self.paramnames:
+            if np.size(parsearch['mdot']) == 1:
+                if parsearch['mdot'] == 0:
+                    usezeromdot = True
+            else:
+                if verbose:
+                    print parsearch['mdot']
+                if parsearch['mdot'][0] == 0 or parsearch['mdot'][1] == 0:
+                    usezeromdot = True
+
         for idx, var in enumerate(self.paramnames):
-        
+
+            # save mdot index
+            if var == 'mdot':
+                idxmdot = idx
+                
             if verbose:
                 print("   ", parsearch[var])
             if np.size(parsearch[var]) == 1:
                 nomatch = np.abs(self.params[:, idx] - parsearch[var]) > 1e-9
-                if var != "mdot":
-                    maskclose[nomatch] = False
+                if var in self.paramnames[self.maskmdotvars]:
+                    if usezeromdot:
+                        zeroval = self.params[:, idx] == 0
+                        maskclose[nomatch & ~zeroval] = False
+                        maskclose[~zeroval & (self.params[:, idx] < parsearch[var] - 1e-9)] = False
+                        maskclose[~zeroval & (self.params[:, idx] > parsearch[var] + 1e-9)] = False
                 else:
                     maskclose[nomatch] = False
             else:
-                nomatch0 = np.abs(self.params[:, idx] - parsearch[var][0]) > 1e-9
-                nomatch1 = np.abs(self.params[:, idx] - parsearch[var][1]) > 1e-9
-                if var != "mdot":
-                    maskclose[nomatch0 & nomatch1] = False
+                nomatch0 = (np.abs(self.params[:, idx] - parsearch[var][0]) > 1e-9) 
+                nomatch1 = (np.abs(self.params[:, idx] - parsearch[var][1]) > 1e-9)
+                if var in self.paramnames[self.maskmdotvars]:
+                    if usezeromdot:
+                        zeroval = self.params[:, idx] == 0
+                        maskclose[nomatch0 & nomatch1 & ~zeroval] = False
+                        maskclose[~zeroval & (self.params[:, idx] < parsearch[var][0] - 1e-9)] = False
+                        maskclose[~zeroval & (self.params[:, idx] > parsearch[var][1] + 1e-9)] = False
+
                 else:
                     maskclose[nomatch0 & nomatch1] = False
-        
+                    
+
             #TEST
-            #print(np.sum(maskclose))
+            #print(var, parsearch[var], np.sum(maskclose))
+
+        #print pars
+        if usezeromdot and verbose:
+            print(self.params[maskclose])
             
         # check if interpolation is possible
         if np.sum(maskclose) == 0:
@@ -284,7 +314,7 @@ class LCz_Av_params(object):
         #self.idxbest = idxbest
             
         # compute distances from close model parameters
-        distances = np.array(map(lambda p: self.paramdist(p, pars), self.params[idxbest]))
+        distances = np.array(map(lambda p: np.product(self.paramdist(p, pars)), self.params[idxbest]))
         
         if closest:
             idxbest = np.array([idxbest[np.argmin(distances)]])
@@ -292,10 +322,10 @@ class LCz_Av_params(object):
         
         # compute weights
         weights = 1. / (distances + 1e-20)
+        if usezeromdot:
+            maskmdotzero = self.params[maskclose, idxmdot] == 0
+            weights[maskmdotzero] *= (np.sum(maskclose) - np.sum(maskmdotzero)) / np.sum(maskmdotzero)
         weights = weights / np.sum(weights)
-        
-        if verbose:
-            print(weights)
 
         # stretch: by default is the first parameters in pars
         stretch = 1.
@@ -427,11 +457,10 @@ class LCz_Av_params(object):
         nplot = 20
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
-        if self.logscale[idxvar - self.nvext]: # var is logarithmic
-            vals = np.logspace(np.log10(l1), np.log10(l2), nplot)
-            #TEST
-            #vals = [1.1e-4, 2e-4, 2.9e-4]
-            cNorm  = colors.Normalize(vmin = np.log10(l1), vmax = np.log10(l2))
+        if var == 'mdot':
+            minmdot = 1e-8
+            vals = np.logspace(np.log10(l1 + minmdot), np.log10(l2), nplot)
+            cNorm  = colors.Normalize(vmin = np.log10(l1 + minmdot), vmax = np.log10(l2))
             scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
         else: # var is linear
             vals = np.linspace(l1, l2, nplot)
@@ -446,7 +475,7 @@ class LCz_Av_params(object):
             self.parvals[idxvar] = val
 
             # color
-            if self.logscale[idxvar - self.nvext]:
+            if var == 'mdot': #self.logscale[idxvar - self.nvext]:
                 colorVal = scalarMap.to_rgba(np.log10(val))
             else:
                 colorVal = scalarMap.to_rgba(val)
