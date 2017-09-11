@@ -742,7 +742,7 @@ class LCz_Av_params(object):
         idxselection = np.random.choice(np.array(range(np.shape(samples)[0])), size = nselection, replace = True)
 
         # save lnlikes for model selection
-        lnlikes = np.array(lambda sample: self.lnlike(sample), samples[idxselection]))
+        lnlikes = np.array(map(lambda sample: self.lnlike(sample), samples[idxselection]))
         np.save("lnlikes/MCMC_%s_%s_%s_lnlikes.npy" % (self.modelname, self.objname, self.fitlabels), lnlikes)
 
         # loop over samples
