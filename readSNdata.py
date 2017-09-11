@@ -188,7 +188,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
             
         mask = sn_filters == 'g'
         texp0 = sn_mjd[mask][np.argmax(np.diff(sn_flux[mask]))]
-        texp0 = sn_mjd[mask][0]#np.argmax(np.diff(sn_flux[mask]))]
+        texp0 = sn_mjd[mask][0] + 3.#np.argmax(np.diff(sn_flux[mask]))]
 
         if SNname == "SNHiTS14A":
             zcmb = 0.2175

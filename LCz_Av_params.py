@@ -216,6 +216,13 @@ class LCz_Av_params(object):
             print("Please set the metric function for parameter model interpolation")
             sys.exit()
 
+        # check mdot
+        for idx, var in enumerate(self.paramnames):
+            # save mdot index
+            if var == 'mdot':
+                idxmdot = idx
+                pars[idx] = 10**pars[idx] # bring log10 values to linear
+
         # find z and Av indices
         idxz = (logz - self.minlogz) / self.dlogz
         idxAv = (logAv - self.minlogAv) / self.dlogAv
@@ -262,10 +269,6 @@ class LCz_Av_params(object):
 
         for idx, var in enumerate(self.paramnames):
 
-            # save mdot index
-            if var == 'mdot':
-                idxmdot = idx
-                
             if verbose:
                 print("   ", parsearch[var])
             if np.size(parsearch[var]) == 1:
@@ -726,29 +729,27 @@ class LCz_Av_params(object):
             mask = self.maskband[band]
             ax.errorbar(self.mjd[mask], self.flux[mask], yerr = self.e_flux[mask], marker = 'o', alpha = 0.5, lw = 0, elinewidth = 1, c = self.bandcolors[band], label = "%s" % band)
 
-
-
+        # corrections
         if correctlogs and np.sum(correctedlogs) > 0:
             samples[:, correctedlogs] = np.log(samples[:, correctedlogs])
         if correctmdot:
             samples[:, idxmdot] = 10**(samples[:, idxmdot])
 
-        # get distribution of log likelihoods
-        nselection = 1000
-        idxselection = np.random.choice(np.array(range(self.nsteps)[nburn:]), size = nselection, replace = True)
-        lnlikes = []
-        for idxsel, i in enumerate(idxselection):
-            lnlikes.append(self.lnlike(samples[i]))
-        lnlikes = np.array(lnlikes)
+        # get random sample of 100 elements
+        nselection = 100
+        idxselection = np.random.choice(np.array(range(np.shape(samples)[0])), size = nselection, replace = True)
+        
+        lnlikes = np.array(self.lnlike(samples[idxselection])) #[]
+        #for idxsel in idxselection:
+        #    lnlikes.append(self.lnlike(samples[idxsel]))
+        #lnlikes = np.array(lnlikes)
         np.save("lnlikes/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels), lnlikes)
 
-        # plot 100 light curves
-        nselection = 100
-        idxselection = np.random.choice(np.array(range(self.nsteps)[nburn:]), size = nselection, replace = True)
-        for idxsel, i in enumerate(idxselection):
+        for sample in samples[idxselection]:
 
+            print sample[-2]
             # recover variables
-            self.parvals[np.invert(self.fixedvars)] = samples[i]
+            self.parvals[np.invert(self.fixedvars)] = sample
 
             # check best solution
             scale, texp, logz, logAv = self.parvals[:self.nvext]
