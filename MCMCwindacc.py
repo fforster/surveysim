@@ -355,7 +355,7 @@ if __name__ == "__main__":
         av_slider.on_changed(slider_update)
         mass_slider.on_changed(slider_update)
         energy_slider.on_changed(slider_update)
-        mdot_slider.on_changed(slider_update)
+        log10mdot_slider.on_changed(slider_update)
         beta_slider.on_changed(slider_update)
         
         plt.show()

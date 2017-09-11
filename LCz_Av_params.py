@@ -684,6 +684,7 @@ class LCz_Av_params(object):
             correctmdot = bool(kwargs["correctmdot"])
         correctedlogs = np.zeros(self.ndim, dtype = bool)
 
+        # correct logarithmic variables
         if correctlogs:
             print("Correcting logarithmic variables...")
             for idx, lab in enumerate(self.labels):
@@ -694,6 +695,7 @@ class LCz_Av_params(object):
                     self.labels[idx] = self.labels[idx][3:]
                     correctedlogs[idx] = True
 
+        # correct mdots
         if correctmdot:
             for idx, lab in enumerate(self.labels):
                 if lab == 'mdot':
@@ -719,12 +721,12 @@ class LCz_Av_params(object):
         print("Doing corner plot...")
         fig = corner.corner(samplescorner, labels = self.labels)#, truths = self.bestfit)
         plt.savefig("plots/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels))
-
         
         # show sample
         print("Plotting model sample")
         fig, ax = plt.subplots(figsize = (14, 7))
 
+        # plot observed data
         for idx, band in enumerate(self.uniquefilters):
             mask = self.maskband[band]
             ax.errorbar(self.mjd[mask], self.flux[mask], yerr = self.e_flux[mask], marker = 'o', alpha = 0.5, lw = 0, elinewidth = 1, c = self.bandcolors[band], label = "%s" % band)
@@ -738,16 +740,14 @@ class LCz_Av_params(object):
         # get random sample of 100 elements
         nselection = 100
         idxselection = np.random.choice(np.array(range(np.shape(samples)[0])), size = nselection, replace = True)
-        
-        lnlikes = np.array(self.lnlike(samples[idxselection])) #[]
-        #for idxsel in idxselection:
-        #    lnlikes.append(self.lnlike(samples[idxsel]))
-        #lnlikes = np.array(lnlikes)
-        np.save("lnlikes/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels), lnlikes)
 
+        # save lnlikes for model selection
+        lnlikes = np.array(lambda sample: self.lnlike(sample), samples[idxselection]))
+        np.save("lnlikes/MCMC_%s_%s_%s_lnlikes.npy" % (self.modelname, self.objname, self.fitlabels), lnlikes)
+
+        # loop over samples
         for sample in samples[idxselection]:
 
-            print sample[-2]
             # recover variables
             self.parvals[np.invert(self.fixedvars)] = sample
 
@@ -756,8 +756,10 @@ class LCz_Av_params(object):
             pars = self.parvals[self.nvext:]
             print("Parameters:", scale, texp, logz, logAv, pars)
 
+            # evaluate models
             LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, pars, True)
 
+            # plot models
             for idx, band in enumerate(self.uniquefilters):
                 #mask = self.maskband[band]
                 ax.axvline(texp, c = 'gray', alpha = 0.05)
