@@ -28,14 +28,13 @@ elif mode == "MCMC":
 
 if survey == 'HiTS':
 
-    SNe, BICIIdiff, BICIInodiff, BICIa, spec_class, banned = np.loadtxt("HiTS_classification.out", dtype = str).transpose()
+    SNe, BICII, BICIa, spec_class, banned = np.loadtxt("HiTS_classification.out", dtype = str).transpose()
 
-    BICIIdiff = np.array(BICIIdiff, dtype = float)
-    BICIInodiff = np.array(BICIInodiff, dtype = float)
+    BICII = np.array(BICII, dtype = float)
     BICIa = np.array(BICIa, dtype = float)
     spec_class = np.array(spec_class, dtype = str)
     banned = np.array(banned, dtype = str)
-    HiTS = sorted(SNe[((spec_class == 'II') | (BICIIdiff < BICIa)) & (banned == 'False')])
+    HiTS = sorted(SNe[((spec_class == 'II') | (BICII < BICIa)) & (banned == 'False')])
     print(HiTS)
     print(len(HiTS))
 
@@ -204,8 +203,9 @@ print ms_sel
 files = sorted(os.listdir("samples"))
 model = "MoriyaWindAcc"
 if mode == 'MCMC':
-    fileout = open("log10mdotbeta.out", 'w')
+    fileout = open("summary_HiTS.out", 'w')
     fileout.write("SN log10mdotp5 log10mdotp50 log10mdotp95 betap5 betap50 betap95 massp5 massp50 massp95 energyp5 energyp50 energyp95 zp5 zp50 zp95 Avp5 Avp50 Avp95 texpp5 texpp50 texpp95\n")
+
 
 for f in files:
 
@@ -243,9 +243,9 @@ for f in files:
         pdfout = "%s %s" % (pdfout, png)
 
         if re.search(".*logz.*", f) and not fixz:
-            nchain, nwalker, scale, texp, logz, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
+            nchain, nwalker, scale, texp, logz, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
         elif fixz:
-            nchain, nwalker, scale, texp, logAv, mass, energy, mdot, beta = np.loadtxt("samples/%s" % f).transpose()
+            nchain, nwalker, scale, texp, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
         else:
             print("Skipping file %s" % f)
             continue
@@ -284,15 +284,15 @@ for f in files:
                 logAv_val = logAv[mask][idxsel]
                 mass_val = mass[mask][idxsel]
                 energy_val = energy[mask][idxsel]
-                mdot_val = mdot[mask][idxsel]
+                log10mdot_val = log10mdot[mask][idxsel]
                 beta_val = beta[mask][idxsel]
                 rcsm_val = 1. # 1e15
                 vwindinf_val = 10.
 
                 # values
-                parvals = np.array([scale_val, texp_val, logz_val, logAv_val, mass_val, energy_val, mdot_val, rcsm_val, vwindinf_val, beta_val])
+                parvals = np.array([scale_val, texp_val, logz_val, logAv_val, mass_val, energy_val, log10mdot_val, rcsm_val, vwindinf_val, beta_val])
                 parbounds = np.array([[0.1, 10.], [texp_val - 5, texp_val + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-                parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "mdot", "rcsm", "vwindinf", "beta"])
+                parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
                 fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
 
                 # initialize with previous parameters
@@ -307,9 +307,6 @@ for f in files:
                     if np.sum(maskb) > 0:
                         ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]) - mag2flux(LCmagref[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
                         ax[ix, iy].axvline(texp_val, alpha = 0.05, c = 'gray')
-
-                        print(parvals, min(LCmag[band]), max(mag2flux(LCmag[band])))
-                
 
                         
             # labels                    
@@ -327,8 +324,8 @@ for f in files:
         if not doMCMC:
             continue
         
-        if "mdot" not in master.keys():
-            master['mdot'] = mdot[mask]
+        if "log10mdot" not in master.keys():
+            master['log10mdot'] = log10mdot[mask]
             master['beta'] = beta[mask]
             master['mass'] = mass[mask]
             master['energy'] = energy[mask]
@@ -336,7 +333,7 @@ for f in files:
             if not fixz:
                 master['logz'] = logz[mask]
         else:
-            master['mdot'] = np.hstack([master['mdot'], mdot[mask]])
+            master['log10mdot'] = np.hstack([master['log10mdot'], log10mdot[mask]])
             master['beta'] = np.hstack([master['beta'], beta[mask]])
             master['mass'] = np.hstack([master['mass'], mass[mask]])
             master['energy'] = np.hstack([master['energy'], energy[mask]])
@@ -358,7 +355,7 @@ for f in files:
             else:
                 master['texp15'] = np.hstack([master['texp15'], texp[mask]])
 
-        limlog10mdot.append(np.log10(np.array(map(lambda x: np.percentile(mdot[mask], x), [5, 50, 95]))))
+        limlog10mdot.append(np.array(map(lambda x: np.percentile(log10mdot[mask], x), [5, 50, 95])))
         limbeta.append(np.array(map(lambda x: np.percentile(beta[mask], x), [5, 50, 95])))
         limmass.append(np.array(map(lambda x: np.percentile(mass[mask], x), [5, 50, 95])))
         limenergy.append(np.array(map(lambda x: np.percentile(energy[mask], x), [5, 50, 95])))
@@ -408,14 +405,14 @@ limtexp15 = np.array(limtexp15)
 os.system("convert %s plots/samples/%s.pdf" % (pdfout, survey))
 
 plt.legend(loc = 3, fontsize = 11)  
-ax.set_xlim(-6, -2)
+ax.set_xlim(-8, -2)
 ax.set_ylim(1, 5)
 ax.set_xlabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
 ax.set_ylabel(r"$\beta$", fontsize = 14)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/betavsmdot_%s.png" % survey)
+plt.savefig("plots/samples/betavslog10mdot_%s.png" % survey)
 
 fig, ax = plt.subplots()
 ax.hist2d(master['mass'], master['energy'])
@@ -448,7 +445,7 @@ plt.tight_layout()
 plt.savefig("plots/samples/log10mdotvsz_%s.png" % survey)
 
 fig, ax = plt.subplots()
-ax.hist2d(master['mass'], np.log10(master['mdot']))
+ax.hist2d(master['mass'], master['log10mdot'])
 ax.set_xlabel("mass [Msun]")
 ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$")
 plt.xticks(fontsize = 14)
@@ -524,8 +521,6 @@ plt.savefig("plots/samples/energyvsz_%s.png" % survey)
 
 def hist1D(allvals, medianvals, varname, xlabel, bw = None):
     fig, ax = plt.subplots()
-    #ax.hist(allvals, normed = True, alpha = 0.5)
-    #ax.hist(medianvals, normed = True, color = 'r', alpha = 0.3)
 
     # Silverman's rule
     if bw == None:
@@ -549,7 +544,7 @@ def hist1D(allvals, medianvals, varname, xlabel, bw = None):
     plt.tight_layout()
     plt.savefig("plots/samples/%s_hist_%s.png" % (varname, survey))
 
-hist1D(np.log10(master['mdot']), limlog10mdot[:, 1], "log10mdot", r"$\log_{10}\ \dot M\ [M_\odot/yr]$")
+hist1D(master['log10mdot'], limlog10mdot[:, 1], "log10mdot", r"$\log_{10}\ \dot M\ [M_\odot/yr]$")
 
 hist1D(master['beta'], limbeta[:, 1], "beta", r"$\beta$")
 

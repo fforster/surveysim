@@ -167,7 +167,7 @@ if __name__ == "__main__":
     LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
     
     # set metric
-    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
+    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 3.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
         
     # set observations
     if not diffLC:
@@ -219,11 +219,13 @@ if __name__ == "__main__":
         mdot = 10**par0['mdot']
     else:
         mdot = 1e-6
+    log10mdot = np.log10(mdot)
+    if 'log10mdot' in par0.keys():
+        log10mdot = par0['log10mdot']
     if 'beta' in par0.keys():
         beta = par0['beta']
     else:
         beta = 3.
-    log10mdot = np.log10(mdot)
         
     print par0.keys(), par0, texp
 

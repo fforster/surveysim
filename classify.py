@@ -14,7 +14,6 @@ lnlikedir = "lnlikes"
 files = os.listdir(lnlikedir)
 
 Moriya = {}
-Moriyanodiff = {}
 Hsiao = {}
 
 for f in sorted(files):
@@ -24,13 +23,12 @@ for f in sorted(files):
     
     print(f)
     
-    model, SN = re.findall("MCMC_(.*?)_(.*?)_.*.npy", f)[0]
+    model, SN = re.findall("MCMC_(.*?)_(SNHiTS.*?)_.*.npy", f)[0]
 
     #print("Found SN %s (model %s)" % (SN, model))
     
     if model == "MoriyaWindAcc":
         Moriya[SN] = np.load("%s/%s" % (lnlikedir, f))
-        Moriyanodiff[SN] = np.load(("%s/%s" % (lnlikedir, f)).replace("lnlikes", "lnlikes/nodiff"))
     elif model == "Hsiao":
         Hsiao[SN] = np.load("%s/%s" % (lnlikedir, f))
 
@@ -41,23 +39,23 @@ SNII = []
 SNIa = []
 
 spectra = {}
+spectra["SNHiTS14B"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
 spectra["SNHiTS14C"] = "II" # Greta, http://www.astronomerstelegram.org/?read=5957
 spectra["SNHiTS14D"] = "II" # Emilia, blue continuum, http://www.astronomerstelegram.org/?read=5957
-spectra["SNHiTS14H"] = "Ia" # Pamela, http://www.astronomerstelegram.org/?read=6014, http://www.astronomerstelegram.org/?read=5970
 spectra["SNHiTS14F"] = "Ia" # Mara, http://www.astronomerstelegram.org/?read=6014
-spectra["SNHiTS14B"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
-spectra["SNHiTS15L"] = "Ia" # Natalia, http://www.astronomerstelegram.org/?read=7144
+spectra["SNHiTS14H"] = "Ia" # Pamela, http://www.astronomerstelegram.org/?read=6014, http://www.astronomerstelegram.org/?read=5970
+spectra["SNHiTS15D"] = "II" # Daniela, http://www.astronomerstelegram.org/?read=7162
 spectra["SNHiTS15I"] = "Ia" # Olga-Lucia, http://www.astronomerstelegram.org/?read=7154
 spectra["SNHiTS15J"] = "Ia" # Teahine, http://www.astronomerstelegram.org/?read=7154
-spectra["SNHiTS15D"] = "II" # Daniela, http://www.astronomerstelegram.org/?read=7162
+spectra["SNHiTS15L"] = "Ia" # Natalia, http://www.astronomerstelegram.org/?read=7144
 spectra["SNHiTS15P"] = "II" # Rosemary, http://www.astronomerstelegram.org/?read=7162
 spectra["SNHiTS15ad"] = "Ia" # Gabriela, http://www.astronomerstelegram.org/?read=7164
 spectra["SNHiTS15aw"] = "II" # Maria Soledad, http://www.astronomerstelegram.org/?read=7246
 spectra["SNHiTS15al"] = "Ia" # Goretti, http://www.astronomerstelegram.org/?read=7291
 spectra["SNHiTS15be"] = "Ia" # Agustina, http://www.astronomerstelegram.org/?read=7291
 spectra["SNHiTS15bs"] = "Ia" # Rita, http://www.astronomerstelegram.org/?read=7291
-spectra["SNHiTS15by"] = "II" # Tanit, PS15ou, http://www.astronomerstelegram.org/?read=7291
 spectra["SNHiTS15bu"] = "Ia" # Ane, http://www.astronomerstelegram.org/?read=7335
+spectra["SNHiTS15by"] = "II" # Tanit, PS15ou, http://www.astronomerstelegram.org/?read=7291
 spectra["SNHiTS15cf"] = "Ia" # Nines, http://www.astronomerstelegram.org/?read=7335
 
 
@@ -89,16 +87,20 @@ HiTS = ["SNHiTS14B",
 
         
 banned = ["SNHiTS14K", # bad LC
+          "SNHiTS14P", # no information during emergence according to SNII best qfit
           "SNHiTS14U", # same as 14T
           "SNHiTS14ae", # no information during rise according to SNII best fit
           "SNHiTS14ah", # bad LC
+          "SNHiTS14W", # no information during rise according to SNII best fit
           "SNHiTS15B", # other class
           "SNHiTS15ap", # same as 15ao
           "SNHiTS15ae", # noisy LC
           "SNHiTS15au", # no information during rise according to SNII best fit
+          "SNHiTS15bj", # no information during rise according to SNII best fit
           "SNHiTS15bl", # rise after high cadence
           "SNHiTS15bn", # same as bm
           "SNHiTS15bo", # same as bm
+          "SNHiTS15bp", # no information during rise according to SNII best fit
           "SNHiTS15br", # too many days between 1st detection and last non detection
           "SNHiTS15bt", # too many days between 1st detection and last non detection
           "SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
@@ -115,9 +117,7 @@ for SN in Moriya.keys():
         print("Removed %s due to small time span (%i days)" % (SN, dt))
         banned.append(SN)
 
-nodiff = {}
-BICIIdiff = {}
-BICIInodiff = {}
+BICII = {}
 BICIa = {}
 for SN in sorted(Moriya.keys()):
 
@@ -132,33 +132,24 @@ for SN in sorted(Moriya.keys()):
     if SN in Hsiao.keys():
 
         x = np.log10(nMoriya * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Moriya[SN]))    
-        xnodiff = np.log10(nMoriya * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Moriyanodiff[SN]))
-        BICIIdiff[SN] = 10**x
-        BICIInodiff[SN] = 10**xnodiff
-        donodiff = False
-        if xnodiff < x and donodiff:
-            nodiff[SN] = True
-            x = xnodiff
-            #xerr = np.abs(np.array([[np.arcsinh(np.median(Moriya[SN])) - np.arcsinh(np.percentile(Moriya[SN], 5)), np.arcsinh(np.percentile(Moriya[SN], 95)) - np.arcsinh(np.median(Moriya[SN]))]]))
-        else:
-            nodiff[SN] = False
-            #xerr = np.abs(np.array([[np.arcsinh(np.median(Moriyanodiff[SN])) - np.arcsinh(np.percentile(Moriyanodiff[SN], 5)), np.arcsinh(np.percentile(Moriyanodiff[SN], 95)) - np.arcsinh(np.median(Moriyanodiff[SN]))]]))
+        BICII[SN] = 10**x
             
         y = np.log10(nHsiao * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Hsiao[SN]))
         BICIa[SN] = 10**y
 
         if SN in banned:
-            if SN in spectra.keys():
-                if spectra[SN] != 'II':
-                    continue
-            else:
-                continue
+            continue
+            #if SN in spectra.keys():
+            #    if spectra[SN] != 'II':
+            #        continue
+            #else:
+            #    continue
       
-        if (x < y) and not nodiff:
-            print("---------> SN Moriya best fit with no diffLC: %s" % SN)
+        if (x < y):
+            print("---------> SN Moriya best fit: %s" % SN)
         #yerr = np.abs(np.array([[np.arcsinh(np.median(Hsiao[SN])) - np.arcsinh(np.percentile(Hsiao[SN], 5)), np.arcsinh(np.percentile(Hsiao[SN], 95)) - np.arcsinh(np.median(Hsiao[SN]))]]))
 
-        print "SN: %s, n_M: %i, n_H: %i, AIC_M: %f, AIC_Mnodiff: %f, AIC_H: %f" % (SN, nMoriya, nHsiao, 10**x, 10**xnodiff, 10**y)
+        print "SN: %s, n_M: %i, n_H: %i, AIC_M: %f, AIC_H: %f" % (SN, nMoriya, nHsiao, 10**x, 10**y)
 
         marker = 'o'
         arcsinhscale = 1e-2
@@ -198,10 +189,6 @@ for SN in sorted(Moriya.keys()):
         #print("Plotting %s" % SN)
         ax.errorbar(np.minimum(x, y), delta, marker = marker, markersize = s, alpha = 0.5, color = color)#, xerr = xerr, yerr = np.sqrt(yerr**2 + xerr**2))
 
-            #if not nodiff and SN in HiTS:
-            #    print(SN)
-
-
 ax.axhline(0)
 plt.grid()
 ax.set_xlabel(r"$\log_{10}\ BIC_{\rm best}$", fontsize = 14)
@@ -209,9 +196,9 @@ ax.set_ylabel(r"${\rm arcsinh}(BIC_{\rm Ia}\ -\ BIC_{\rm II})$", fontsize = 14)
 plt.savefig("plots/classification.png")
 #plt.show()
 
-# save SNe II, SNe Ia and no diff
+# save SNe II, SNe Ia
 fileout = open("HiTS_classification.out", "w")
-fileout.write("# SNe BICIIdiff BICIInodiff BICIa spec_class banned\n")
+fileout.write("# SNe BICII BICIa spec_class banned\n")
 for SN in sorted(Moriya.keys()): 
     b = False
     c = "NA"
@@ -219,7 +206,7 @@ for SN in sorted(Moriya.keys()):
         b = True
     if SN in spectra.keys():
         c = spectra[SN]
-    fileout.write("%s %.2f %.2f %.2f %s %s\n" % (SN, BICIIdiff[SN], BICIInodiff[SN], BICIa[SN], c, b))
+    fileout.write("%s %.2f %.2f %s %s\n" % (SN, BICII[SN], BICIa[SN], c, b))
 fileout.close()
 
 
@@ -228,25 +215,19 @@ print("SNII", len(SNII), sorted(SNII))
 print("SNIa", len(SNIa), sorted(SNIa))
 
 s = "feh"
-print("All SNe classified as SNe II")
+print("\n\nAll SNe classified as SNe II")
 for SN in sorted(SNII):
-    if nodiff[SN]:
-        s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
-    else:
-        s = "%s plots/*Moriya*%s*models.png" % (s, SN)
-    #s = "%s plots/nodiff/*Moriya*%s*evol.png" % (s, SN)
-    #s = "%s plots/nodiff/*Moriya*%s*corner.png" % (s, SN)
+    s = "%s plots/*Moriya*%s*models.png" % (s, SN)
 print(s)
 if not leftraru:
     os.system(s)
     
 s = "feh"
-print("SNe in HiTS not classified as SNe II")
+print("\n\nSNe in HiTS not classified as SNe II")
 for SN in HiTS:
     if SN not in SNII and SN not in banned:
         print(SN)
         s = "%s plots/*Moriya*%s*models.png" % (s, SN)
-        s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
         s = "%s plots/*Hsiao*%s*models.png" % (s, SN)
 if s != "feh":
     print(s)
@@ -255,12 +236,11 @@ if s != "feh":
 
 print()
 s = "feh"
-print("SNe classified as SNe II not in HiTS")
+print("\n\nSNe classified as SNe II not in HiTS")
 for SN in SNII:
     if SN not in HiTS and SN not in banned:
         print(SN)
         s = "%s plots/*Moriya*%s*models.png" % (s, SN)
-        s = "%s plots/nodiff/*Moriya*%s*models.png" % (s, SN)
         s = "%s plots/*Hsiao*%s*models.png" % (s, SN)
 if s != "feh":
     print(s)

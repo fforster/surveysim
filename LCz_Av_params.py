@@ -210,18 +210,20 @@ class LCz_Av_params(object):
         return dist
         
     # Function that interpolates the model at given parameter set, z, Av, texp and observed times
-    def evalmodel(self, scale, texp, logz, logAv, pars, nice = False, closest = False, verbose = False):
+    def evalmodel(self, scale, texp, logz, logAv, parameters, nice = False, closest = False, verbose = False):
 
         if not hasattr(self, "paramdist"):
             print("Please set the metric function for parameter model interpolation")
             sys.exit()
 
-        # check mdot
+        # make local copy of pars
+        pars = np.array(parameters)
+            
+        # save mdot index
         for idx, var in enumerate(self.paramnames):
-            # save mdot index
             if var == 'mdot':
                 idxmdot = idx
-                pars[idx] = 10**pars[idx] # bring log10 values to linear
+                pars[idx] = 10**pars[idx]
 
         # find z and Av indices
         idxz = (logz - self.minlogz) / self.dlogz
@@ -236,7 +238,7 @@ class LCz_Av_params(object):
         parsearch = {}
 
         for idx, var in enumerate(self.paramnames):
-
+                
             # exact match for this variable
             if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
                 parsearch[var] = pars[idx]
@@ -322,7 +324,7 @@ class LCz_Av_params(object):
         if closest:
             idxbest = np.array([idxbest[np.argmin(distances)]])
             distances = np.array([min(distances)])
-        
+
         # compute weights
         weights = 1. / (distances + 1e-20)
         if usezeromdot:
@@ -455,67 +457,46 @@ class LCz_Av_params(object):
         # initialize plots and color scale
         import matplotlib.colors as colors
         print self.uniquefilters
-        fig, ax = plt.subplots(figsize = (5, 8), nrows = len(self.uniquefilters), sharex = True)
-        jet = cm = plt.get_cmap('jet') 
+        
         nplot = 20
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
-        if var == 'mdot':
-            minmdot = 1e-8
-            vals = np.logspace(np.log10(l1 + minmdot), np.log10(l2), nplot)
-            cNorm  = colors.Normalize(vmin = np.log10(l1 + minmdot), vmax = np.log10(l2))
-            scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
-        else: # var is linear
-            vals = np.linspace(l1, l2, nplot)
-            cNorm  = colors.Normalize(vmin = l1, vmax = l2)
-            scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
+        vals = np.linspace(l1, l2, nplot)
+        print(var, l1, l2)
+        
+        jet = plt.get_cmap('jet') 
+        cNorm  = colors.Normalize(vmin = l1, vmax = l2)
+        scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
+
+        fig, ax = plt.subplots(figsize = (5, 8), nrows = len(self.uniquefilters), sharex = True)
 
         # vary test variable
-        for val in vals:
+        for idx, val in enumerate(vals):
 
             # value
-            print("%s: %s" % (self.parlabels[idxvar], val))
+            #self.parvals = np.array(startvars)
             self.parvals[idxvar] = val
+            print("%s: %s" % (self.parlabels[idxvar], self.parvals[idxvar]))
 
             # color
-            if var == 'mdot': #self.logscale[idxvar - self.nvext]:
-                colorVal = scalarMap.to_rgba(np.log10(val))
-            else:
-                colorVal = scalarMap.to_rgba(val)
+            colorVal = scalarMap.to_rgba(val)
 
             # light curve model evaluation (interpolation happens here)
             LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time and interpolate models
-            #LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, True) # use dense time and use closest model
-
-            #print(self.parvals[self.nvext:])
-            #print(self.idxbest)
-            #print(self.params[self.idxbest])
-            #print(self.distances)
 
             mintime = min(self.times) + texp
             factor = 3e-29
             # loop among bands
             for idxf, band in enumerate(self.uniquefilters):
                 ax[idxf].set_ylabel("$%s$ band flux (arbitrary units)" % band, fontsize = 14)
-                ax[idxf].plot(self.times + texp - mintime, (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])) / factor, c = colorVal)
-                #ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
+                ax[idxf].plot(self.times + texp - mintime, mag2flux(LCmag[band]) / factor, c = colorVal)
                 ax[idxf].axvline(texp, c = 'gray')
-                #ax[idxf].set_yticks([])
-
-            #TEST
-            #for idxb in self.idxbest:
-            #    LCmagmodel = self.evalmodel(scale, texp, logz, logAv, self.params[idxb], True, True) # use dense time and use closest model
-            #    for idxf, band in enumerate(self.uniquefilters):
-            #        colorVal = scalarMap.to_rgba(self.params[idxb, 0])
-            #        ax[idxf].plot(self.times + texp, mag2flux(LCmagmodel[band]), alpha = 0.2, lw = 4, c = colorVal)
                 
-                
-
         # axis and save
         ax[1].set_xlim(min(texp, min(self.mjd)) - 1 - mintime, max(self.mjd) + 30 - mintime)
         #ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels, startvars)), fontsize = 6)
         label = var
-        if var == "mdot":
+        if var == "log10mdot":
             ax[0].set_title(r"$\dot M$ effect", fontsize = 14)
         elif var == "beta":
             ax[0].set_title(r"$\beta$ effect", fontsize = 14)
