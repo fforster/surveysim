@@ -40,16 +40,18 @@ if __name__ == "__main__":
     overwrite = False
     dotest = False
     loadMCMC = False
+    computemodels = False
     diffLC = False
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "p:s:n:w:b:dioltvh", ["project=", "supernova=", "nsteps=", "walkers=", "burnin=", "diffLC", "interactive", "overwrite", "loadMCMC", "test", "verbose", "help"])
+        opts, args = getopt.getopt(sys.argv[1:], "p:s:n:w:b:dioltcfvh", ["project=", "supernova=", "nsteps=", "walkers=", "burnin=", "diffLC", "interactive", "overwrite", "loadMCMC", "test", "computemodels", "selfiles=", "verbose", "help"])
     except getopt.GetoptError:
         print 'python MCMCwindacc.py --help'
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
+            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --computemodels --filenames \"file1 file2\" (compute models in modellist.txt or in selected files)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --overwrite --verbose (interactively choose starting points, overwrite previously defined values)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 500 (run MCMC chain with 1000 steps, 400 walkers, burnin of 500)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 800 --loadMCMC --verbose (load MCMC chain for plotting, can choose new burnin value)")
@@ -73,11 +75,16 @@ if __name__ == "__main__":
             diffLC = True
         elif opt in ('i', '--interactive'):
             dointeractive = True
+        elif opt in ('c', '--computemodels'):
+            computemodels = True
+        elif opt in ('f', '--selfiles'):
+            selfiles = arg.split()
+            print(selfiles)
         elif opt in ('t', '--test'):
             dotest = True
         elif opt in ('-v', '--verbose'):
             verbose = True
-
+            
     if dointeractive:
         from matplotlib.widgets import Slider
             
@@ -164,10 +171,17 @@ if __name__ == "__main__":
     LCs.docosmo()
 
     # compute models in given bands
-    LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
-    
+    if computemodels:
+        if "selfiles" in locals(): 
+            LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], save = True, selfiles = selfiles)
+        else:
+            LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], save = True)
+        sys.exit()
+    else:
+        LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)
+        
     # set metric
-    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 3.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
+    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
         
     # set observations
     if not diffLC:
@@ -233,7 +247,7 @@ if __name__ == "__main__":
     vwindinf = 10.
     parvals = np.array([scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-8, -2], [1., 1.], [10, 10], [1., 5.]])
+    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-7, -2], [1., 1.], [10, 10], [1., 5.]])
     parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
     fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
  
@@ -257,7 +271,7 @@ if __name__ == "__main__":
     print LCs.parvals[4:]
     LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:], True, False)
 
-    fig, ax = plt.subplots(figsize = (12, 7))
+    fig, ax = plt.subplots(figsize = (17, 11))
     modelplot = {}
     texpplot = ax.axvline(texp, c = 'gray', alpha = 1)
     for band in LCs.uniquefilters:
@@ -280,7 +294,7 @@ if __name__ == "__main__":
         MJDminall = 1e99
         MJDmaxall = -1e99
         for band in LCs.uniquefilters:
-            MJDminall = min(MJDminall, min(LCs.mjd[LCs.maskband[band]]) - 5)
+            MJDminall = min(MJDminall, min(LCs.mjd[LCs.maskband[band]]) - 5) - 5
             MJDmaxall = max(MJDmaxall, max(LCs.mjd[LCs.maskband[band]]) + 5)
         
         # slider axes

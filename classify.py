@@ -89,13 +89,13 @@ HiTS = ["SNHiTS14B",
 banned = ["SNHiTS14K", # bad LC
           "SNHiTS14P", # no information during emergence according to SNII best qfit
           "SNHiTS14U", # same as 14T
-          "SNHiTS14ae", # no information during rise according to SNII best fit
+          #"SNHiTS14ae", # no information during rise according to SNII best fit
           "SNHiTS14ah", # bad LC
           "SNHiTS14W", # no information during rise according to SNII best fit
           "SNHiTS15B", # other class
           "SNHiTS15ap", # same as 15ao
           "SNHiTS15ae", # noisy LC
-          "SNHiTS15au", # no information during rise according to SNII best fit
+          #"SNHiTS15au", # no information during rise according to SNII best fit
           "SNHiTS15bj", # no information during rise according to SNII best fit
           "SNHiTS15bl", # rise after high cadence
           "SNHiTS15bn", # same as bm
@@ -105,7 +105,7 @@ banned = ["SNHiTS14K", # bad LC
           "SNHiTS15bt", # too many days between 1st detection and last non detection
           "SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
           "SNHiTS15ca", # same as 15bz
-          "SNHiTS15cg", # no information during rise
+          #"SNHiTS15cg", # no information during rise
           "SNHiTS15cj",  # same as 15cb
           "SNHiTS15ck"] # not enough points during rise
 

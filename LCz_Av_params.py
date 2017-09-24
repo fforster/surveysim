@@ -84,13 +84,18 @@ class LCz_Av_params(object):
         bands = kwargs["bands"]
         dosave = False
         doload = False
+        doselected = False
         if "save" in kwargs.keys():
             dosave = kwargs["save"]
             doload = False
         if "load" in kwargs.keys():
             doload = kwargs["load"]
             dosave = False
-
+        if "selfiles" in kwargs.keys():
+            doselected = True
+            selfiles = kwargs["selfiles"]
+            print(selfiles)
+            
         # start computing or loading specific models
         nruns = len(self.files) * len(bands)
 
@@ -105,6 +110,9 @@ class LCz_Av_params(object):
 
         aux = 0
         for filename, params in zip(self.files, self.params):
+
+            if doselected and filename[:-3] not in selfiles:
+                continue
 
             if not doload:
                 print(filename)
@@ -458,7 +466,7 @@ class LCz_Av_params(object):
         import matplotlib.colors as colors
         print self.uniquefilters
         
-        nplot = 20
+        nplot = 40
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
         vals = np.linspace(l1, l2, nplot)
@@ -489,7 +497,7 @@ class LCz_Av_params(object):
             # loop among bands
             for idxf, band in enumerate(self.uniquefilters):
                 ax[idxf].set_ylabel("$%s$ band flux (arbitrary units)" % band, fontsize = 14)
-                ax[idxf].plot(self.times + texp - mintime, mag2flux(LCmag[band]) / factor, c = colorVal)
+                ax[idxf].plot(self.times + texp - mintime, mag2flux(LCmag[band]) / factor, c = colorVal, lw = 0.5)
                 ax[idxf].axvline(texp, c = 'gray')
                 
         # axis and save
@@ -509,6 +517,7 @@ class LCz_Av_params(object):
                 
         plt.tight_layout()
         plt.savefig("plots/interpolation/interpolation_%s_%s_%s.png" % (self.modelname, self.objname, self.parlabels[idxvar]))
+        plt.savefig("plots/interpolation/interpolation_%s_%s_%s.pdf" % (self.modelname, self.objname, self.parlabels[idxvar]))
 
         # recover original values
         self.parvals = np.array(startvars)
@@ -702,6 +711,7 @@ class LCz_Av_params(object):
         print("Doing corner plot...")
         fig = corner.corner(samplescorner, labels = self.labels)#, truths = self.bestfit)
         plt.savefig("plots/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels))
+        plt.savefig("plots/MCMC_%s_%s_%s_corner.pdf" % (self.modelname, self.objname, self.fitlabels))
         
         # show sample
         print("Plotting model sample")

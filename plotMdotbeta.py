@@ -16,6 +16,8 @@ from LCz_Av_params import *
 
 from readSNdata import *
 
+import pandas as pd
+
 survey = sys.argv[1]
 mode = sys.argv[2]
 
@@ -180,7 +182,7 @@ ncols = 4
 nrows = int(np.ceil(1. * len(HiTS) / ncols))
 idxfilled = {}
 if doLCs:
-    fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize = (10, 12))
+    fig, ax = plt.subplots(nrows = nrows, ncols = ncols, figsize = (11, 12))
 elif doMCMC:
     fig, ax = plt.subplots(figsize = (12, 8))
 
@@ -215,10 +217,10 @@ for f in files:
     else:
         continue
     
-    print(SN)
-
 
     if SN in HiTS or SN in DES:
+
+        print(SN)
 
         if SN in HiTS:
             m = ms_sel[np.mod(counter, len(ms_sel))]
@@ -239,8 +241,8 @@ for f in files:
             sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
             
 
-        png = f.replace("chain", "plots/MCMC").replace(".dat", "_models.png")
-        pdfout = "%s %s" % (pdfout, png)
+        pdf = f.replace("chain", "plots/MCMC").replace(".dat", "_models.pdf")
+        pdfout = "%s %s" % (pdfout, pdf)
 
         if re.search(".*logz.*", f) and not fixz:
             nchain, nwalker, scale, texp, logz, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
@@ -323,26 +325,26 @@ for f in files:
             
         if not doMCMC:
             continue
-        
+
+        if not fixz:
+            logzs  = logz[mask]
+        else:
+            logzs = np.ones(np.sum(mask)) * np.log(zcmb)
+            
         if "log10mdot" not in master.keys():
             master['log10mdot'] = log10mdot[mask]
             master['beta'] = beta[mask]
             master['mass'] = mass[mask]
             master['energy'] = energy[mask]
             master['logAv'] = logAv[mask]
-            if not fixz:
-                master['logz'] = logz[mask]
+            master['logz'] = logzs
         else:
             master['log10mdot'] = np.hstack([master['log10mdot'], log10mdot[mask]])
             master['beta'] = np.hstack([master['beta'], beta[mask]])
             master['mass'] = np.hstack([master['mass'], mass[mask]])
             master['energy'] = np.hstack([master['energy'], energy[mask]])
             master['logAv'] = np.hstack([master['logAv'], logAv[mask]])
-            if not fixz:
-                if 'logz' not in master.keys():
-                    master['logz'] = logz[mask]
-                else:
-                    master['logz'] = np.hstack([master['logz'], logz[mask]])
+            master['logz'] = np.hstack([master['logz'], logzs])
 
         if SN[:8] == 'SNHiTS14':
             if 'texp14' not in master.keys():
@@ -386,7 +388,7 @@ if doLCs:
 
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.1, hspace=0.15)
-    plt.savefig("plots/samples/LCs.png")
+    plt.savefig("plots/samples/LCs.pdf")
         
 if not doMCMC:
     sys.exit()
@@ -412,7 +414,7 @@ ax.set_ylabel(r"$\beta$", fontsize = 14)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/betavslog10mdot_%s.png" % survey)
+plt.savefig("plots/samples/betavslog10mdot_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.hist2d(master['mass'], master['energy'])
@@ -421,7 +423,7 @@ ax.set_ylabel("energy [B]")
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/energyvsmass_hist_%s.png" % survey)
+plt.savefig("plots/samples/energyvsmass_hist_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limmass[:, 1], limenergy[:, 1], xerr = [limmass[:, 1] - limmass[:, 0], limmass[:, 2] - limmass[:, 1]],
@@ -431,7 +433,7 @@ ax.set_ylabel("energy [B]", fontsize = 14)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/energyvsmass_%s.png" % survey)
+plt.savefig("plots/samples/energyvsmass_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limlog10mdot[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
@@ -442,7 +444,7 @@ ax.set_xlim(0, 0.55)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/log10mdotvsz_%s.png" % survey)
+plt.savefig("plots/samples/log10mdotvsz_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.hist2d(master['mass'], master['log10mdot'])
@@ -451,7 +453,7 @@ ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$")
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/log10mdotvsmass_hist_%s.png" % survey)
+plt.savefig("plots/samples/log10mdotvsmass_hist_%s.pdf" % survey)
 
 
 fig, ax = plt.subplots()
@@ -462,7 +464,7 @@ ax.set_xlabel("mass [Msun]", fontsize = 14)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/log10mdotvsmass_%s.png" % survey)
+plt.savefig("plots/samples/log10mdotvsmass_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limmass[:, 1], limbeta[:, 1], xerr = [limmass[:, 1] - limmass[:, 0], limmass[:, 2] - limmass[:, 1]],
@@ -472,7 +474,7 @@ ax.set_xlabel("mass [Msun]", fontsize = 14)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/betavsmass_%s.png" % survey)
+plt.savefig("plots/samples/betavsmass_%s.pdf" % survey)
 
 
 fig, ax = plt.subplots()
@@ -483,7 +485,7 @@ ax.set_xlabel("energy [B]", fontsize = 14)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/log10mdotvsenergy_%s.png" % survey)
+plt.savefig("plots/samples/log10mdotvsenergy_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limbeta[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
@@ -494,7 +496,7 @@ ax.set_xlim(0, 0.55)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/betavsz_%s.png" % survey)
+plt.savefig("plots/samples/betavsz_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limmass[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
@@ -505,7 +507,7 @@ ax.set_xlim(0, 0.55)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/massvsz_%s.png" % survey)
+plt.savefig("plots/samples/massvsz_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limenergy[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
@@ -516,23 +518,39 @@ ax.set_xlim(0, 0.55)
 plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
-plt.savefig("plots/samples/energyvsz_%s.png" % survey)
+plt.savefig("plots/samples/energyvsz_%s.pdf" % survey)
 
 
 def hist1D(allvals, medianvals, varname, xlabel, bw = None):
     fig, ax = plt.subplots()
 
+    ## Silverman's rule
+    #if bw == None:
+    #    bw = 0.9 * min(np.std(medianvals), np.abs(np.percentile(medianvals, 75) - np.percentile(medianvals, 25)) / 1.349) * len(medianvals)**(-1./5.)
+    #    print(varname, bw, np.median(medianvals), np.std(medianvals), np.median(np.abs(np.median(medianvals) - medianvals)))
+    #kde = KernelDensity(kernel='gaussian', bandwidth = bw).fit(medianvals[:, np.newaxis])
+    #if varname == "z":
+    #    X_plot = np.linspace(0, 0.55, 1000)[:, np.newaxis]
+    #else:
+    #    X_plot = np.linspace(min(allvals) - 1.5 * bw, max(allvals) + 1.5 * bw, 1000)[:, np.newaxis]
+    #log_dens = kde.score_samples(X_plot)
+    #
+    #ax.fill_between(X_plot[:, 0], 0, np.exp(log_dens), facecolor = 'b', alpha = 0.5)
+
+    rdn = np.random.choice(allvals, size = 10000, replace = True)
     # Silverman's rule
     if bw == None:
-        bw = 0.9 * min(np.std(medianvals), np.abs(np.percentile(medianvals, 75) - np.percentile(medianvals, 25)) / 1.349) * len(medianvals)**(-1./5.)
-        print(varname, bw, np.median(medianvals), np.std(medianvals), np.median(np.abs(np.median(medianvals) - medianvals)))
-    kde = KernelDensity(kernel='gaussian', bandwidth = bw).fit(medianvals[:, np.newaxis])
+        bw = 0.9 * min(np.std(rdn), np.abs(np.percentile(rdn, 75) - np.percentile(rdn, 25)) / 1.349) * len(rdn)**(-1./5.)
+        print(varname, bw, np.median(rdn), np.std(rdn), np.median(np.abs(np.median(rdn) - rdn)))
+    kde = KernelDensity(kernel='gaussian', bandwidth = bw).fit(rdn[:, np.newaxis])
     if varname == "z":
         X_plot = np.linspace(0, 0.55, 1000)[:, np.newaxis]
     else:
         X_plot = np.linspace(min(allvals) - 1.5 * bw, max(allvals) + 1.5 * bw, 1000)[:, np.newaxis]
     log_dens = kde.score_samples(X_plot)
+
     ax.fill_between(X_plot[:, 0], 0, np.exp(log_dens), facecolor = 'b', alpha = 0.5)
+
     ax.set_xlabel(xlabel, fontsize = 14)
     ax.set_ylabel("p.d.f.", fontsize = 14)
     ax.set_ylim(0, ax.get_ylim()[1])
@@ -542,8 +560,8 @@ def hist1D(allvals, medianvals, varname, xlabel, bw = None):
         plt.xticks(fontsize = 14, rotation = 30)
         plt.ticklabel_format(useOffset=False)
     plt.tight_layout()
-    plt.savefig("plots/samples/%s_hist_%s.png" % (varname, survey))
-
+    plt.savefig("plots/samples/%s_hist_HiTS.pdf" % (varname))
+    
 hist1D(master['log10mdot'], limlog10mdot[:, 1], "log10mdot", r"$\log_{10}\ \dot M\ [M_\odot/yr]$")
 
 hist1D(master['beta'], limbeta[:, 1], "beta", r"$\beta$")
