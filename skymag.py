@@ -49,12 +49,16 @@ if __name__ == "__main__":
 
     MJDs = np.linspace(57023, 57023 + 365, 3650)
 
-    skymodel = sky(band = "g", MJDs = MJDs)
-
-    (moonphase, skymag) = skymodel.skymags()
-
     fig, ax = plt.subplots()
-    ax.scatter(moonphase, skymag, lw = 0)
+
+    for band in ['u', 'g', 'r', 'i']:
+        skymodel = sky(band = band, MJDs = MJDs)
+
+        (moonphase, skymag) = skymodel.skymags()
+
+        ax.scatter(moonphase, skymag, lw = 0, label = band)
+
+    plt.legend()
     plt.savefig("plots/skymag.png")
 
 

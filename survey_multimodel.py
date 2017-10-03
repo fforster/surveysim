@@ -113,19 +113,19 @@ class survey_multimodel(object):
                     params[key] = rands
                 if doplot:
                     fig, ax = plt.subplots()
-                    if key[:3] == 'log':
-                        rands = np.exp(rands)
-                        key = key[3:]
+                    #if key[:3] == 'log':
+                    #    rands = np.exp(rands)
+                    #    key = key[3:]
                     ax.hist(rands, bins = 50)
                     ax.set_xlabel(key)
             
-            # store variables
+            # store variables in pars array
             for idx, key1 in enumerate(self.LCs.paramnames):
                 for key2 in params.keys():
-                    if key1 == key2:
+                    if key1 == key2 or (key1 == "mdot" and key2 == "log10mdot"):
                         pars[idx] = np.array(params[key2])
             for idx, key in enumerate(self.LCs.paramnames):
-                if key not in params.keys():
+                if key not in params.keys() and (key != 'mdot'):
                     pars[idx] = np.ones(self.nsim) * pars[idx]
     
             # create large array
@@ -151,16 +151,20 @@ class survey_multimodel(object):
         else:
             self.LCsamples = []
             self.parsamples = []
-        
-        for i in range(self.nsim):
             
-            if not doload:
-                if np.mod(i, 100) == 0:
-                    print i
+        if not doload:
+            print("Simulating light curves...")
+            
+        for i in range(self.nsim):
 
             if not doload:
-                self.LCsamples.append(self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i]))
-                self.parsamples.append(np.hstack([self.logzs[i], self.texps[i], self.logAvs[i], self.parsarray[i]]))
+                if np.mod(i, 100) == 0:
+                    print(i)
+
+            if not doload:
+                # save only first list with light curve at given time (no reference values)
+                self.LCsamples.append(self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i])[0])
+                self.parsamples.append(np.hstack([self.logzs[i], self.texps[i], self.logAvs[i], self.parsarray[i]])[0])
 
             if doplot and i < 1000: # avoid plotting more than 1000 LCs
                 for band in self.LCs.uniquefilters:
@@ -521,21 +525,21 @@ if __name__  == "__main__":
     maxrestframeage = 3
     
     # start an observational plan
-    if obsname == "HiTS14A":
-        plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 40, nepochspernight = 4, ncontnights = 5, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
-    elif obsname == "HiTS15A":
-        plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 50, nepochspernight = 5, ncontnights = 6, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
-    elif obsname == "VST-OmegaCam":
-        plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
-    elif obsname == "KMTNet":
-        plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
-    elif obsname == "KMTNetSNsurvey":
-        plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
-    elif obsname == "KMTNet17B":
-        plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'file', inputfile = "KMTNet17B.dat", nfields = 3, nepochspernight = 1, nightfraction = 0.5 / 4., nread = 3, doplot = True)
-    elif obsname == "Clay-MegaCam17B":
-        plan = obsplan(obsname = "Clay-MegaCam", band = filtername, mode = 'file', inputfile = "Clay-MegaCam17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 0.5, nread = 1, doplot = True)
-    elif obsname == "SNLS":
+    #if obsname == "HiTS14A":
+    #    plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 40, nepochspernight = 4, ncontnights = 5, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
+    #elif obsname == "HiTS15A":
+    #    plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 50, nepochspernight = 5, ncontnights = 6, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
+    #elif obsname == "VST-OmegaCam":
+    #    plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+    #elif obsname == "KMTNet":
+    #    plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
+    #elif obsname == "KMTNetSNsurvey":
+    #    plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
+    #elif obsname == "KMTNet17B":
+    #    plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'file', inputfile = "KMTNet17B.dat", nfields = 3, nepochspernight = 1, nightfraction = 0.5 / 4., nread = 3, doplot = True)
+    #elif obsname == "Clay-MegaCam17B":
+    #    plan = obsplan(obsname = "Clay-MegaCam", band = filtername, mode = 'file', inputfile = "Clay-MegaCam17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 0.5, nread = 1, doplot = True)
+    if obsname == "SNLS":
         plan = obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, doload = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     else:
         print "WARNING: undefined observatory"
@@ -576,7 +580,9 @@ if __name__  == "__main__":
 
     # initialize LCz_Av_params models
     paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"]
-    paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""] 
+    paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""]
+    parammetric = np.array([1., 1., 1e-6, 1., 10., 1.])
+    paramlogscale = np.array([False, False, True, False, False, True], dtype = bool)
     LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = paramnames, paramunits = paramunits, params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
 
     # do cosmology
@@ -586,7 +592,7 @@ if __name__  == "__main__":
     LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
     
     # set metric
-    LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, True], dtype = bool))
+    LCs.setmetric(metric = parammetric, logscale = paramlogscale)
     
     # set observations
     LCs.set_observations(mjd = plan.MJDs, flux = None, e_flux = None, filters = plan.bands, objname = None, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
@@ -609,17 +615,17 @@ if __name__  == "__main__":
     # set rvs
     minMJD, maxMJD = min(newsurvey.obsplan.MJDs) - newsurvey.maxrestframeage * (1. + max(newsurvey.zs)), max(newsurvey.obsplan.MJDs)
     rvs = {'texp': lambda nsim: uniform.rvs(loc = minMJD, scale = maxMJD - minMJD, size = nsim), \
-           'logAv': lambda nsim: norm.rvs(loc = np.log(0.075), scale = 1., size = nsim), \
+           'logAv': lambda nsim: norm.rvs(loc = np.log(0.1), scale = 1., size = nsim), \
            #'mass': lambda nsim: norm.rvs(loc = 14, scale = 3, size = nsim), \
-           'mass': lambda nsim: 10. * lognorm.rvs(0.7, size = nsim), \
+           'mass': lambda nsim: uniform.rvs(loc = 12., scale = 4., size = nsim), \
            'energy': lambda nsim: norm.rvs(loc = 1., scale = 1., size = nsim), \
-           'mdot': lambda nsim: 5e-4 * lognorm.rvs(1., size = nsim), \
-           'beta': lambda nsim: 7. * lognorm.rvs(1., size = nsim)}
+           'log10mdot': lambda nsim: uniform.rvs(loc = -8, scale = 6, size = nsim), \
+           'beta': lambda nsim: uniform.rvs(loc = 1., scale = 4., size = nsim)}
     bounds = {'texp': [minMJD, maxMJD], \
               'logAv': [np.log(1e-4), np.log(10.)], \
               'mass': [12, 16], \
               'energy': [0.5, 2.], \
-              'mdot': [1e-6, 1e-2], \
+              'log10mdot': [-8, -2], \
               'beta': [1., 5.]}
 
     # default physical values
@@ -632,10 +638,11 @@ if __name__  == "__main__":
     pars = np.array([mass, energy, mdot, rcsm, vwindinf, beta]) # must be in same order as paramnames
 
     # sample events    
-    newsurvey.sample_events(nsim = 50000, doload = True, doplot = False, rvs = rvs, bounds = bounds, pars = pars)
+    #newsurvey.sample_events(nsim = 50000, doload = True, doplot = False, rvs = rvs, bounds = bounds, pars = pars)
+    newsurvey.sample_events(nsim = 1000, doload = False, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
 
     # measure detections and efficiency
-    newsurvey.do_efficiency(doplot = True, verbose = False)
+    #newsurvey.do_efficiency(doplot = True, verbose = False)
     
     ## estimate maximum survey redshift
     #newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 5)

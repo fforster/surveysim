@@ -466,7 +466,7 @@ class LCz_Av_params(object):
         import matplotlib.colors as colors
         print self.uniquefilters
         
-        nplot = 40
+        nplot = 19
         l1 = self.parbounds[idxvar, 0]
         l2 = self.parbounds[idxvar, 1]
         vals = np.linspace(l1, l2, nplot)

@@ -269,14 +269,16 @@ for f in files:
                         marker = 'o'
                     elif band == 'r':
                         marker = 's'
-                    ax[ix, iy].errorbar(LCs.mjd[maskb], LCs.flux[maskb], yerr = LCs.e_flux[maskb], marker = marker, c = LCs.bandcolors[band], lw = 0, elinewidth = 1, markersize = 5, alpha = 0.7)
+                    ax[ix, iy].errorbar(LCs.mjd[maskb], LCs.flux[maskb], yerr = LCs.e_flux[maskb], marker = marker, c = LCs.bandcolors[band], lw = 0, elinewidth = 1, markersize = 5, alpha = 0.7, label = "%s" % band)
                     ax[ix, iy].set_xlim(min(min(texp[mask]), min(LCs.mjd)) - 1, max(LCs.mjd) + 3)
             
+
             # plot light curves sampled from the posterior
             nplots = 100
             idxselected = np.array(np.random.random(size = nplots) * np.sum(mask), dtype = int)
-            for idxsel in idxselected:
-
+            zerolevels = []
+            for count, idxsel in enumerate(idxselected):
+            
                 scale_val = scale[mask][idxsel]
                 texp_val = texp[mask][idxsel]
                 if fixz:
@@ -290,27 +292,63 @@ for f in files:
                 beta_val = beta[mask][idxsel]
                 rcsm_val = 1. # 1e15
                 vwindinf_val = 10.
-
+            
                 # values
                 parvals = np.array([scale_val, texp_val, logz_val, logAv_val, mass_val, energy_val, log10mdot_val, rcsm_val, vwindinf_val, beta_val])
                 parbounds = np.array([[0.1, 10.], [texp_val - 5, texp_val + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
                 parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
                 fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
-
+            
                 # initialize with previous parameters
                 theta0 = parvals[np.invert(fixedvars)]
                 sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
-
+            
                 LCmag, LCmagref = LCs.evalmodel(scale_val, texp_val, logz_val, logAv_val, LCs.parvals[4:], True, False)
-
+            
                 # plot light curves
                 for band in LCs.uniquefilters:
                     maskb = LCs.maskband[band]
                     if np.sum(maskb) > 0:
-                        ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]) - mag2flux(LCmagref[band]), label = "%s" % band, c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
+                        if count == 0:
+                            l1 = "%s model" % band
+                            l2 = r"$t_{\rm exp}$"
+                        else:
+                            l1 = ""
+                            l2 = ""
+                        ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]) - mag2flux(LCmagref[band]), c = LCs.bandcolors[band], lw = 1, alpha = 0.05)
+                        if band == 'g':
+                            zerolevels.append((mag2flux(LCmag[band]) - mag2flux(LCmagref[band]))[0])
                         ax[ix, iy].axvline(texp_val, alpha = 0.05, c = 'gray')
 
                         
+            ## add zero mass loss model
+            #scale_val = np.median(scale[mask])
+            #texp_val = np.median(texp[mask])
+            #logz_val = np.median(logz[mask])
+            #logAv_val  = np.median(logAv[mask])
+            #rcsm_val = 1. # 1e15
+            #vwindinf_val = 10.
+            
+            parvals = np.array([scale_val, texp_val, logz_val, logAv_val, mass_val, energy_val, -8., rcsm_val, vwindinf_val, 3.])
+            #parvals = np.array([scale_val, texp_val, logz_val, logAv_val, np.median(mass[mask]), np.median(energy[mask]), -8., rcsm_val, vwindinf_val, np.median(beta[mask])])
+            parbounds = np.array([[0.1, 10.], [texp_val - 5, texp_val + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [1e-6, 1e-2], [1., 1.], [10, 10], [1., 5.]])
+            parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
+            fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
+
+            # initialize with previous parameters
+            theta0 = parvals[np.invert(fixedvars)]
+            sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
+            
+            LCmag, LCmagref = LCs.evalmodel(scale_val, texp_val, logz_val, logAv_val, LCs.parvals[4:], True, False)
+            
+            # plot light curves with last values except mass loss
+            for iband, band in enumerate(LCs.uniquefilters):
+                maskb = LCs.maskband[band]
+                if np.sum(maskb) > 0 and band == 'g':
+                    ax[ix, iy].plot(LCs.times + texp_val, mag2flux(LCmag[band]) + np.median(zerolevels), c = LCs.bandcolors[band], lw = 1, ls = '--', label = "%s" % band)
+                ax[ix, iy].text(0, iband / 10., band, color = LCs.bandcolors[band])
+            ax[ix, iy].text(0, 0.3, r"$t_{\rm exp}$", color = 'gray')
+            
             # labels                    
             ax[ix, iy].set_yticklabels([])
             (x1, x2) = ax[ix, iy].get_xlim()
@@ -321,6 +359,15 @@ for f in files:
             ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.05, label, fontsize = 10, ha = 'right')
             if fixz:
                 ax[ix, iy].text(x2, y1 + (y2 - y1) * 0.15, r"$z=%4.2f$" % zcmb, fontsize = 10, ha = 'right')
+
+            for iband, band in enumerate(LCs.uniquefilters):
+                maskb = LCs.maskband[band]
+                if np.sum(maskb) > 0:
+                    ax[ix, iy].text(x1 + (x2 - x1) * 0.02, y2 - (y2 - y1) * 0.1 * (iband + 1), band, color = LCs.bandcolors[band], fontsize = 10)
+            ax[ix, iy].text(x1 + (x2 - x1) * 0.02, y2 - (y2 - y1) * 0.1 * (iband + 2), r"$t_{\rm exp}$", color = 'dimgray', fontsize = 10)
+
+            #ax[ix, iy].legend(loc = 2, fontsize = 8)
+            #break
             
             
         if not doMCMC:
@@ -406,7 +453,7 @@ limtexp15 = np.array(limtexp15)
     
 os.system("convert %s plots/samples/%s.pdf" % (pdfout, survey))
 
-plt.legend(loc = 3, fontsize = 11)  
+plt.legend(loc = [0.2, 0.1], fontsize = 11)  
 ax.set_xlim(-8, -2)
 ax.set_ylim(1, 5)
 ax.set_xlabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)

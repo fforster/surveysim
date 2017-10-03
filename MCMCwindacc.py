@@ -165,7 +165,9 @@ if __name__ == "__main__":
 
     
     # initialize MCMCfit model
-    LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"], paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""], params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
+    paramnames = ["mass", "energy", "mdot", "rcsm", "vwindinf", "beta"]
+    paramunits = ["Msun", "B", "Msun/yr", "1e15 cm", "km/s", ""]
+    LCs = LCz_Av_params(modelsdir = modelsdir, modelname = modelname, files = files, paramnames = paramnames, paramunits = paramunits, params = params, zs = zs, Avs = Avs, Rv = Rv, times = times)
 
     # do cosmology
     LCs.docosmo()
@@ -247,7 +249,7 @@ if __name__ == "__main__":
     vwindinf = 10.
     parvals = np.array([scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-7, -2], [1., 1.], [10, 10], [1., 5.]])
+    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-8, -2], [1., 1.], [10, 10], [1., 5.]])
     parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
     fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
  
@@ -354,7 +356,7 @@ if __name__ == "__main__":
                 modelplot[band][0].set_xdata(LCs.times + texp)
                 ax.relim()
                 ax.autoscale_view()
-                ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, log10mdot: %f, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, log10mdot, rcsm, beta), fontsize = 8)
+                ax.set_title("SN: %s, scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, log10mdot: %f, rcsm: %3.1f, beta: %f" % (SNname, scale, texp, np.exp(logAv), mass, energy, log10mdot, rcsm, beta), fontsize = 8)
 
                 fig.canvas.draw_idle()
 

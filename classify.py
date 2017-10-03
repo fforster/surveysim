@@ -38,6 +38,8 @@ fig, ax = plt.subplots(figsize = (14, 10))
 SNII = []
 SNIa = []
 
+
+
 spectra = {}
 spectra["SNHiTS14B"] = "II" # Bel, http://www.astronomerstelegram.org/?read=6014
 spectra["SNHiTS14C"] = "II" # Greta, http://www.astronomerstelegram.org/?read=5957
@@ -87,23 +89,28 @@ HiTS = ["SNHiTS14B",
 
         
 banned = ["SNHiTS14K", # bad LC
-          "SNHiTS14P", # no information during emergence according to SNII best qfit
+          #"SNHiTS14P", # no information during emergence according to SNII best fit (with spectrum)
+          "SNHiTS14M", # no information during emergence according to SNII best fit
           "SNHiTS14U", # same as 14T
           #"SNHiTS14ae", # no information during rise according to SNII best fit
           "SNHiTS14ah", # bad LC
           "SNHiTS14W", # no information during rise according to SNII best fit
           "SNHiTS15B", # other class
+          "SNHiTS15G", # no information during emergence according to SNII best fit
+          "SNHiTS15O", # no information during emergence according to SNII best fit
           "SNHiTS15ap", # same as 15ao
           "SNHiTS15ae", # noisy LC
           #"SNHiTS15au", # no information during rise according to SNII best fit
+          "SNHiTS15bd", # noisy light curve
           "SNHiTS15bj", # no information during rise according to SNII best fit
-          "SNHiTS15bl", # rise after high cadence
+          #"SNHiTS15bl", # rise after high cadence
+          "SNHiTS15bi", # noisy light curve
           "SNHiTS15bn", # same as bm
           "SNHiTS15bo", # same as bm
-          "SNHiTS15bp", # no information during rise according to SNII best fit
+          #"SNHiTS15bp", # no information during rise according to SNII best fit
           "SNHiTS15br", # too many days between 1st detection and last non detection
           "SNHiTS15bt", # too many days between 1st detection and last non detection
-          "SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
+          #"SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
           "SNHiTS15ca", # same as 15bz
           #"SNHiTS15cg", # no information during rise
           "SNHiTS15cj",  # same as 15cb
