@@ -147,6 +147,9 @@ class obsplan(object):
             self.obsplanfile = kwargs["inputfile"]
 
             self.MJDs, self.bands = np.loadtxt("obsplans/%s" % self.obsplanfile, dtype = str).transpose()
+            for idx, MJD in enumerate(self.MJDs):
+                if '/' in MJD:
+                    self.MJDs[idx] = Time(str(ephem.Date(MJD)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd
             self.MJDs = np.array(self.MJDs, dtype = float)
 
             # sort and make sure there are no repeated observations

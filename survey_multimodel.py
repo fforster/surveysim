@@ -226,7 +226,9 @@ class survey_multimodel(object):
         labels = np.concatenate([np.array(['logz', 'texp', 'logAv'], dtype = str), np.array(self.LCs.paramnames, dtype = str)])
         self.x_effs = {}
         self.effs = {}
+        print(self.parsamples)
         for vallabel, valin in zip(labels, self.parsamples):
+            print(vallabel, valin)
             if min(valin) == max(valin):
                 continue
             if vallabel == 'logz':
@@ -541,8 +543,10 @@ if __name__  == "__main__":
     #    plan = obsplan(obsname = "Clay-MegaCam", band = filtername, mode = 'file', inputfile = "Clay-MegaCam17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 0.5, nread = 1, doplot = True)
     if obsname == "SNLS":
         plan = obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, doload = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    elif obsname == "KMTNet17B":
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B.dat", nfields = 3, nepochspernight = 1, nightfraction = 0.5 / 4., nread = 3, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     else:
-        print "WARNING: undefined observatory"
+        print("WARNING: undefined observatory")
         sys.exit()
 
     # extinction
@@ -639,7 +643,7 @@ if __name__  == "__main__":
 
     # sample events    
     #newsurvey.sample_events(nsim = 50000, doload = True, doplot = False, rvs = rvs, bounds = bounds, pars = pars)
-    newsurvey.sample_events(nsim = 1000, doload = False, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
+    newsurvey.sample_events(nsim = 1000, doload = False, dosave = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
 
     # measure detections and efficiency
     #newsurvey.do_efficiency(doplot = True, verbose = False)
