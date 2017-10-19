@@ -140,7 +140,7 @@ class LCz_Av_params(object):
                         SN_Av = LCz_Av(LCz = SN, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = band, doplot = False)
                         SN_Av.compute_mags()
                         mags = np.array([SN_Av.magAvf[iAv][iz](self.times) for iz, iAv in itertools.product(range(len(self.zs)), range(len(self.Avs)))]).reshape((len(self.zs), len(self.Avs), len(self.times)))
-                        if save:
+                        if dosave:
                             if not os.path.exists(npydir):
                                 os.makedirs(npydir)
                             np.save(npyfile, mags)
