@@ -174,13 +174,15 @@ if __name__ == "__main__":
 
     # compute models in given bands
     if computemodels:
+        #bands = ['u', 'g', 'r', 'i', 'z']
+        bands = ['B', 'V', 'R', 'I']
         if "selfiles" in locals(): 
-            LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], save = True, selfiles = selfiles)
+            LCs.compute_models(bands = bands, save = True, selfiles = selfiles)
         else:
-            LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], save = True)
+            LCs.compute_models(bands = bands, save = True)
         sys.exit()
     else:
-        LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)
+        LCs.compute_models(bands = bands, load = True)
         
     # set metric
     LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))

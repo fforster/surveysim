@@ -153,7 +153,7 @@ class LCz(object):
 
         if self.filtername in ugrizy:
 
-            bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/DECam_transmission_total.txt').transpose()
+            bandfilter = np.loadtxt('filters/DECam_transmission_total.txt').transpose()
             iband = 0
             for i in range(len(ugrizy)):
                 if ugrizy[i] == self.filtername:
@@ -163,7 +163,7 @@ class LCz(object):
 
         elif self.filtername in UBVRI:
 
-            bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/KMTNet_transmission_total.txt').transpose()
+            bandfilter = np.loadtxt('filters/KMTNet_transmission_total.txt').transpose()
             iband = 0
             for i in range(len(UBVRI)):
                 if UBVRI[i] == self.filtername:
