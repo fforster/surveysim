@@ -1,5 +1,7 @@
 import re, os, sys
 import numpy as np
+from scipy.interpolate import interp1d
+
 leftraru = False
 if os.getcwd() == "/home/fforster/surveysim":
     leftraru = True
@@ -30,13 +32,14 @@ elif mode == "MCMC":
 
 if survey == 'HiTS':
 
-    SNe, BICII, BICIa, spec_class, banned = np.loadtxt("HiTS_classification.out", dtype = str).transpose()
+    SNe, BICII, BICIa, spec_class, banned, poor_rise = np.loadtxt("HiTS_classification.out", dtype = str).transpose()
 
     BICII = np.array(BICII, dtype = float)
     BICIa = np.array(BICIa, dtype = float)
     spec_class = np.array(spec_class, dtype = str)
     banned = np.array(banned, dtype = str)
-    HiTS = sorted(SNe[((spec_class == 'II') | (BICII < BICIa)) & (banned == 'False')])
+    poor_rise =  np.array(poor_rise, dtype = str)
+    HiTS = sorted(SNe[((spec_class == 'II') | (BICII < BICIa)) & (banned == 'False') & (poor_rise == 'False')])
     print(HiTS)
     print(len(HiTS))
 
@@ -208,15 +211,13 @@ if mode == 'MCMC':
     fileout = open("summary_HiTS.out", 'w')
     fileout.write("SN log10mdotp5 log10mdotp50 log10mdotp95 betap5 betap50 betap95 massp5 massp50 massp95 energyp5 energyp50 energyp95 zp5 zp50 zp95 Avp5 Avp50 Avp95 texpp5 texpp50 texpp95\n")
 
-
 for f in files:
-
+    
     SNfound = re.findall("chain_%s_(.*)_.*?.dat" % (model), f)
     if SNfound != []:
         SN = SNfound[0]
     else:
         continue
-    
 
     if SN in HiTS or SN in DES:
 
@@ -451,9 +452,9 @@ limz = np.array(limz)
 limtexp14 = np.array(limtexp14)
 limtexp15 = np.array(limtexp15)
     
-os.system("convert %s plots/samples/%s.pdf" % (pdfout, survey))
+#os.system("convert %s plots/samples/%s.pdf" % (pdfout, survey))
 
-plt.legend(loc = [0.2, 0.1], fontsize = 11)  
+plt.legend(loc = [0.17, 0.07], fontsize = 11)  
 ax.set_xlim(-8, -2)
 ax.set_ylim(1, 5)
 ax.set_xlabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
@@ -485,6 +486,13 @@ plt.savefig("plots/samples/energyvsmass_%s.pdf" % survey)
 fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limlog10mdot[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
             yerr = [limlog10mdot[:, 1] - limlog10mdot[:, 0], limlog10mdot[:, 2] - limlog10mdot[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
+
+(z, log10mdot) = np.load("pickles/zlog10mdot.npy")
+H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, 0.6], [-8, -2]], bins = (12, 12))
+x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
+extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+cset = ax.contour(x, y, H.transpose(), origin = 'lower', colors = 'gray')#, levels, origin = 'lower')
+
 ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
 ax.set_xlabel("z", fontsize = 14)
 ax.set_xlim(0, 0.55)
@@ -527,6 +535,7 @@ plt.savefig("plots/samples/betavsmass_%s.pdf" % survey)
 fig, ax = plt.subplots()
 ax.errorbar(limenergy[:, 1], limlog10mdot[:, 1], xerr = [limenergy[:, 1] - limenergy[:, 0], limenergy[:, 2] - limenergy[:, 1]],
             yerr = [limlog10mdot[:, 1] - limlog10mdot[:, 0], limlog10mdot[:, 2] - limlog10mdot[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
+
 ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
 ax.set_xlabel("energy [B]", fontsize = 14)
 plt.xticks(fontsize = 14)
@@ -568,6 +577,12 @@ plt.tight_layout()
 plt.savefig("plots/samples/energyvsz_%s.pdf" % survey)
 
 
+effsfile = "pickles/MoriyaWindAcc_HiTS15A-nf50-ne1-nr1-nn37_Blanco-DECam_gir_LCs_100000_effs.pkl"
+xeffs, yeffs = pickle.load(open(effsfile, 'rb'))
+effs = {}
+for label in xeffs.keys():
+    effs[label] = interp1d(xeffs[label], yeffs[label], bounds_error = False, fill_value = 'extrapolate')
+
 def hist1D(allvals, medianvals, varname, xlabel, bw = None):
     fig, ax = plt.subplots()
 
@@ -596,7 +611,14 @@ def hist1D(allvals, medianvals, varname, xlabel, bw = None):
         X_plot = np.linspace(min(allvals) - 1.5 * bw, max(allvals) + 1.5 * bw, 1000)[:, np.newaxis]
     log_dens = kde.score_samples(X_plot)
 
-    ax.fill_between(X_plot[:, 0], 0, np.exp(log_dens), facecolor = 'b', alpha = 0.5)
+    ax.fill_between(X_plot[:, 0], 0, np.exp(log_dens), facecolor = 'b', alpha = 0.5, label = "Observed")
+    if varname == 'log10mdot' or varname == 'beta':
+        factor = effs[varname](X_plot[:, 0])
+        corrected = np.exp(log_dens) / factor
+        corrected = corrected / (np.sum(corrected) * (X_plot[1, 0] - X_plot[0, 0]))
+        print(varname, np.sum(corrected[X_plot[:, 0] < (X_plot[:, 0] - X_plot[:, 0]) / 2.]) / np.sum(corrected))
+        ax.plot(X_plot[:, 0], corrected, c = 'k', alpha = 0.5, label = "Corrected")
+        ax.legend(loc = 2)
 
     ax.set_xlabel(xlabel, fontsize = 14)
     ax.set_ylabel("p.d.f.", fontsize = 14)

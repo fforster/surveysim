@@ -1,5 +1,6 @@
 import os, sys, re
 import numpy as np
+import pandas as pd
 # for detecing when in the leftraru
 leftraru = False
 if os.getcwd() == "/home/fforster/surveysim":
@@ -18,7 +19,7 @@ Hsiao = {}
 
 for f in sorted(files):
 
-    if not re.search("MCMC_(.*?)_(.*?)_.*.npy", f):
+    if not re.search("MCMC_(.*?)_(SNHiTS.*?)_.*.npy", f):
         continue
     
     print(f)
@@ -89,33 +90,39 @@ HiTS = ["SNHiTS14B",
 
         
 banned = ["SNHiTS14K", # bad LC
-          #"SNHiTS14P", # no information during emergence according to SNII best fit (with spectrum)
-          "SNHiTS14M", # no information during emergence according to SNII best fit
           "SNHiTS14U", # same as 14T
-          #"SNHiTS14ae", # no information during rise according to SNII best fit
-          "SNHiTS14ah", # bad LC
-          "SNHiTS14W", # no information during rise according to SNII best fit
+          "SNHiTS14ah", # too noisy LC
           "SNHiTS15B", # other class
-          "SNHiTS15G", # no information during emergence according to SNII best fit
-          "SNHiTS15O", # no information during emergence according to SNII best fit
           "SNHiTS15ap", # same as 15ao
-          "SNHiTS15ae", # noisy LC
-          #"SNHiTS15au", # no information during rise according to SNII best fit
+          "SNHiTS15ae", # too noisy LC
           "SNHiTS15bd", # noisy light curve
-          "SNHiTS15bj", # no information during rise according to SNII best fit
-          #"SNHiTS15bl", # rise after high cadence
-          "SNHiTS15bi", # noisy light curve
+          "SNHiTS15bi", # too noisy LC
           "SNHiTS15bn", # same as bm
           "SNHiTS15bo", # same as bm
-          #"SNHiTS15bp", # no information during rise according to SNII best fit
-          "SNHiTS15br", # too many days between 1st detection and last non detection
-          "SNHiTS15bt", # too many days between 1st detection and last non detection
-          #"SNHiTS15by", # too many days between 1st detection and last non detection (with spectrum)
           "SNHiTS15ca", # same as 15bz
-          #"SNHiTS15cg", # no information during rise
-          "SNHiTS15cj",  # same as 15cb
-          "SNHiTS15ck"] # not enough points during rise
+          "SNHiTS15cj"] # same as 15cb
 
+# other SNe:
+## 15A -> 3.0, 2.8, 2.6
+# 15D -> 2.3, 2.2, 1.4
+## 15F -> 3.1, 2.9, 2.7
+# 15K -> 2.0, 1.9, 1.5
+## 15as -> 3.1, 2.9, 2.7
+
+# prob of missing 1st 3 days of rise < 10%
+
+poor_rise = ["SNHiTS14M", # >5.7 (5.2, 4.5) days from emergence 5% prob.
+             #"SNHiTS14P", # >1.7 (1.2, 0.6) days from emergence 5% prob.
+             #"SNHiTS14W", # >2.5 (2.0, 0.8) days from emergence 5% prob.
+             #"SNHiTS15G", # >0.7 days from emergence 5% prob.
+             "SNHiTS15O", # >3.8 (3.5, 2.9) days from emergence 5% (20) prob. 
+             "SNHiTS15bj", # > 1 night gap during initial rise
+             "SNHiTS15bl", # > 1 night gap during initial rise
+             "SNHiTS15bt", # > 1 night gap during initial rise
+             "SNHiTS15by", # > 1 night gap during initial rise (with spectrum)
+             "SNHiTS15ck"] # > 1 night gap during initial rise
+
+short = []
 # remove SNe with short time spans
 for SN in Moriya.keys():
     sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata("HiTS", SN)
@@ -123,6 +130,7 @@ for SN in Moriya.keys():
     if dt < 7:
         print("Removed %s due to small time span (%i days)" % (SN, dt))
         banned.append(SN)
+        #short.append(SN)
 
 BICII = {}
 BICIa = {}
@@ -130,8 +138,8 @@ for SN in sorted(Moriya.keys()):
 
     sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata("HiTS", SN)
       
-    nHsiao = 4 # texp, Av, stretch, scale
-    nMoriya = 6 # texp, Av, mass, energy, mdot, beta
+    nHsiao = 4 # scale, texp, Av, stretch
+    nMoriya = 7 # scale, texp, Av, mass, energy, mdot, beta
     if not fixz:
         nHsiao += 1  # redshift
         nMoriya += 1 # redshift
@@ -144,13 +152,8 @@ for SN in sorted(Moriya.keys()):
         y = np.log10(nHsiao * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Hsiao[SN]))
         BICIa[SN] = 10**y
 
-        if SN in banned:
+        if (SN in banned or SN in poor_rise):# and SN not in spectra:
             continue
-            #if SN in spectra.keys():
-            #    if spectra[SN] != 'II':
-            #        continue
-            #else:
-            #    continue
       
         if (x < y):
             print("---------> SN Moriya best fit: %s" % SN)
@@ -162,23 +165,19 @@ for SN in sorted(Moriya.keys()):
         arcsinhscale = 1e-2
         delta = np.arcsinh((y - x) / arcsinhscale)
         delta = np.arcsinh(10**y - 10**x)
-        ax.text(np.minimum(x, y), delta, SN[6:], fontsize = 6)
+        #ax.text(np.minimum(x, y), delta, SN[6:], fontsize = 6)
         if SN in spectra.keys():
-            if spectra[SN] == "II":
+            if spectra[SN] == "II" and SN not in banned:
                 SNII.append(SN)
                 if SN not in HiTS:
                     print("Adding %s with Type II spectroscopic classification" % SN)
                     HiTS.append(SN)
-                marker = '*'
-            elif spectra[SN] == "Ia":
+            elif spectra[SN] == "Ia" and SN not in banned:
                 SNIa.append(SN)
-                marker = 's'           
         elif y - x > 0:#np.sqrt(xerr[0][0]**2 + yerr[0][0]**2):
             SNII.append(SN)
-            marker = '*'
         else:#np.sqrt(xerr[0][0]**2 + yerr[0][0]**2):
             SNIa.append(SN)
-            marker = 's'
 
         color = 'gray'
         lw = 0
@@ -189,31 +188,57 @@ for SN in sorted(Moriya.keys()):
             elif spectra[SN] == "Ia":
                 color = 'b'
 
-        if marker == '*':
-            s = 30
+        if SN in poor_rise or (SN in banned and SN in spectra):
+            mew = 2.
         else:
-            s = 15
-        #print("Plotting %s" % SN)
-        ax.errorbar(np.minimum(x, y), delta, marker = marker, markersize = s, alpha = 0.5, color = color)#, xerr = xerr, yerr = np.sqrt(yerr**2 + xerr**2))
+            mew = 0
 
-ax.axhline(0)
-plt.grid()
+        #print("Plotting %s" % SN)
+        ax.errorbar(np.minimum(x, y), delta, marker = 'o', markersize = 20, alpha = 0.5, mew = mew, mec = 'k', color = color, lw = 0)#, xerr = xerr, yerr = np.sqrt(yerr**2 + xerr**2))
+
+        
+
+ax.axhline(0, ls = ':', c = 'gray')
+#plt.grid()
 ax.set_xlabel(r"$\log_{10}\ BIC_{\rm best}$", fontsize = 14)
 ax.set_ylabel(r"${\rm arcsinh}(BIC_{\rm Ia}\ -\ BIC_{\rm II})$", fontsize = 14)
+
+(x1, x2) = ax.get_xlim()
+(y1, y2) = ax.get_ylim()
+ax.errorbar(x1 + (x2 - x1) * 0.8, y1 + (y2 - y1) * 0.95, marker = "o", markersize = 20, color = 'gray', mew = 0, alpha = 0.5)
+ax.text(x1 + (x2 - x1) * 0.82, y1 + (y2 - y1) * 0.95, "No spectrum available", va = 'center', fontsize = 14)
+ax.errorbar(x1 + (x2 - x1) * 0.8, y1 + (y2 - y1) * 0.9, marker = "o", markersize = 20, color = 'r', mew = 0, alpha = 0.5)
+ax.text(x1 + (x2 - x1) * 0.82, y1 + (y2 - y1) * 0.9, "Type II spectrum", va = 'center', fontsize = 14)
+ax.errorbar(x1 + (x2 - x1) * 0.8, y1 + (y2 - y1) * 0.85, marker = "o", markersize = 20, color = 'b', mew = 0, alpha = 0.5)
+ax.text(x1 + (x2 - x1) * 0.82, y1 + (y2 - y1) * 0.85, "Type Ia spectrum", va = 'center', fontsize = 14)
+ax.errorbar(x1 + (x2 - x1) * 0.8, y1 + (y2 - y1) * 0.8, marker = "o", markersize = 20, color = 'white', mec = 'k', mew = 2., alpha = 0.5)
+ax.text(x1 + (x2 - x1) * 0.82, y1 + (y2 - y1) * 0.8, "Poor sampling", va = 'center', fontsize = 14)
+
+ax.arrow(x1 + (x2 - x1) * 0.7, (y2 - y1) * 0.005, 0, (y2 - y1) * 0.05, head_length = (y2 - y1) * 0.01, head_width = (x2 - x1) * 0.01, color = 'k')
+ax.text(x1 + (x2 - x1) * 0.71, (y2 - y1) * 0.04, "SN II photometric classification", fontsize = 14)
+#ax.arrow(x1 + (x2 - x1) * 0.7, -(y2 - y1) * 0.005, 0, -(y2 - y1) * 0.05, head_length = (y2 - y1) * 0.01, head_width = (x2 - x1) * 0.01, color = 'k')
+#ax.text(x1 + (x2 - x1) * 0.71, -(y2 - y1) * 0.04, "SN Ia photometric classification", fontsize = 14)
+
+plt.tight_layout()
+plt.legend(loc = 2)
 plt.savefig("plots/classification.png")
+plt.savefig("plots/classification.pdf")
 #plt.show()
 
 # save SNe II, SNe Ia
 fileout = open("HiTS_classification.out", "w")
-fileout.write("# SNe BICII BICIa spec_class banned\n")
+fileout.write("# SNe BICII BICIa spec_class banned poor_rise\n")
 for SN in sorted(Moriya.keys()): 
     b = False
+    p = False
     c = "NA"
     if SN in banned:
         b = True
+    if SN in poor_rise:
+        p = True
     if SN in spectra.keys():
         c = spectra[SN]
-    fileout.write("%s %.2f %.2f %s %s\n" % (SN, BICII[SN], BICIa[SN], c, b))
+    fileout.write("%s %.2f %.2f %s %s %s\n" % (SN, BICII[SN], BICIa[SN], c, b, p))
 fileout.close()
 
 
@@ -258,7 +283,32 @@ print("SNe classified as SNe II with spectra")
 for SN in SNII:
     if SN not in banned and SN in spectra:
         print SN
-        
+
+# check SNII sample
+#fig, ax = plt.subplots(ncols = 3, figsize = (20, 6))
+#for SN in SNII:
+#
+#    sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata("HiTS", SN)
+#
+#    for chain in os.listdir("samples"):
+#        if SN in chain and "Moriya" in chain:
+#            print(chain)
+#
+#    
+#            if 'logz' in chain:
+#                nchain, nwalker, scale, texp, logz, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % chain).transpose()
+#            else:
+#                nchain, nwalker, scale, texp, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % chain).transpose()
+#
+#            t5, t50, t95, tmin, mdot = np.percentile(texp, 5), np.percentile(texp, 50), np.percentile(texp, 95), min(sn_mjd), np.percentile(log10mdot, 50)
+#            print(t95 - t5, tmin - t5, tmin - t50, mdot)
+#            ax[0].scatter(t95 - t5, mdot)
+#            ax[0].text(t95 - t5, mdot, SN)
+#            ax[1].scatter(tmin - t5, mdot)
+#            ax[1].text(tmin - t5, mdot, SN)
+#            ax[2].scatter(tmin - t50, mdot)
+#            ax[2].text(tmin - t50, mdot, SN)
+#plt.show()
 #s = "feh"
 #for SN in SNII:
 #    s = "%s plots/*Moriya*%s*models.png" % (s, SN)

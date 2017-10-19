@@ -30,7 +30,7 @@ class survey_multimodel(object):
         self.LCs = kwargs["LCs"]
         
         # maximum time for an object to have exploded before the beginning of the simulation to be considered detected
-        self.maxrestframeage = 10
+        self.maxrestframeage = 5#10
         if "maxrestframeage" in kwargs.keys():
             self.maxrestframeage = kwargs["maxrestframeage"]
 
@@ -55,19 +55,22 @@ class survey_multimodel(object):
         # cosmology interpolation functions
         self.Dcf = interp1d(self.zs, cosmo[:, 1]) # Mpc
         self.DLf = interp1d(self.zs, cosmo[:, 4]) # Mpc
-        self.Dmf = interp1d(self.zs, cosmo[:, 5]) # Mpc
+        self.Dmf = interp1d(self.zs, cosmo[:, 5])
         self.dVdzdOmegaf = interp1d(self.zs, cspeed / (Hnot * 1e5 * np.sqrt((1. + self.zs)**3. * OmegaM + OmegaL)) * self.Dcf(self.zs)**2)
 
         # compute SFR given SFH at zs grid
         self.SFH.doSFR(self.zs)
 
         # compute cumulative number of SNe
-        self.ndayssim = max(self.obsplan.MJDs) - min(self.obsplan.MJDs) + self.maxrestframeage * (1. + self.zs) # note that simulation length is a function of redshift
+        self.ndayssim = max(self.obsplan.MJDs) - min(self.obsplan.MJDs) + (20 + self.maxrestframeage) * (1. + self.zs) # note that simulation length is a function of redshift
         self.totalSNe = self.efficiency * self.SFH.SFR / (1. + self.zs) * (self.ndayssim / yr2days) * self.dVdzdOmegaf(self.zs) * (self.obsplan.obs.FoV / ster_sqdeg) * self.obsplan.nfields  # true number of SNe
 
         # cumulative distribution over which to sample
         self.cumtotalSNe = np.cumsum(self.totalSNe * self.zbin)
         self.random2z = interp1d(self.cumtotalSNe / self.cumtotalSNe[-1], self.zs, bounds_error = False, fill_value = 'extrapolate')
+
+        print("Total number of events expected to occur within observed volume and simulation time is %i" % self.cumtotalSNe[-1])
+
 
         
     # sample events
@@ -143,6 +146,8 @@ class survey_multimodel(object):
             self.LCsamples = pickle.load(open(LCsfile, 'rb'))
             parsfile = "pickles/%s_%s_params_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
             self.parsamples = np.array(pickle.load(open(parsfile, 'rb'))).transpose()
+            temergencefile = "pickles/%s_%s_temergence_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            self.temergence = np.array(pickle.load(open(temergencefile, 'rb'))).transpose()
             self.logzs = self.parsamples[0]
             self.texps = self.parsamples[1]
             self.logAvs = self.parsamples[2]
@@ -151,10 +156,12 @@ class survey_multimodel(object):
         else:
             self.LCsamples = []
             self.parsamples = []
+            self.temergence = []
             
         if not doload:
             print("Simulating light curves...")
             
+        mag_emergence = -13 # absolute magnitude of emergence
         for i in range(self.nsim):
 
             if not doload:
@@ -164,17 +171,28 @@ class survey_multimodel(object):
             if not doload:
                 # save only first list with light curve at given time (no reference values)
                 self.LCsamples.append(self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i])[0])
-                self.parsamples.append(np.hstack([self.logzs[i], self.texps[i], self.logAvs[i], self.parsarray[i]])[0])
+                
+                # find approximate time of emergence (when absolute g magnitude becomes brighter than -12)
+                niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['g'][self.LCs.times < 30]
+                #niceLC = niceLC
+                mask = (niceLC - self.Dmf(np.exp(self.logzs[i])) <= mag_emergence)
+                if np.sum(mask) > 0:
+                    self.temergence.append(np.min(self.LCs.times[mask]))
+                else:
+                    self.temergence.append(-2)
+                self.parsamples.append(np.hstack([self.logzs[i], self.texps[i], self.logAvs[i], self.parsarray[i]]))
 
             if doplot and i < 1000: # avoid plotting more than 1000 LCs
                 for band in self.LCs.uniquefilters:
                     maskband = self.LCs.maskband[band]
                     if i == 0:
                         ax.plot(self.LCs.mjd[maskband], self.obsplan.limmag[maskband], lw = 4, c = self.LCs.bandcolors[band])
+                        ax.plot(self.LCs.mjd[maskband], self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)), lw = 4, c = self.LCs.bandcolors[band], ls = ':')
                     masklim = self.LCsamples[i][band] < self.obsplan.limmag[maskband] + 2
                     ax.plot(self.LCs.mjd[maskband][masklim], self.LCsamples[i][band][masklim], c = self.LCs.bandcolors[band], alpha = 0.1)
 
         self.parsamples = np.array(self.parsamples).transpose()
+        self.temergence = np.array(self.temergence).transpose()
 
         if doplot:
             ax.set_ylim(ax.get_ylim()[::-1])
@@ -185,6 +203,13 @@ class survey_multimodel(object):
             pickle.dump(self.LCsamples, open(LCsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
             parsfile = "pickles/%s_%s_params_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump(self.parsamples, open(parsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+            temergencefile = "pickles/%s_%s_temergence_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            pickle.dump(self.temergence, open(temergencefile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+
+        if doplot:
+            fig, ax = plt.subplots()
+            ax.hist(self.temergence)
+            ax.set_xlabel("Time of emergence (abs. mag g $< %.1f$)" % mag_emergence)
         
     def do_efficiency(self, **kwargs):
 
@@ -194,15 +219,24 @@ class survey_multimodel(object):
         verbose = False
         if 'verbose' in kwargs.keys():
             verbose = kwargs['verbose']
+        check1stdetection = False
+        if 'check1stdetection' in kwargs.keys():
+            check1stdetection = kwargs["check1stdetection"]
 
         if doplot:
             fig, ax = plt.subplots(figsize = (20, 10))
 
-        # count number of detections in every band
+        # number of detections per objecy per band
         matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
+        # time of 1st detection in rest frame per object (after emergence)
+        rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
+        # brightest magnitude detected per object per band
+        minmags = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
+        
         for idx, LCsample in enumerate(self.LCsamples):
 
-            match = {}
+            redshift = np.exp(self.parsamples[0, idx])
+            texp = self.parsamples[1, idx]
             
             if verbose and np.mod(idx, 100) == 0:
                 print(idx)
@@ -210,8 +244,19 @@ class survey_multimodel(object):
             for idxb, band in enumerate(self.obsplan.uniquebands):
 
                 maskband = self.LCs.maskband[band]
-                masklim = LCsample[band] < self.obsplan.limmag[maskband] - np.sqrt(2.)
+                masklim = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) # assume worst case for difference imaging
+                masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
                 matches[idx, idxb] = np.sum(masklim)
+                #rftimedetections = (self.obsplan.MJDs[maskband][masklim] - (texp + self.temergence[idx])) / (1. + redshift)
+                # best match to actual filters
+                rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - (texp + self.temergence[idx]))
+                                    
+                if matches[idx, idxb] > 0:
+                    minmags[idx, idxb] = min(LCsample[band][masklim])
+                    if rftime1stdet[idx] == 0:
+                        rftime1stdet[idx] = min(rftimedetections)
+                    else:
+                        rftime1stdet[idx] = min(rftime1stdet[idx], min(rftimedetections))
 
                 #if doplot:
                 #    if idx == 0:
@@ -219,16 +264,19 @@ class survey_multimodel(object):
                 #        
                 #    ax.plot(self.obsplan.MJDs[maskband][masklim], LCsample[band][masklim], alpha = 0.1, c = self.LCs.bandcolors[band])
 
-        # sort number of detections by redshift or other properties
-        nmatches = np.sum(matches, axis = 1)
-        detections = (nmatches >= 2)
 
+        # count only detections with at least two detections [and with early detections if check1stdetection]
+        detections = (np.sum(matches, axis = 1) >= 2)
+        if check1stdetection:
+            detections = np.array(detections & (rftime1stdet <= self.maxrestframeage))
+
+        # filter by time of first detection
         labels = np.concatenate([np.array(['logz', 'texp', 'logAv'], dtype = str), np.array(self.LCs.paramnames, dtype = str)])
         self.x_effs = {}
+        self.y_effs = {}
         self.effs = {}
-        print(self.parsamples)
+        
         for vallabel, valin in zip(labels, self.parsamples):
-            print(vallabel, valin)
             if min(valin) == max(valin):
                 continue
             if vallabel == 'logz':
@@ -236,36 +284,99 @@ class survey_multimodel(object):
                 valin = np.exp(valin)
             if vallabel == 'mdot':
                 vallabel = 'log10mdot'
-                valin = np.log10(valin)
             if vallabel == 'logAv':
                 vallabel = 'log10Av'
                 valin = valin / np.log(10.)
-            idxsort = np.argsort(valin)
-            valin = valin[idxsort]
-            valout = valin[detections[idxsort]]
-            nn = np.cumsum(np.ones_like(valin))
+
+            # values of detected SNe
+            valout = np.array(valin[detections])
+
+            # store this for later comparison
+            if vallabel == 'log10mdot':
+                log10mdot = np.array(valout)
+                # SBO times
+                tSBO = self.temergence[detections]
+            if vallabel == 'z':
+                z = np.array(valout)
+
+            # sort values
+            idxsort = np.argsort(valout)
+            valout = valout[idxsort]
+
+            # create bins for histogram
+            nn = np.cumsum(np.ones(self.nsim))
             nin, bin_edgesin = np.histogram(valin, bins = 25)
             nout, bin_edgesout = np.histogram(valout, bins = bin_edgesin)
             self.x_effs[vallabel] = (bin_edgesin[1:] + bin_edgesin[:-1]) / 2.
-            self.effs[vallabel] = interp1d(self.x_effs[vallabel], 1. * nout / nin, bounds_error = False, fill_value = 0)
-            
+            self.y_effs[vallabel] = 1. * nout / nin
+            self.effs[vallabel] = interp1d(self.x_effs[vallabel], self.y_effs[vallabel], bounds_error = False, fill_value = 0)
+            # save efficiencies
+            import pickle
+            effsfile = "pickles/%s_%s_LCs_%i_effs.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            pickle.dump([self.x_effs, self.y_effs], open(effsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+
+            # plot histograms
             if doplot:
                 fig, ax = plt.subplots()
-                ax.plot(valin, range(len(valin)), label = 'Explosions')
-                ax.plot(valout, range(len(valout)), label = 'Detections')
-                #ax.plot((self.x_effs[vallabel], self.effs[vallabel](self.x_effs[vallabel]), linestyle = 'steps-mid')
-                ax.set_xlabel(vallabel)
-                ax.set_ylabel('N')
+                #ax.plot(valin, range(len(valin)), label = 'Explosions')
+                # plot scaled number of detections
+                ax.plot(self.x_effs[vallabel], self.effs[vallabel](self.x_effs[vallabel]), linestyle = 'steps-mid', c = 'k')
                 ax.set_ylim(0, ax.get_ylim()[1])
-                plt.legend(loc = 2, fontsize = 10)
-        
-        
+                ax.set_ylabel('Efficiency', fontsize = 14)
+                ax.set_xlabel(vallabel, fontsize = 14)
+                ax2 = ax.twinx()
+                ax2.plot(valout, np.array(range(len(valout)), dtype = float) / len(valin) * self.cumtotalSNe[-1], label = 'Detections', c = 'r')
+                ax2.set_ylabel('CDF', color='r', fontsize = 14)
+                ax2.set_ylim(0, ax2.get_ylim()[1])
+                ax2.tick_params('y', colors='r')
+                if vallabel == 'log10mdot':
+                    ax.set_xlabel(r'$\log_{10} \dot M\ [M_\odot yr^{-1}]$')
+                    ax.set_ylabel("Efficiency")
+                    plt.savefig("plots/log10mdot_efficiency.pdf")
+                if  vallabel == 'beta':
+                    ax.set_xlabel(r'$\beta$')
+                    ax.set_ylabel("Efficiency")
+                    plt.savefig("plots/beta_efficiency.pdf")
+
         if doplot:
-            ax.set_ylim(ax.get_ylim()[::-1])
 
+            # mass loss rate vs emergence times
+            fig, ax = plt.subplots()
+            ax.scatter(log10mdot, tSBO)
+            ax.set_xlabel("log10mdot")
+            ax.set_ylabel("temergence - texp [days]")
 
+            np.save("pickles/zlog10mdot.npy", [z, log10mdot])
+            # mass loss rate vs redshift
+            fig, ax = plt.subplots()
+            ax.scatter(z, log10mdot, marker  = '.', alpha = 0.5)
+            ax.set_xlabel("z")
+            ax.set_ylabel("log10mdot")
 
-        
+            H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, 0.6], [-8, -2]], bins = (12, 12))
+            x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
+            extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+            cset = ax.contour(x, y, H.transpose(), origin = 'lower')#, levels, origin = 'lower')
+            #plt.clabel(cset, inline = 1, fontsize = 10, fmt = '%1.0i')
+            #for c in cset.collections:
+            #    c.set_linestyle('solid')
+            
+            # apparent magnitudes
+            fig, ax = plt.subplots()
+            for idxb, band in enumerate(self.obsplan.uniquebands):
+                ax.hist(minmags[:, idxb][minmags[:, idxb] > 0], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
+            ax.legend(loc = 2)    
+            ax.set_xlabel("min mag")
+
+            # absolute magnitudes
+            fig, ax = plt.subplots()
+            for idxb, band in enumerate(self.obsplan.uniquebands):
+                mask = (minmags[:, idxb] > 0)
+                Dms = np.array(map(lambda logz: self.Dmf(np.exp(logz)), self.parsamples[0, :]))
+                ax.hist(minmags[:, idxb][mask] - Dms[mask], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
+            ax.legend(loc = 2)    
+            ax.set_xlabel("min abs mag")
+
 
         # count number of detecions in any filters
                    
@@ -522,37 +633,21 @@ if __name__  == "__main__":
     # survey telescope, filter and object type
     obsname = sys.argv[1] #"Blanco-DECam" #"KMTNet"
     modelname = sys.argv[2] # MoriyaWindAcc
+    nsim = int(sys.argv[3])
 
-    # maximum age of object at the start of the survey
-    maxrestframeage = 3
-    
-    # start an observational plan
-    #if obsname == "HiTS14A":
-    #    plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 40, nepochspernight = 4, ncontnights = 5, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
-    #elif obsname == "HiTS15A":
-    #    plan = obsplan(obsname = "Blanco-DECam", band = filtername, mode = 'custom', nfields = 50, nepochspernight = 5, ncontnights = 6, nnights = 6, nightfraction = 1., nread = 1, startmoonphase = -2, maxmoonphase = 15, doplot = True)
-    #elif obsname == "VST-OmegaCam":
-    #    plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 4, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 5.32 / 100., nread = 1, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
-    #elif obsname == "KMTNet":
-    #    plan = obsplan(obsname = obsname, band = filtername, mode = 'custom', nfields = 1, nepochspernight = 1, ncontnights = 120, nnights = 120, nightfraction = 0.043, nread = 3, startmoonphase = 0, maxmoonphase = 11.5, doplot = True)
-    #elif obsname == "KMTNetSNsurvey":
-    #    plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
-    #elif obsname == "KMTNet17B":
-    #    plan = obsplan(obsname = "KMTNet", band = filtername, mode = 'file', inputfile = "KMTNet17B.dat", nfields = 3, nepochspernight = 1, nightfraction = 0.5 / 4., nread = 3, doplot = True)
-    #elif obsname == "Clay-MegaCam17B":
-    #    plan = obsplan(obsname = "Clay-MegaCam", band = filtername, mode = 'file', inputfile = "Clay-MegaCam17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 0.5, nread = 1, doplot = True)
+    # create observational plan
     if obsname == "SNLS":
         plan = obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, doload = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     elif obsname == "KMTNet17B":
-        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B.dat", nfields = 3, nepochspernight = 1, nightfraction = 0.5 / 4., nread = 3, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        #plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_BVRI.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+    elif obsname == "HiTS15A":
+        plan = obsplan(obsname = "Blanco-DECam", mode = 'file-cols', inputfile = "HiTS15A.dat", nfields = 50, nepochspernight = 1., nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown'})        
     else:
         print("WARNING: undefined observatory")
         sys.exit()
 
-    # extinction
-    lAv = 0.187
-
-    # models
+    # load models
     modelsdir = "/home/fforster/Work/surveysim/models"
     data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
     data[data == 'no'] = 0
@@ -593,7 +688,8 @@ if __name__  == "__main__":
     LCs.docosmo()
 
     # compute models in given bands
-    LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
+    #LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
+    LCs.compute_models(bands = ['B', 'V', 'R', 'I'], load = False, save = True)#, 'r'])#, 'i', 'z'])
     
     # set metric
     LCs.setmetric(metric = parammetric, logscale = paramlogscale)
@@ -607,17 +703,20 @@ if __name__  == "__main__":
     IIPfrac = 0.54
     efficiency = knorm * IIPfrac
     
+    # maximum age of object at the start of the survey
+    maxrestframeage = 3.
+    
     # start survey
     newsurvey = survey_multimodel(obsplan = plan, SFH = SFH, efficiency = efficiency, LCs = LCs, maxrestframeage = maxrestframeage)
 
     # set maximum redshift
-    newsurvey.set_maxz(0.9)
+    newsurvey.set_maxz(0.5)
     
     # do cosmology with dense grid
     newsurvey.do_cosmology()
 
-    # set rvs
-    minMJD, maxMJD = min(newsurvey.obsplan.MJDs) - newsurvey.maxrestframeage * (1. + max(newsurvey.zs)), max(newsurvey.obsplan.MJDs)
+    # set distribution of physical parameters
+    minMJD, maxMJD = min(newsurvey.obsplan.MJDs) - (20. + newsurvey.maxrestframeage) * (1. + max(newsurvey.zs)), max(newsurvey.obsplan.MJDs)
     rvs = {'texp': lambda nsim: uniform.rvs(loc = minMJD, scale = maxMJD - minMJD, size = nsim), \
            'logAv': lambda nsim: norm.rvs(loc = np.log(0.1), scale = 1., size = nsim), \
            #'mass': lambda nsim: norm.rvs(loc = 14, scale = 3, size = nsim), \
@@ -642,11 +741,11 @@ if __name__  == "__main__":
     pars = np.array([mass, energy, mdot, rcsm, vwindinf, beta]) # must be in same order as paramnames
 
     # sample events    
-    #newsurvey.sample_events(nsim = 50000, doload = True, doplot = False, rvs = rvs, bounds = bounds, pars = pars)
-    newsurvey.sample_events(nsim = 1000, doload = False, dosave = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
+    newsurvey.sample_events(nsim = nsim, doload = False, dosave = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
+    newsurvey.sample_events(nsim = nsim, doload = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
 
     # measure detections and efficiency
-    #newsurvey.do_efficiency(doplot = True, verbose = False)
+    newsurvey.do_efficiency(doplot = True, verbose = False, check1stdetection = True)
     
     ## estimate maximum survey redshift
     #newsurvey.estimate_maxredshift(zguess = 0.334, minprobdetection = 1e-4, minndetections = 5)
@@ -663,7 +762,7 @@ if __name__  == "__main__":
     ## sample from distribution
     #newsurvey.sample_events(nsim = 10000)
     #
-    ## plot light curves
+    # plot light curves
     #newsurvey.plot_LCs(save = True)
     
     plt.show()

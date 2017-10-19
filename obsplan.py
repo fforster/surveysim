@@ -87,7 +87,7 @@ class obsplan(object):
                 
             # custom plan name
             self.planname = "%s-nf%i-ne%i-nr%i-nc%i-nn%i_%s_%s" % (self.mode, self.nfields, self.nepochspernight, self.nread, self.ncontnights, self.nnights, self.obsname, self.band)
-            print "Observation plan name:", self.planname
+            print("Observation plan name:", self.planname)
         
             # starting date, new and full moon days
             ephemdate = ephem.Date((Time(Time.now().mjd, format = 'mjd', scale = 'utc').isot).replace("T", " "))
@@ -124,14 +124,14 @@ class obsplan(object):
                         mjds = map(lambda x: Time(str(ephem.Date(x)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd, [ab[0], ab[1]])
                         self.MJDs = np.hstack([self.MJDs, np.linspace(mjds[0], mjds[1], mjds[1] - mjds[0])])
                     else:
-                        print "WARNING: observational plan incorrectly formatted"
+                        print("WARNING: observational plan incorrectly formatted")
                         sys.exit()
             elif "mjds" in params.keys():
                 self.MJDs = []
                 for mjd in params["mjds"].split(","):
                     self.MJDs = np.hstack([self.MJDs, float(mjd)])
             else:
-                print "WARNING: observation times not specified"
+                print("WARNING: observation times not specified")
                 sys.exit()
 
             # make sure there are no repeated observations
@@ -140,41 +140,63 @@ class obsplan(object):
 
             # custom plan name
             self.planname = "%s-nf%i-ne%i-nr%i-nn%i_%s_%s" % (self.obsplanfile[:-4], self.nfields, self.nepochspernight, self.nread, len(self.MJDs), self.obsname, self.band)
-            print "Observation plan name:", self.planname
+            print("Observation plan name:", self.planname)
 
         elif self.mode == "file-cols":
 
             self.obsplanfile = kwargs["inputfile"]
 
-            self.MJDs, self.bands = np.loadtxt("obsplans/%s" % self.obsplanfile, dtype = str).transpose()
-            for idx, MJD in enumerate(self.MJDs):
-                if '/' in MJD:
-                    self.MJDs[idx] = Time(str(ephem.Date(MJD)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd
-            self.MJDs = np.array(self.MJDs, dtype = float)
+            import pandas as pd
+            df = pd.read_csv("obsplans/%s" % self.obsplanfile, sep = "\s+", comment = '#')
 
-            # sort and make sure there are no repeated observations
+            if 'MJD' in df.columns:
+                self.MJDs = np.array(df['MJD'])
+            if 'DATE' in df.columns:
+                self.MJDs = df['DATE']
+                for idx, MJD in enumerate(self.MJDs):
+                    if '/' in MJD:
+                        self.MJDs[idx] = Time(str(ephem.Date(MJD)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd
+                self.MJDs = np.array(self.MJDs, dtype = float)
+
+            # eliminate repeated dates and sort
+            self.MJDs, idxu = np.unique(self.MJDs, return_index = True)
             idxsorted = np.argsort(self.MJDs)
             self.MJDs = self.MJDs[idxsorted]
-            self.bands = self.bands[idxsorted]
-            self.MJDs, idxu = np.unique(self.MJDs, return_index = True)
+            
+            if 'FILTER' in df.columns:
+                self.bands = np.array(df['FILTER'])
+                self.bands = self.bands[idxu][idxsorted]
+            if 'AIRMASS' in df.columns:
+                self.airmasses = np.array(df['AIRMASS'])
+                self.airmasses = self.airmasses[idxu][idxsorted]
+            if 'EXPTIME' in df.columns:
+                self.exptimes = np.array(df['EXPTIME'])
+                self.exptimes = self.exptimes[idxu][idxsorted]
+                
+            # find unique bands
             self.bands = self.bands[np.array(idxu, dtype = int)]
             self.uniquebands = np.sort(np.unique(self.bands))
             self.band = "".join(self.uniquebands)
+
+            # find relative dates
             dates = self.MJDs - self.MJDs[0]
 
-            # custom plan name
+            # plan name
             self.planname = "%s-nf%i-ne%i-nr%i-nn%i_%s_%s" % (self.obsplanfile[:-4], self.nfields, self.nepochspernight, self.nread, len(self.MJDs), self.obsname, self.band)
-            print "Observation plan name:", self.planname
+            print("Observation plan name:", self.planname)
 
         # overhead time
         self.overhead = max(self.obs.readouttime, self.obs.slewtime)
         
         # compute exposure time
-        self.exptime = self.nightlength * self.nightfraction / self.nfields / self.nepochspernight * 24. * 60. * 60. - self.overhead - self.obs.readouttime * (self.nread - 1) # seconds
-        if self.exptime < 0:
-            print "Negative exposure time"
-            sys.exit()
-        print "Number of fields to visit: %i, exposure time: %s" % (self.nfields, self.exptime)
+        if not hasattr(self, "exptimes"):
+            self.exptime = self.nightlength * self.nightfraction / self.nfields / self.nepochspernight * 24. * 60. * 60. - self.overhead - self.obs.readouttime * (self.nread - 1) # seconds
+            if self.exptime < 0:
+                print("Negative exposure time")
+                sys.exit()
+            print("Number of fields to visit: %i, exposure time: %s" % (self.nfields, self.exptime))
+        else:
+            self.exptime = np.median(self.exptimes)
 
         if dosave or doload:
             outputfile = "obsplans/%s.out" % self.obsplanfile
@@ -188,26 +210,27 @@ class obsplan(object):
             self.skymags = np.array(self.skymags, dtype = float)
 
             return
-            
-        # use simple linear model to predict airmass (TODO: alternatively, provide RA DEC list?)
-        if self.band == 'u':
-            minairmass = 1.0
-            maxairmass = 1.5
-        elif self.band == 'g' and self.nepochspernight == 4:
-            minairmass = 1.2
-            maxairmass = 1.8
-        elif self.band == 'g' and self.nepochspernight == 5:
-            minairmass = 1.1
-            maxairmass = 1.7
-        else:
-            minairmass = 1.1
-            maxairmass = 1.7
 
-        t_minairmass = self.nightfraction / 2. - self.nightfraction / self.nepochspernight / 2.
-        if self.nepochspernight > 1:
-            self.airmasses = minairmass + (np.abs(np.mod(dates, 1.) / self.nightlength - t_minairmass) / t_minairmass)**2 * (maxairmass - minairmass)
-        else:
-            self.airmasses = np.ones_like(dates) * minairmass
+        if not hasattr(self, "airmasses"):
+            # use simple linear model to predict airmass (TODO: alternatively, provide RA DEC list?)
+            if self.band == 'u':
+                minairmass = 1.0
+                maxairmass = 1.5
+            elif self.band == 'g' and self.nepochspernight == 4:
+                minairmass = 1.2
+                maxairmass = 1.8
+            elif self.band == 'g' and self.nepochspernight == 5:
+                minairmass = 1.1
+                maxairmass = 1.7
+            else:
+                minairmass = 1.1
+                maxairmass = 1.7
+            
+            t_minairmass = self.nightfraction / 2. - self.nightfraction / self.nepochspernight / 2.
+            if self.nepochspernight > 1:
+                self.airmasses = minairmass + (np.abs(np.mod(dates, 1.) / self.nightlength - t_minairmass) / t_minairmass)**2 * (maxairmass - minairmass)
+            else:
+                self.airmasses = np.ones_like(dates) * minairmass
             
         # compute moon phases and sky magnitude
         self.moonphases = np.zeros_like(self.MJDs)
@@ -222,7 +245,10 @@ class obsplan(object):
 
         # using sky magnitudes, airmasses, exposure time, SNR lim, compute limiting magnitudes
         print("Computing limiting magnitudes for all bands (this may take some time)")
-        self.limmag = np.array(map(lambda band, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=self.exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.airmasses, self.skymags))
+        if hasattr(self, "exptimes"):
+            self.limmag = np.array(map(lambda band, exptime, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.exptimes, self.airmasses, self.skymags))
+        else:
+            self.limmag = np.array(map(lambda band, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=self.exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.airmasses, self.skymags))
 
         
         # fix moonphases in custom mode
@@ -245,7 +271,7 @@ class obsplan(object):
         # plot
         if self.doplot:
 
-            print "Plotting observational plan"
+            print("Plotting observational plan")
             
             fig, ax = plt.subplots(figsize = (13, 7))
             
@@ -265,7 +291,7 @@ class obsplan(object):
 
             l1, l2 = ax.get_ylim()
             # plot airmasses, moon phase
-            ax.plot(self.MJDs, l2 - (self.airmasses - 1) * (l2 - l1) , c = 'orange', label = "airmass - 1 (0 to 1)", lw = 4, alpha = 0.5)
+            ax.plot(self.MJDs, l2 - (self.airmasses - 1) * (l2 - l1) , c = 'orange', label = "airmass (scale from 1 to 2)", lw = 4, alpha = 0.5)
             ax.plot(self.MJDs, l2 - self.moonphases / (synodicmoonperiod / 2.) * (l2 - l1), c = 'k', lw = 4, label = "Moon phase / half synodic period (0 to 1)", alpha = 0.3)
 
             # show more dates for reference
@@ -278,7 +304,7 @@ class obsplan(object):
             plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(YYYYMMDD))
             
             # final touches
-            ax.set_title("%i nights, %i sec open shutter/epoch (%i readouts/epoch)" % (np.size(self.MJDs) / self.nepochspernight, self.exptime, self.nread))
+            ax.set_title("%i nights, %i sec median open shutter/epoch (%i readouts/epoch)" % (np.size(self.MJDs) / self.nepochspernight, self.exptime, self.nread))
             ax.set_xlim(min(self.MJDs), max(self.MJDs) + 2)
             ax.legend(loc = 4, fontsize = 8, framealpha = 0.5)
             plt.xticks(rotation = 90, ha = 'left')
@@ -454,10 +480,15 @@ class obsplan(object):
 
         
 if __name__ == '__main__':
+
+    survey = sys.argv[1]
     
     #KMNTNet17B = obsplan(obsname = "KMTNet", band = 'B', mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
-    
-    plan = obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+
+    if survey == "KMTNet17B":
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_VRI.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    elif survey == "HiTS15B":
+        obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     
     #plan = obsplan(obsname = "KMTNet", band = 'g', mode = 'file', inputfile = "KMTNet17B.dat", nfields = 12, nepochspernight = 1, nightfraction = 0.5, nread = 3, doplot = True)
 

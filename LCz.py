@@ -163,12 +163,20 @@ class LCz(object):
 
         elif self.filtername in UBVRI:
 
-            bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/Bessel_%s-1.txt' % self.filtername).transpose()
+            bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/KMTNet_transmission_total.txt').transpose()
+            iband = 0
+            for i in range(len(UBVRI)):
+                if UBVRI[i] == self.filtername:
+                    iband = i
             lfilter = bandfilter[0] * 10. # AA
-            tfilter = bandfilter[1] / 100. # fraction
-            idxsort = np.argsort(lfilter)
-            lfilter = lfilter[idxsort]
-            tfilter = tfilter[idxsort]
+            tfilter = bandfilter[iband + 1]  # fraction
+
+            #bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/Bessel_%s-1.txt' % self.filtername).transpose()
+            #lfilter = bandfilter[0] * 10. # AA
+            #tfilter = bandfilter[1] / 100. # fraction
+            #idxsort = np.argsort(lfilter)
+            #lfilter = lfilter[idxsort]
+            #tfilter = tfilter[idxsort]
 
         elif self.filtername == "Kepler":
 
