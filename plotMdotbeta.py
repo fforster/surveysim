@@ -201,7 +201,7 @@ for m in ms:
     except:
         if m != None and m != 'None' and m != "" and m != " " and m != "|" and m != "+":
             ms_sel.append(m)
-    counter = 0
+    counter = 1
 print ms_sel
 
 # iterate among samples files
@@ -225,13 +225,8 @@ for f in files:
 
         if SN in HiTS:
             m = ms_sel[np.mod(counter, len(ms_sel))]
-            counter = counter + 1
         elif SN in DES:
             m = '*'
-
-        # get array positions
-        (iy, ix) = int(np.mod(counter - 1, ncols)), int((counter - 1) / ncols)
-        idxfilled[(ix, iy)] = True
 
         #if SN != "SNHiTS15X":
         #    continue
@@ -240,19 +235,22 @@ for f in files:
 
             # read observational data
             sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(survey, SN)
-            
 
         pdf = f.replace("chain", "plots/MCMC").replace(".dat", "_models.pdf")
         pdfout = "%s %s" % (pdfout, pdf)
 
         if re.search(".*logz.*", f) and not fixz:
             nchain, nwalker, scale, texp, logz, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
-        elif fixz:
+        elif re.search(".*logz.*", f) == None and fixz:
             nchain, nwalker, scale, texp, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
         else:
             print("Skipping file %s" % f)
             continue
 
+        # get array positions
+        (iy, ix) = int(np.mod(counter - 1, ncols)), int((counter - 1) / ncols)
+        idxfilled[(ix, iy)] = True
+        counter = counter + 1
 
         mask = (nchain > 500)
             
@@ -487,7 +485,7 @@ fig, ax = plt.subplots()
 ax.errorbar(limz[:, 1], limlog10mdot[:, 1], xerr = [limz[:, 1] - limz[:, 0], limz[:, 2] - limz[:, 1]],
             yerr = [limlog10mdot[:, 1] - limlog10mdot[:, 0], limlog10mdot[:, 2] - limlog10mdot[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
 
-(z, log10mdot) = np.load("pickles/zlog10mdot.npy")
+(z, log10mdot) = np.load("pickles/MoriyaWindAcc_HiTS15A-nf50-ne1-nr1-nn37_Blanco-DECam_gir_zlog10mdot.npy")
 H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, 0.6], [-8, -2]], bins = (12, 12))
 x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
 extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]

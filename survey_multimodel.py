@@ -346,7 +346,7 @@ class survey_multimodel(object):
             ax.set_xlabel("log10mdot")
             ax.set_ylabel("temergence - texp [days]")
 
-            np.save("pickles/zlog10mdot.npy", [z, log10mdot])
+            np.save("pickles/%s_%s_zlog10mdot.npy" % (self.LCs.modelname, self.obsplan.planname), [z, log10mdot])
             # mass loss rate vs redshift
             fig, ax = plt.subplots()
             ax.scatter(z, log10mdot, marker  = '.', alpha = 0.5)
@@ -640,7 +640,9 @@ if __name__  == "__main__":
         plan = obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, doload = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     elif obsname == "KMTNet17B":
         #plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
-        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_BVRI.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+        #plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_BVRI.dat", nfields = 67, nepochspernight = 2, nightfraction = 0.65, nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+        #plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_VBRI.dat", nfields = 67, nepochspernight = 2, nightfraction = 0.65, nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_RBVI.dat", nfields = 67, nepochspernight = 2, nightfraction = 0.65, nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
     elif obsname == "HiTS15A":
         plan = obsplan(obsname = "Blanco-DECam", mode = 'file-cols', inputfile = "HiTS15A.dat", nfields = 50, nepochspernight = 1., nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown'})        
     else:
@@ -688,14 +690,25 @@ if __name__  == "__main__":
     LCs.docosmo()
 
     # compute models in given bands
-    #LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
-    LCs.compute_models(bands = ['B', 'V', 'R', 'I'], load = False, save = True)#, 'r'])#, 'i', 'z'])
-    
+    if plan.obsname in ["Blanco-DECam"]:
+        LCs.compute_models(bands = ['u', 'g', 'r', 'i', 'z'], load = True)#, save = True)#, 'r'])#, 'i', 'z'])
+    elif plan.obsname in ["KMTNet"]:
+        LCs.compute_models(bands = ['g', 'B', 'V', 'R', 'I'], load = True)#False, save = True)#, 'r'])#, 'i', 'z'])
+    else:
+        print("What bands to use?")
+        sys.exit()
+        
     # set metric
     LCs.setmetric(metric = parammetric, logscale = paramlogscale)
     
     # set observations
-    LCs.set_observations(mjd = plan.MJDs, flux = None, e_flux = None, filters = plan.bands, objname = None, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    if plan.obsname in ["Blanco-DECam", "CFHT-MegaCam"]:
+        LCs.set_observations(mjd = plan.MJDs, flux = None, e_flux = None, filters = plan.bands, objname = None, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+    elif plan.obsname in ["KMTNet"]:
+        LCs.set_observations(mjd = plan.MJDs, flux = None, e_flux = None, filters = plan.bands, objname = None, plot = False, bandcolors = {'g': 'gray', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+    else:
+        print("What bands to use?")
+        sys.exit()
 
     # star formation
     SFH = SFHs(SFH = "MD14")
@@ -710,7 +723,9 @@ if __name__  == "__main__":
     newsurvey = survey_multimodel(obsplan = plan, SFH = SFH, efficiency = efficiency, LCs = LCs, maxrestframeage = maxrestframeage)
 
     # set maximum redshift
-    newsurvey.set_maxz(0.5)
+    #newsurvey.set_maxz(0.3)
+    if obsname == "HiTS15A":
+        newsurvey.set_maxz(0.6)
     
     # do cosmology with dense grid
     newsurvey.do_cosmology()
@@ -741,7 +756,7 @@ if __name__  == "__main__":
     pars = np.array([mass, energy, mdot, rcsm, vwindinf, beta]) # must be in same order as paramnames
 
     # sample events    
-    newsurvey.sample_events(nsim = nsim, doload = False, dosave = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
+    #newsurvey.sample_events(nsim = nsim, doload = False, dosave = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
     newsurvey.sample_events(nsim = nsim, doload = True, doplot = True, rvs = rvs, bounds = bounds, pars = pars)
 
     # measure detections and efficiency

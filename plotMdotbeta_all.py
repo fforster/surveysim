@@ -48,17 +48,24 @@ if doreadall:
         if testfile != []:
 
             SN = testfile[0][0]
-
+            fixz = readSNdata("HiTS", SN)[5]
+            if fixz and re.search(".*logz.*", f) != None:
+                print("Ignoring file %s" % f)
+                continue
+            elif not fixz and re.search(".*logz.*", f) == None:
+                print("Ignoring file %s" % f)
+                continue
+                
             if not dotest and SN not in SNHiTS:
                 continue
 
-            try:
-                nchain, nwalker, scale, texp, logz, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
-            except:
+            if fixz:
                 nchain, nwalker, scale, texp, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
                 logz = np.log(readSNdata("HiTS", SN)[6])
                 print(SN, logz)
                 logz = np.ones(len(mass)) * logz
+            else:
+                nchain, nwalker, scale, texp, logz, logAv, mass, energy, log10mdot, beta = np.loadtxt("samples/%s" % f).transpose()
 
         else:
             continue

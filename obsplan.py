@@ -285,7 +285,7 @@ class obsplan(object):
             for band in self.uniquebands:
                 mask = (self.bands == band)
                 ax.plot(self.MJDs[mask], self.skymags[mask], lw = 4, label = "Sky brightness (%s) [mag / arcsec2]" % band, c = self.bandcolors[band], alpha = 0.8)
-                ax.plot(self.MJDs[mask], self.limmag[mask], label = "%s (%s)" % (self.obsname, band), zorder = 1000, c = self.bandcolors[band], alpha = 0.8)
+                ax.plot(self.MJDs[mask], self.limmag[mask], label = "%s (%s)" % (self.obsname, band), zorder = 1000, c = self.bandcolors[band], alpha = 0.8, marker = '.')
                 ax.plot(self.MJDs[mask], self.limmag[mask] - 2.5 * np.log10(np.sqrt(2.)), ls = ':', label = "%s (%s, diff.)" % (band, self.obsname), zorder = 2000, c = self.bandcolors[band], alpha = 0.8)
                 #ax.scatter(self.MJDs[mask], self.limmag[mask], marker = 'o', lw = 0, zorder = 1000, c = self.bandcolors[band], alpha = 0.5)
 
@@ -486,7 +486,11 @@ if __name__ == '__main__':
     #KMNTNet17B = obsplan(obsname = "KMTNet", band = 'B', mode = 'custom', nfields = 5, nepochspernight = 3, nightfraction = 0.045, nread = 1, ncontnights = 180, nnights = 180, startmoonphase = 3, maxmoonphase = 15, doplot = True)
 
     if survey == "KMTNet17B":
-        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_VRI.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        #plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_BVRI.dat", nfields = 200, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_BVRI.dat", nfields = 76, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_mod1.dat", nfields = 76, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_mod1b.dat", nfields = 76, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
+        plan = obsplan(obsname = "KMTNet", mode = 'file-cols', inputfile = "KMTNet_17B_mod2.dat", nfields = 76, nepochspernight = 1, nightfraction = 1., nread = 1, doplot = True, bandcolors = {'g': 'k', 'B': 'b', 'V': 'g', 'R': 'r', 'I': 'brown'})
     elif survey == "HiTS15B":
         obsplan(obsname = "CFHT-MegaCam", mode = 'file-cols', inputfile = "SNLS_bands.dat", nfields = 1, nepochspernight = 1, nightfraction = 0.045, nread = 5, doplot = True, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
     

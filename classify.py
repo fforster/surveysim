@@ -152,7 +152,7 @@ for SN in sorted(Moriya.keys()):
         y = np.log10(nHsiao * (np.log(len(sn_mjd)) - np.log(2. * np.pi)) - 2. * np.median(Hsiao[SN]))
         BICIa[SN] = 10**y
 
-        if (SN in banned or SN in poor_rise):# and SN not in spectra:
+        if (SN in banned or SN in poor_rise):# and SN not in spectra: # uncomment SN not in spectra to show poor rise SNe
             continue
       
         if (x < y):

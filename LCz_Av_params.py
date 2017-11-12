@@ -132,7 +132,8 @@ class LCz_Av_params(object):
                 else:
                     npyfile = "%s/%s.npy" % (npydir, filename)
                     if not os.path.exists(npyfile):
-
+                        print("   File %s/%s.npy doesn't exist, computing..." % (npydir, filename))
+                        continue
                         if not self.dostretch:
                             SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
                         else:
@@ -145,6 +146,7 @@ class LCz_Av_params(object):
                                 os.makedirs(npydir)
                             np.save(npyfile, mags)
                     else:
+                        #print("   File %s/%s.npy exists, loading..." % (npydir, filename))
                         mags = np.load("%s/%s.npy" % (npydir, filename))
 
                 mags = mags[np.newaxis, :]

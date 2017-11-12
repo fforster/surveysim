@@ -172,10 +172,11 @@ if __name__ == "__main__":
     # do cosmology
     LCs.docosmo()
 
+    bands = ['u', 'g', 'r', 'i', 'z']
+    #bands = ['I']
+    
     # compute models in given bands
     if computemodels:
-        #bands = ['u', 'g', 'r', 'i', 'z']
-        bands = ['B', 'V', 'R', 'I']
         if "selfiles" in locals(): 
             LCs.compute_models(bands = bands, save = True, selfiles = selfiles)
         else:

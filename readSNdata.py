@@ -226,6 +226,9 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         elif SNname == "SNHiTS15aw":
             zcmb = 0.0663
             fixz = True
+        elif SNname == "SNHiTS15aq":
+            zcmb = 0.11
+            fixz = True
         elif SNname == "SNHiTS15be":
             zcmb = 0.151
             fixz = True
