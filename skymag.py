@@ -54,8 +54,8 @@ class sky(object):
 
     def skymags(self):
         
-        moonphases = map(self.moonphase, self.MJDs)
-        skymags = map(lambda x: self.magskyf(x), moonphases)
+        moonphases = list(map(self.moonphase, self.MJDs))
+        skymags = list(map(lambda x: self.magskyf(x), moonphases))
         return np.array(moonphases), np.array(skymags)
 
 if __name__ == "__main__":

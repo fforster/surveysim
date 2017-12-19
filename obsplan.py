@@ -121,7 +121,7 @@ class obsplan(object):
                         Time(str(ephem.Date(ab[0])).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd
                         self.MJDs = np.hstack([self.MJDs, mjds])
                     elif len(ab) == 2:
-                        mjds = map(lambda x: Time(str(ephem.Date(x)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd, [ab[0], ab[1]])
+                        mjds = list(map(lambda x: Time(str(ephem.Date(x)).replace("/", "-").replace(" ", "T"), format = 'isot', scale = 'utc').mjd, [ab[0], ab[1]]))
                         self.MJDs = np.hstack([self.MJDs, np.linspace(mjds[0], mjds[1], mjds[1] - mjds[0])])
                     else:
                         print("WARNING: observational plan incorrectly formatted")
@@ -237,18 +237,18 @@ class obsplan(object):
         self.skymags = np.zeros_like(self.MJDs)
         for band in self.uniquebands:
             print("Computing moon phase and sky magnitudes for band %s" % band)
-            mask = (self.bands == band)
+            mask = np.array(self.bands == band)
             skymodel = sky(band = band, MJDs = self.MJDs[mask])
-            moonphases, skymags = np.array(skymodel.skymags())
+            moonphases, skymags = skymodel.skymags()
             self.moonphases[mask] = moonphases
             self.skymags[mask] = skymags
 
         # using sky magnitudes, airmasses, exposure time, SNR lim, compute limiting magnitudes
         print("Computing limiting magnitudes for all bands (this may take some time)")
         if hasattr(self, "exptimes"):
-            self.limmag = np.array(map(lambda band, exptime, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.exptimes, self.airmasses, self.skymags))
+            self.limmag = np.array(list(map(lambda band, exptime, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.exptimes, self.airmasses, self.skymags)))
         else:
-            self.limmag = np.array(map(lambda band, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=self.exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.airmasses, self.skymags))
+            self.limmag = np.array(list(map(lambda band, airmass, skymag: self.ETC.findmag(band=band, SNRin=5., exptime=self.exptime, airmass=airmass, skymode="mag", skymag=skymag, nread = self.nread), self.bands, self.airmasses, self.skymags)))
 
         
         # fix moonphases in custom mode

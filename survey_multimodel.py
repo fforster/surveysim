@@ -50,7 +50,7 @@ class survey_multimodel(object):
         self.zedges = np.linspace(self.maxz * 0.5 / nz, self.maxz * (1. + 0.5 / nz), nz + 1)
 
         h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
-        cosmo =  np.array(map(lambda z: cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, z), self.zs))
+        cosmo =  np.array(list(map(lambda z: cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, z), self.zs)))
 
         # cosmology interpolation functions
         self.Dcf = interp1d(self.zs, cosmo[:, 1]) # Mpc
@@ -166,7 +166,7 @@ class survey_multimodel(object):
 
             if not doload:
                 if np.mod(i, 100) == 0:
-                    print(i)
+                    print("\r%i" % i, end = "")
 
             if not doload:
                 # save only first list with light curve at given time (no reference values)
@@ -238,8 +238,8 @@ class survey_multimodel(object):
             redshift = np.exp(self.parsamples[0, idx])
             texp = self.parsamples[1, idx]
             
-            if verbose and np.mod(idx, 100) == 0:
-                print(idx)
+            #if verbose and np.mod(idx, 100) == 0:
+            #    print(idx)
 
             for idxb, band in enumerate(self.obsplan.uniquebands):
 
@@ -353,7 +353,7 @@ class survey_multimodel(object):
             ax.set_xlabel("z")
             ax.set_ylabel("log10mdot")
 
-            H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, 0.6], [-8, -2]], bins = (12, 12))
+            H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, self.maxz], [-8, -2]], bins = (12, 12))
             x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
             extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
             cset = ax.contour(x, y, H.transpose(), origin = 'lower')#, levels, origin = 'lower')
@@ -372,7 +372,7 @@ class survey_multimodel(object):
             fig, ax = plt.subplots()
             for idxb, band in enumerate(self.obsplan.uniquebands):
                 mask = (minmags[:, idxb] > 0)
-                Dms = np.array(map(lambda logz: self.Dmf(np.exp(logz)), self.parsamples[0, :]))
+                Dms = np.array(list(map(lambda logz: self.Dmf(np.exp(logz)), self.parsamples[0, :])))
                 ax.hist(minmags[:, idxb][mask] - Dms[mask], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
             ax.legend(loc = 2)    
             ax.set_xlabel("min abs mag")

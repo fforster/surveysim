@@ -72,7 +72,7 @@ class LCz_Av_params(object):
         self.Dm = np.zeros_like(self.zs)
         self.dVdzdOmega = np.zeros_like(self.zs)
         h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
-        cosmo =  np.array(map(lambda z: cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, z), self.zs))
+        cosmo =  np.array(list(map(lambda z: cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, z), self.zs)))
         self.Dc = cosmo[:, 1] # Mpc
         self.DL = cosmo[:, 4] # Mpc
         self.Dm = cosmo[:, 5] # Mpc
@@ -275,7 +275,7 @@ class LCz_Av_params(object):
                     usezeromdot = True
             else:
                 if verbose:
-                    print parsearch['mdot']
+                    print(parsearch['mdot'])
                 if parsearch['mdot'][0] == 0 or parsearch['mdot'][1] == 0:
                     usezeromdot = True
 
@@ -329,7 +329,7 @@ class LCz_Av_params(object):
         #self.idxbest = idxbest
             
         # compute distances from close model parameters
-        distances = np.array(map(lambda p: np.product(self.paramdist(p, pars)), self.params[idxbest]))
+        distances = np.array(list(map(lambda p: np.product(self.paramdist(p, pars)), self.params[idxbest])))
         
         if closest:
             idxbest = np.array([idxbest[np.argmin(distances)]])
@@ -466,7 +466,7 @@ class LCz_Av_params(object):
 
         # initialize plots and color scale
         import matplotlib.colors as colors
-        print self.uniquefilters
+        print(self.uniquefilters)
         
         nplot = 19
         l1 = self.parbounds[idxvar, 0]
@@ -523,7 +523,7 @@ class LCz_Av_params(object):
 
         # recover original values
         self.parvals = np.array(startvars)
-        print self.parvals
+        print(self.parvals)
         
     # set a priori distributions
     def set_priors(self, priors):
@@ -655,7 +655,7 @@ class LCz_Av_params(object):
                 for k in range(position.shape[0]):
                     if np.mod(idx, 2) == 0:
                         print("%s %s %4i %4i %s" % (self.modelname, self.objname, idx, k, " ".join(map(lambda p: str(p), position[k]))))
-                    f.write("%i %i %s\n" % (idx, k, " ".join(map(lambda p: str(p), position[k]))))
+                    f.write("%i %i %s\n" % (idx, k, " ".join(list(map(lambda p: str(p), position[k])))))
             f.close()
                 
             self.chain = sampler.chain
@@ -735,7 +735,7 @@ class LCz_Av_params(object):
         idxselection = np.random.choice(np.array(range(np.shape(samples)[0])), size = nselection, replace = True)
 
         # save lnlikes for model selection
-        lnlikes = np.array(map(lambda sample: self.lnlike(sample), samples[idxselection]))
+        lnlikes = np.array(list(map(lambda sample: self.lnlike(sample), samples[idxselection])))
         np.save("lnlikes/MCMC_%s_%s_%s_lnlikes.npy" % (self.modelname, self.objname, self.fitlabels), lnlikes)
 
         # loop over samples
