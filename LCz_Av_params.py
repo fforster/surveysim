@@ -17,7 +17,6 @@ from constants import *
 from LCz import *
 from LCz_Av import *
 
-sys.path.append("../cos_calc")
 from cos_calc import *
 
 
@@ -126,7 +125,7 @@ class LCz_Av_params(object):
                         print("File: %s, params: %s, band: %s" % (filename, params, band))
 
 
-                npydir = "npy/%s/%s" % (self.modelname, band)
+                npydir = "%s/npy/%s/%s" % (os.environ["SURVEYSIM_PATH"], self.modelname, band)
                 if doload:
                     mags = np.load("%s/%s.npy" % (npydir, filename))
                 else:

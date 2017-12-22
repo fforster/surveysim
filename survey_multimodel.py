@@ -13,7 +13,6 @@ from scipy.stats import lognorm, norm, uniform  # leave this here, otherwise it 
 
 
 # Cosmology stuff
-sys.path.append("../cos_calc")
 import cos_calc
 
 # under construction!
@@ -142,11 +141,11 @@ class survey_multimodel(object):
 
         if doload:
             import pickle
-            LCsfile = "pickles/%s_%s_LCs_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            LCsfile = "%s/pickles/%s_%s_LCs_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             self.LCsamples = pickle.load(open(LCsfile, 'rb'))
-            parsfile = "pickles/%s_%s_params_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            parsfile = "%s/pickles/%s_%s_params_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             self.parsamples = np.array(pickle.load(open(parsfile, 'rb'))).transpose()
-            temergencefile = "pickles/%s_%s_temergence_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            temergencefile = "%s/pickles/%s_%s_temergence_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             self.temergence = np.array(pickle.load(open(temergencefile, 'rb'))).transpose()
             self.logzs = self.parsamples[0]
             self.texps = self.parsamples[1]
@@ -199,11 +198,11 @@ class survey_multimodel(object):
             
         if dosave:
             import pickle
-            LCsfile = "pickles/%s_%s_LCs_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            LCsfile = "%s/pickles/%s_%s_LCs_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump(self.LCsamples, open(LCsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
-            parsfile = "pickles/%s_%s_params_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            parsfile = "%s/pickles/%s_%s_params_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump(self.parsamples, open(parsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
-            temergencefile = "pickles/%s_%s_temergence_%i.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            temergencefile = "%s/pickles/%s_%s_temergence_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump(self.temergence, open(temergencefile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
 
         if doplot:
@@ -222,9 +221,6 @@ class survey_multimodel(object):
         check1stdetection = False
         if 'check1stdetection' in kwargs.keys():
             check1stdetection = kwargs["check1stdetection"]
-
-        if doplot:
-            fig, ax = plt.subplots(figsize = (20, 10))
 
         # number of detections per objecy per band
         matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
@@ -312,7 +308,7 @@ class survey_multimodel(object):
             self.effs[vallabel] = interp1d(self.x_effs[vallabel], self.y_effs[vallabel], bounds_error = False, fill_value = 0)
             # save efficiencies
             import pickle
-            effsfile = "pickles/%s_%s_LCs_%i_effs.pkl" % (self.LCs.modelname, self.obsplan.planname, self.nsim)
+            effsfile = "%s/pickles/%s_%s_LCs_%i_effs.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump([self.x_effs, self.y_effs], open(effsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
 
             # plot histograms
@@ -346,7 +342,7 @@ class survey_multimodel(object):
             ax.set_xlabel("log10mdot")
             ax.set_ylabel("temergence - texp [days]")
 
-            np.save("pickles/%s_%s_zlog10mdot.npy" % (self.LCs.modelname, self.obsplan.planname), [z, log10mdot])
+            np.save("%s/pickles/%s_%s_zlog10mdot.npy" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname), [z, log10mdot])
             # mass loss rate vs redshift
             fig, ax = plt.subplots()
             ax.scatter(z, log10mdot, marker  = '.', alpha = 0.5)

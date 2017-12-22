@@ -2,7 +2,6 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 # Cosmology stuff
-sys.path.append("../cos_calc")
 import cos_calc
 from LCz import *
 

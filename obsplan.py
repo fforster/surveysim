@@ -55,9 +55,6 @@ class obsplan(object):
         seeing_r_CTIO = 0.75
         self.ETC = ETC(observatory = self.obs, seeing_r_arcsec = seeing_r_CTIO)
 
-        ## initialize DECam tools
-        #DT = DECam_tools("../HiTS-public")
-
         # plot
         if "doplot" in kwargs.keys():
             self.doplot = kwargs["doplot"]
@@ -107,7 +104,7 @@ class obsplan(object):
             self.obsplanfile = kwargs["inputfile"]
 
             params = {}
-            input = open("obsplans/%s" % self.obsplanfile, 'r')
+            input = open("%s/obsplans/%s" % (os.environ["SURVEYSIM_PATH"], self.obsplanfile), 'r')
             for line in input.readlines():
                 key, val = line.split()
                 params[key] = val
@@ -147,7 +144,7 @@ class obsplan(object):
             self.obsplanfile = kwargs["inputfile"]
 
             import pandas as pd
-            df = pd.read_csv("obsplans/%s" % self.obsplanfile, sep = "\s+", comment = '#')
+            df = pd.read_csv("%s/obsplans/%s" % (os.environ["SURVEYSIM_PATH"], self.obsplanfile), sep = "\s+", comment = '#')
 
             if 'MJD' in df.columns:
                 self.MJDs = np.array(df['MJD'])
@@ -199,7 +196,7 @@ class obsplan(object):
             self.exptime = np.median(self.exptimes)
 
         if dosave or doload:
-            outputfile = "obsplans/%s.out" % self.obsplanfile
+            outputfile = "%s/obsplans/%s.out" % (os.environ["SURVEYSIM_PATH"], self.obsplanfile)
 
         if doload:
             self.MJDs, self.bands, self.limmag, self.skymags, self.airmasses, self.moonphases = np.loadtxt(outputfile, dtype = str).transpose()

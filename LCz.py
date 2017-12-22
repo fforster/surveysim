@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 import sys, re
-sys.path.append("../cos_calc")
 import cos_calc
 
 #from iminuit import Minuit

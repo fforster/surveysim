@@ -8,7 +8,6 @@ from LCz_Av import *
 from SFHs import *
 
 # Cosmology stuff
-sys.path.append("../cos_calc")
 import cos_calc
 
 # class that defines a survey

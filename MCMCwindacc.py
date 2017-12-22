@@ -25,7 +25,6 @@ from LCz_Av import *
 
 from LCz_Av_params import *
 
-sys.path.append("../cos_calc")
 from cos_calc import *
 
 from readSNdata import *
