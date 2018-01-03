@@ -5,3 +5,6 @@ See main in notebooks/SurveySimulator.ipynb for an example.
 
 Needs models directory with theoretical time series of spectra.
 
+Look at notebooks directory for examples of how to use the library.
+
+
