@@ -1,12 +1,14 @@
-#! /usr/bin/python2.7
 # CC by F. Forster -----------------------------
+#! /usr/bin/python2.7
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
-import sys, re
+import os, sys, re
 import cos_calc
+import pandas as pd
+import h5py
 
 #from iminuit import Minuit
 
@@ -17,7 +19,6 @@ from constants import *
 from extinction import *
 
 import random
-import sys
 
 from scipy.interpolate import interp1d # interpolation
 from scipy.optimize import curve_fit
@@ -35,7 +36,7 @@ def BB(nu, R, T):
 class LCz(object):
 
     # object variables required for what follows are
-    # modelname, ntimes, nlambda, times (ntimes) [days], lambda (nlambda) [AA], flux (ntimes x nlambda) [erg/s/AA] and doplot
+    # modelname, ntimes, nlambda, times (ntimes) [days], lambda (nlambda) [AA], flux (ntimes x nlambda) [erg/s/AA @ 10 pc] and doplot
 
     def __init__(self, modelname, times, lambdas, flux, doplot = False):
         
@@ -61,27 +62,29 @@ class LCz(object):
         self.dlambda = np.zeros(self.nlambdas)
         self.dlambda[1:self.nlambdas] = self.lambdas[1: self.nlambdas] - self.lambdas[0: self.nlambdas - 1]
         self.dnu[1:self.nlambdas]     = -(self.nu[1: self.nlambdas] - self.nu[0: self.nlambdas - 1])
-        
+
         # compute total luminosity
         self.L = np.zeros(self.ntimes)
 
         for i in range(self.ntimes):
 
-            self.L[i] = np.sum(self.flux[i] * self.dlambda)
+            self.L[i] = np.sum(1. + (self.flux[i]) * self.dlambda)
+
+        print(np.log10(self.L), self.times)
 
         if self.doplot:
             print("Plotting integrated energy")
 
-            plt.clf()
-            ax = fig.add_subplot(1,1,1)
+            fig, ax = plt.subplots()
             ax.set_xlabel(r'$t$ [days]')
             ax.set_ylabel(r'$\log_{10}$ $L$ [erg s$^{-1}$]')
                 
             ax.plot(self.times, np.log10(self.L))
-            ax.text(self.times[np.argmax(np.log10(self.L))], max(np.log10(self.L)), "Total energy radiated: %7.2e [erg]" % (np.sum(self.L * self.dtimes) * yr2sec), fontsize = 8)
+            ax.text(self.times[np.argmax(np.log10(self.L))], max(np.log10(self.L)), "Total energy radiated: %7.2e [erg]" % (np.sum(self.L * self.dtimes) * days2sec), fontsize = 8)
             
+            ax.set_xscale("log")
             ax.set_xlim(min(self.times) - 1, max(self.times))
-            ax.set_ylim(min(np.log10(self.L)) - 1, max(np.log10(self.L)) + 1)
+            #ax.set_ylim(min(np.log10(self.L)) - 1, max(np.log10(self.L)) + 1)
             plt.grid()
             plt.savefig("plots/%s_Luminosity.png" % (self.modelname))
             
@@ -152,7 +155,7 @@ class LCz(object):
 
         if self.filtername in ugrizy:
 
-            bandfilter = np.loadtxt('filters/DECam_transmission_total.txt').transpose()
+            bandfilter = np.loadtxt('%s/filters/DECam_transmission_total.txt' % os.environ["SURVEYSIM_PATH"]).transpose()
             iband = 0
             for i in range(len(ugrizy)):
                 if ugrizy[i] == self.filtername:
@@ -162,7 +165,7 @@ class LCz(object):
 
         elif self.filtername in UBVRI:
 
-            bandfilter = np.loadtxt('filters/KMTNet_transmission_total.txt').transpose()
+            bandfilter = np.loadtxt('%s/filters/KMTNet_transmission_total.txt' % os.environ["SURVEYSIM_PATH"]).transpose()
             iband = 0
             for i in range(len(UBVRI)):
                 if UBVRI[i] == self.filtername:
@@ -170,16 +173,9 @@ class LCz(object):
             lfilter = bandfilter[0] * 10. # AA
             tfilter = bandfilter[iband + 1]  # fraction
 
-            #bandfilter = np.loadtxt('/home/fforster/Work/surveysim/filters/Bessel_%s-1.txt' % self.filtername).transpose()
-            #lfilter = bandfilter[0] * 10. # AA
-            #tfilter = bandfilter[1] / 100. # fraction
-            #idxsort = np.argsort(lfilter)
-            #lfilter = lfilter[idxsort]
-            #tfilter = tfilter[idxsort]
-
         elif self.filtername == "Kepler":
 
-            bandfilter = np.loadtxt('filters/kepler_response.dat').transpose()
+            bandfilter = np.loadtxt('%s/filters/kepler_response.dat' % os.environ["SURVEYSIM_PATH"]).transpose()
             lfilter = bandfilter[0] * 10. # AA
             tfilter = bandfilter[1] # fraction
             idxsort = np.argsort(lfilter)
@@ -255,7 +251,7 @@ class LCz(object):
                 colorVal = scalarMap.to_rgba(i)
                 ax.plot(self.bandlambda, np.log10(self.bandfluxz[i, np.argmin(np.abs(self.timesz[i] - 1.))]), color = colorVal, label = "z: %5.3f" % self.zs[i])
                 
-            ax.legend(fancybox = False, prop = {'size':8}, loc = 1)
+            ax.legend(fancybox = False, prop = {'size':6}, loc = 1)
             ax.set_title("Time: 1 day rest frame")
             plt.grid()
             plt.savefig("plots/%s_%s_fluxz.png" % (self.modelname, self.filtername))
@@ -369,7 +365,7 @@ class LCz(object):
                     ax.axvline(self.tmax[i], c = colorVal, alpha = 0.2, ls = '--')
                     ax.axvline(90)
                     
-            ax.legend(fancybox = False, prop = {'size':8}, loc = 1)
+            ax.legend(fancybox = False, prop = {'size':6}, loc = 1)
         
             ax.set_xlim(np.min(self.timesz), np.max(self.timesz) * 1.5)
             
@@ -378,7 +374,7 @@ class LCz(object):
             ax.axhline(23.5)
             
             plt.grid()
-            ax.legend(fancybox = False, prop = {'size':8}, loc = 4, framealpha = 0.6)
+            ax.legend(fancybox = False, prop = {'size':6}, loc = 4, framealpha = 0.6)
 
             plt.savefig("plots/%s_%s_absmag.png" % (self.modelname, self.filtername))
             plt.savefig("plots/%s_%s_absmag.pdf" % (self.modelname, self.filtername))
@@ -418,10 +414,10 @@ class LCz(object):
                     ax.axvline(self.tday1[i], c = 'gray', alpha = 0.2)
                     ax.axvline(self.tmax[i], c = colorVal, alpha = 0.2)
         
-            ax.legend(fancybox = False, prop = {'size':8}, loc = 1)
+            ax.legend(fancybox = False, prop = {'size':6}, loc = 1)
             ax.set_xlabel(r'$t$ [days]')
             ax.set_ylabel(r'%s' % self.filtername)
-            ax.set_ylim(min(self.bandmag.flatten()) + 10, min(self.bandmag.flatten()) - 0.5) 
+            ax.set_ylim(min(self.bandmag.flatten()) + 20, min(self.bandmag.flatten()) - 0.5) 
 
             ax.set_xlim(np.min(self.timesz), min(np.max(self.timesz), 150))
             plt.savefig("plots/%s_%s_mag.png" % (self.modelname, self.filtername))
@@ -465,7 +461,7 @@ class StellaModel(LCz):
             
         # extract wavelengths
         self.lambdas = data.readline()
-        self.lambdas = np.array(self.lambdas.split()[3:], dtype = float)
+        self.lambdas = np.array(self.lambdas.split()[3:], dtype = float) # AA
         self.nlambdas = np.shape(self.lambdas)[0]
 
         # extract all spectra
@@ -513,7 +509,7 @@ class Hsiao(LCz):
         self.ntimes = np.shape(self.times)[0]
         
         # extract wavelengths
-        self.lambdas = np.unique(data[1])
+        self.lambdas = np.unique(data[1]) # AA
         self.nlambdas = np.shape(self.lambdas)[0]
 
         # extract fluxes
@@ -521,6 +517,79 @@ class Hsiao(LCz):
         self.flux = np.reshape(scale * data[2], (self.ntimes, self.nlambdas))
 
 
+# Kasen model
+class Kasen(LCz):
+
+    def __init__(self, **kwargs):
+
+        self.dir = kwargs["dir"]
+        self.modelsep = kwargs["sep"] # cm
+        self.modelangle = kwargs["angle"] # degrees
+        self.modelname = "Kasen_a%.0e_th%08.4f" % (self.modelsep, self.modelangle)
+        self.doplot = False
+        if "doplot" in kwargs.keys():
+            self.doplot = kwargs["doplot"]
+        self.extmodel = "CCM89+O94"
+        self.dopeaks = False
+
+        # check available times
+        spectra = os.listdir("%s/companion_a%s" % (self.dir, ("%.0e" % self.modelsep).replace("+", "")))
+        self.times = []
+        for spec in spectra:
+            ta = re.findall("optical_t(.*)_I3.spec.%.4f" % self.modelangle, spec)
+            if ta != []:
+                self.times.append(float(ta[0])) # days
+        self.times = np.sort(np.array(self.times))
+        self.ntimes = np.shape(self.times)[0]
+
+        # check available wavelengths
+        df = pd.read_csv("%s/companion_a%s/optical_t%06.2f_I3.spec.%.4f" \
+                         % (self.dir, ("%.0e" % self.modelsep).replace("+", ""), \
+                            self.times[0], self.modelangle), sep = "\s+")
+        self.lambdas = np.array(df.ix[:, 0]) # AA
+        self.nlambdas = np.shape(self.lambdas)[0]
+
+        # fill fluxes
+        self.flux = np.zeros((self.ntimes, self.nlambdas))
+        for it in range(self.ntimes):
+            df = pd.read_csv("%s/companion_a%s/optical_t%06.2f_I3.spec.%.4f" \
+                             % (self.dir, ("%.0e" % self.modelsep).replace("+", ""), \
+                                self.times[it], self.modelangle), sep = "\s+")
+            self.flux[it, :] = np.array(df.ix[:, 1]) # [erg/s/cm2/Hz]
+            self.flux[it, :] = self.flux[it, :] * (cspeedAAs / self.lambdas**2) # [erg/s/cm2/AA]
+            #self.flux[it, :] = self.flux[it, :] * (4. * np.pi * (10. * pc2cm)**2) # [erg/s/AA]
+
+# Kasen model
+class Goldstein(LCz):
+
+    def __init__(self, **kwargs):
+
+        self.dir = kwargs["dir"]
+        self.modelenergy = kwargs["energy"] # explosion energy [foe]
+        self.modelmass = kwargs["mass"] # total mass [Msun]
+        self.modelNSE = kwargs["NSE"] # Nickel mass [Msun]
+        self.modelIME = kwargs["IME"] # Intermediate mass elements mass [Msun]
+        self.modelCO = kwargs["CO"] # Carbon Oxygen mass [Msun]
+        self.modelm = kwargs["m"] # 
+        self.modelname = "Goldstein_E%5.3e-M%5.3e-NSE%5.3e-IME%5.3e-CO%5.3e-m%5.3e" % (self.modelenergy, self.modelmass, self.modelNSE, self.modelIME, self.modelCO, self.modelm)
+        self.doplot = False
+        if "doplot" in kwargs.keys():
+            self.doplot = kwargs["doplot"]
+        self.extmodel = "CCM89+O94"
+        self.dopeaks = False
+
+        # open spectra
+        data = h5py.File("%s/%5.3e_%5.3e_%5.3e_%5.3e_%5.3e_%5.3e.h5" % (self.dir, self.modelenergy, self.modelmass, self.modelNSE, self.modelIME, self.modelCO, self.modelm), 'r')
+        print(list(data.keys()))
+
+        self.lambdas = cspeedAAs / np.array(data["nu"])[::-1] # AA
+        self.times = np.array(data["time"]) / days2sec # sec
+        self.flux = np.array(data["Lnu"]) # erg/s/Hz
+        self.nlambdas = len(self.lambdas)
+        self.ntimes =  len(self.times)
+        for it in range(self.ntimes):
+            self.flux[it, :] = self.flux[it, ::-1] * (cspeedAAs / self.lambdas**2)            
+    
 # empirical evolution of SN light curves from Tominaga et al.
 class T11(StellaModel):
 
@@ -1094,7 +1163,7 @@ if __name__ == "__main__":
     Dm = np.zeros(nz)
     h100, omega_m, omega_k, omega_lambda = 0.71, 0.27, 0., 0.73
     for i in range(nz):
-        cosmo =  cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, self.zs[i])
+        cosmo =  cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, zs[i])
         Dc[i] = cosmo[1] # Mpc
         DL[i] = cosmo[4] # Mpc
         Dm[i] = cosmo[5] # mag

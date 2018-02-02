@@ -33,6 +33,9 @@ class survey_multimodel(object):
         if "maxrestframeage" in kwargs.keys():
             self.maxrestframeage = kwargs["maxrestframeage"]
 
+        if self.obsplan.mode == 'maf':
+            self.mafcounter = 0
+
     # set maximum redshift of simulation
     def set_maxz(self, maxz):
 
@@ -42,33 +45,38 @@ class survey_multimodel(object):
     # do cosmology for dense redshift grid
     def do_cosmology(self):
 
-        # cosmology
-        nz = 100
-        self.zs = np.linspace(0, self.maxz, nz)[1:]
-        self.zbin = self.zs[1] - self.zs[0]
-        self.zedges = np.linspace(self.maxz * 0.5 / nz, self.maxz * (1. + 0.5 / nz), nz + 1)
+        if not hasattr(self, "zs") or self.obsplan.mode != "maf":
+            # cosmology
+            nz = 100
+            self.zs = np.linspace(0, self.maxz, nz)[1:]
+            self.zbin = self.zs[1] - self.zs[0]
+            self.zedges = np.linspace(self.maxz * 0.5 / nz, self.maxz * (1. + 0.5 / nz), nz + 1)
 
-        h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
-        cosmo =  np.array(list(map(lambda z: cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, z), self.zs)))
+            h100, omega_m, omega_k, omega_lambda = Hnot / 100., OmegaM, 1. - (OmegaM + OmegaL), OmegaL
+            cosmo =  np.array(list(map(lambda z: cos_calc.fn_cos_calc(h100, omega_m, omega_k, omega_lambda, z), self.zs)))
+            
+            # cosmology interpolation functions
+            self.Dcf = interp1d(self.zs, cosmo[:, 1]) # Mpc
+            self.DLf = interp1d(self.zs, cosmo[:, 4]) # Mpc
+            self.Dmf = interp1d(self.zs, cosmo[:, 5])
+            self.dVdzdOmegaf = interp1d(self.zs, cspeed / (Hnot * 1e5 * np.sqrt((1. + self.zs)**3. * OmegaM + OmegaL)) * self.Dcf(self.zs)**2)
 
-        # cosmology interpolation functions
-        self.Dcf = interp1d(self.zs, cosmo[:, 1]) # Mpc
-        self.DLf = interp1d(self.zs, cosmo[:, 4]) # Mpc
-        self.Dmf = interp1d(self.zs, cosmo[:, 5])
-        self.dVdzdOmegaf = interp1d(self.zs, cspeed / (Hnot * 1e5 * np.sqrt((1. + self.zs)**3. * OmegaM + OmegaL)) * self.Dcf(self.zs)**2)
+            # compute SFR given SFH at zs grid
+            self.SFH.doSFR(self.zs)
 
-        # compute SFR given SFH at zs grid
-        self.SFH.doSFR(self.zs)
+            self.totalSNe_t = self.efficiency * self.SFH.SFR / (1. + self.zs) * self.dVdzdOmegaf(self.zs) * (self.obsplan.obs.FoV / ster_sqdeg) * self.obsplan.nfields  # true number of SNe
 
-        # compute cumulative number of SNe
+            # cumulative distribution over which to sample
+            self.cumtotalSNe_t = np.cumsum(self.totalSNe_t * self.zbin)
+            self.random2z = interp1d(self.cumtotalSNe_t / self.cumtotalSNe_t[-1], self.zs, bounds_error = False, fill_value = 'extrapolate')
+
+            
+        # compute time and multiply rates (when running maf this gets updated)
         self.ndayssim = max(self.obsplan.MJDs) - min(self.obsplan.MJDs) + (20 + self.maxrestframeage) * (1. + self.zs) # note that simulation length is a function of redshift
-        self.totalSNe = self.efficiency * self.SFH.SFR / (1. + self.zs) * (self.ndayssim / yr2days) * self.dVdzdOmegaf(self.zs) * (self.obsplan.obs.FoV / ster_sqdeg) * self.obsplan.nfields  # true number of SNe
-
-        # cumulative distribution over which to sample
-        self.cumtotalSNe = np.cumsum(self.totalSNe * self.zbin)
-        self.random2z = interp1d(self.cumtotalSNe / self.cumtotalSNe[-1], self.zs, bounds_error = False, fill_value = 'extrapolate')
-
-        print("Total number of events expected to occur within observed volume and simulation time is %i" % self.cumtotalSNe[-1])
+        self.totalSNe = self.totalSNe_t * (self.ndayssim / yr2days)
+        self.cumtotalSNe = self.cumtotalSNe_t * (self.ndayssim / yr2days)
+        
+        #print("Total number of events expected to occur within observed volume and simulation time is %i" % self.cumtotalSNe[-1])
 
 
         
@@ -92,18 +100,23 @@ class survey_multimodel(object):
         if doload:
             dosave = False
 
+        # whether to check detection time after emergence or not (if not, after explosion)
+        self.doemergence = False
+        if "doemergence" in kwargs.keys():
+            self.doemergence = kwargs['doemergence']
+
         if not doload:
-            # draw redshifts
+            # sample redshifts
             rands = np.random.random(size = self.nsim)
             self.logzs = np.log(self.random2z(rands))
             
-            # draw explosion times
+            # sample explosion times
             tmin = bounds['texp'][0]
             tmax = bounds['texp'][1]
             rands = np.random.random(size = self.nsim)
             self.texps = tmin + 1. * rands * (tmax - tmin)
     
-            # draw physical parameters
+            # sample physical parameters
             params = {}
             for key in rvs.keys():
                 rands = rvs[key](self.nsim)
@@ -139,48 +152,68 @@ class survey_multimodel(object):
         if doplot:
             fig, ax = plt.subplots(figsize = (20, 10))
 
+
+        # load LCs and physical parameters for the given MJDs
         if doload:
+
             import pickle
+
+            # light curves
             LCsfile = "%s/pickles/%s_%s_LCs_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             self.LCsamples = pickle.load(open(LCsfile, 'rb'))
+
+            # physical parameters
             parsfile = "%s/pickles/%s_%s_params_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             self.parsamples = np.array(pickle.load(open(parsfile, 'rb'))).transpose()
-            temergencefile = "%s/pickles/%s_%s_temergence_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
-            self.temergence = np.array(pickle.load(open(temergencefile, 'rb'))).transpose()
             self.logzs = self.parsamples[0]
             self.texps = self.parsamples[1]
             self.logAvs = self.parsamples[2]
             self.parsarray = self.parsamples[3:]
+
+            # emergence time
+            if self.doemergence:
+                temergencefile = "%s/pickles/%s_%s_temergence_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
+                self.temergence = np.array(pickle.load(open(temergencefile, 'rb'))).transpose()
             
         else:
             self.LCsamples = []
             self.parsamples = []
             self.temergence = []
             
-        if not doload:
-            print("Simulating light curves...")
-            
-        mag_emergence = -13 # absolute magnitude of emergence
+        #if not doload:
+        #    print("Simulating light curves...")
+
+        if self.doemergence:
+            mag_emergence = -13 # absolute magnitude of emergence
+
+        # get LCs and plot them if necessary
         for i in range(self.nsim):
 
-            if not doload:
-                if np.mod(i, 100) == 0:
+            # print status
+            if not doload and self.obsplan.mode != 'maf':
+                if np.mod(i, 10) == 0:
                     print("\r%i" % i, end = "")
 
+            # sample light curves
             if not doload:
+                
                 # save only first list with light curve at given time (no reference values)
                 self.LCsamples.append(self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i])[0])
-                
-                # find approximate time of emergence (when absolute g magnitude becomes brighter than -12)
-                niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['g'][self.LCs.times < 30]
-                #niceLC = niceLC
-                mask = (niceLC - self.Dmf(np.exp(self.logzs[i])) <= mag_emergence)
-                if np.sum(mask) > 0:
-                    self.temergence.append(np.min(self.LCs.times[mask]))
-                else:
-                    self.temergence.append(-2)
+
+                # find approximate time of emergence (when abs g < mag_emergence)
+                if self.doemergence:
+                    niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['g'][self.LCs.times < 30]
+                    #niceLC = niceLC
+                    mask = (niceLC - self.Dmf(np.exp(self.logzs[i])) <= mag_emergence)
+                    if np.sum(mask) > 0:
+                        self.temergence.append(np.min(self.LCs.times[mask]))
+                    else:
+                        self.temergence.append(-2)
+
+                # append physical parameters to array
                 self.parsamples.append(np.hstack([self.logzs[i], self.texps[i], self.logAvs[i], self.parsarray[i]]))
 
+            # plot first 1000 LCs
             if doplot and i < 1000: # avoid plotting more than 1000 LCs
                 for band in self.LCs.uniquefilters:
                     maskband = self.LCs.maskband[band]
@@ -190,22 +223,32 @@ class survey_multimodel(object):
                     masklim = self.LCsamples[i][band] < self.obsplan.limmag[maskband] + 2
                     ax.plot(self.LCs.mjd[maskband][masklim], self.LCsamples[i][band][masklim], c = self.LCs.bandcolors[band], alpha = 0.1)
 
+        # numpify physical parameters
         self.parsamples = np.array(self.parsamples).transpose()
-        self.temergence = np.array(self.temergence).transpose()
+        if self.doemergence:
+            self.temergence = np.array(self.temergence).transpose()
 
+        # invert axis
         if doplot:
             ax.set_ylim(ax.get_ylim()[::-1])
-            
+
+        # save LCs and physical parameters
         if dosave:
             import pickle
+
+            # LCs
             LCsfile = "%s/pickles/%s_%s_LCs_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump(self.LCsamples, open(LCsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+
+            # physical parameters
             parsfile = "%s/pickles/%s_%s_params_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
             pickle.dump(self.parsamples, open(parsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
-            temergencefile = "%s/pickles/%s_%s_temergence_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
-            pickle.dump(self.temergence, open(temergencefile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+            if self.doemergence:
+                temergencefile = "%s/pickles/%s_%s_temergence_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
+                pickle.dump(self.temergence, open(temergencefile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
 
-        if doplot:
+        # plot histogram of emergence times
+        if doplot and self.doemergence:
             fig, ax = plt.subplots()
             ax.hist(self.temergence)
             ax.set_xlabel("Time of emergence (abs. mag g $< %.1f$)" % mag_emergence)
@@ -215,37 +258,50 @@ class survey_multimodel(object):
         doplot = False
         if 'doplot' in kwargs.keys():
             doplot = kwargs['doplot']
+
+        dosave = False
+        if 'dosave' in kwargs.keys():
+            dosave = kwargs['dosave']
+            
         verbose = False
         if 'verbose' in kwargs.keys():
             verbose = kwargs['verbose']
+            
         check1stdetection = False
         if 'check1stdetection' in kwargs.keys():
             check1stdetection = kwargs["check1stdetection"]
+            # time of 1st detection in rest frame per object (after emergence)
+            rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
 
-        # number of detections per objecy per band
+        # number of detections per object per band
         matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
-        # time of 1st detection in rest frame per object (after emergence)
-        rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
+        
         # brightest magnitude detected per object per band
         minmags = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
-        
+
+        # check all light curves
         for idx, LCsample in enumerate(self.LCsamples):
 
             redshift = np.exp(self.parsamples[0, idx])
             texp = self.parsamples[1, idx]
-            
-            #if verbose and np.mod(idx, 100) == 0:
-            #    print(idx)
 
+            # loop among bands
             for idxb, band in enumerate(self.obsplan.uniquebands):
 
                 maskband = self.LCs.maskband[band]
+                
                 masklim = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) # assume worst case for difference imaging
+                
                 masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
+                
                 matches[idx, idxb] = np.sum(masklim)
+
                 #rftimedetections = (self.obsplan.MJDs[maskband][masklim] - (texp + self.temergence[idx])) / (1. + redshift)
+                
                 # best match to actual filters
-                rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - (texp + self.temergence[idx]))
+                rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - texp)
+                if self.doemergence:
+                    rftimedetections -= self.temergence[idx]
                                     
                 if matches[idx, idxb] > 0:
                     minmags[idx, idxb] = min(LCsample[band][masklim])
@@ -253,12 +309,6 @@ class survey_multimodel(object):
                         rftime1stdet[idx] = min(rftimedetections)
                     else:
                         rftime1stdet[idx] = min(rftime1stdet[idx], min(rftimedetections))
-
-                #if doplot:
-                #    if idx == 0:
-                #        ax.plot(self.obsplan.MJDs[maskband], self.obsplan.limmag[maskband], lw = 4, zorder = 1000, c = self.LCs.bandcolors[band])
-                #        
-                #    ax.plot(self.obsplan.MJDs[maskband][masklim], LCsample[band][masklim], alpha = 0.1, c = self.LCs.bandcolors[band])
 
 
         # count only detections with at least two detections [and with early detections if check1stdetection]
@@ -290,8 +340,9 @@ class survey_multimodel(object):
             # store this for later comparison
             if vallabel == 'log10mdot':
                 log10mdot = np.array(valout)
-                # SBO times
-                tSBO = self.temergence[detections]
+                if self.doemergence:
+                    # SBO times
+                    tSBO = self.temergence[detections]
             if vallabel == 'z':
                 z = np.array(valout)
 
@@ -306,10 +357,13 @@ class survey_multimodel(object):
             self.x_effs[vallabel] = (bin_edgesin[1:] + bin_edgesin[:-1]) / 2.
             self.y_effs[vallabel] = 1. * nout / nin
             self.effs[vallabel] = interp1d(self.x_effs[vallabel], self.y_effs[vallabel], bounds_error = False, fill_value = 0)
+
+            
             # save efficiencies
-            import pickle
-            effsfile = "%s/pickles/%s_%s_LCs_%i_effs.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
-            pickle.dump([self.x_effs, self.y_effs], open(effsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+            if dosave:
+                import pickle
+                effsfile = "%s/pickles/%s_%s_LCs_%i_effs.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
+                pickle.dump([self.x_effs, self.y_effs], open(effsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
 
             # plot histograms
             if doplot:

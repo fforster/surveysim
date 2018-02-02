@@ -3,7 +3,7 @@
 from lsst.sims.maf.metrics import BaseMetric
 import numpy as np
 from obsplan import *
-from survey import *
+from survey_multimodel import *
 
 class surveysim_metric(BaseMetric):
     """

@@ -40,6 +40,8 @@ class obsplan(object):
         if self.mode == 'maf':
             self.MJDs = kwargs["MJDs"]
             self.limmag = kwargs["limmag"]
+            self.bands = kwargs["bands"]
+            self.uniquebands = np.sort(np.unique(self.bands))
             self.nfields = 1.
             self.obs = observatory(observatory = self.obsname)
             #self.exptime = kwargs["visitExpTime"]

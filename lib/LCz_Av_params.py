@@ -221,6 +221,7 @@ class LCz_Av_params(object):
     # Function that interpolates the model at given parameter set, z, Av, texp and observed times
     def evalmodel(self, scale, texp, logz, logAv, parameters, nice = False, closest = False, verbose = False):
 
+        # check metric has been set
         if not hasattr(self, "paramdist"):
             print("Please set the metric function for parameter model interpolation")
             sys.exit()
@@ -240,106 +241,106 @@ class LCz_Av_params(object):
         fz = idxz - int(idxz)
         fAv = idxAv - int(idxAv)
 
+        # print 
         if verbose:
             print("   Evalmodel", zip(self.paramnames, pars))
 
-        # find closest values for all variables
-        parsearch = {}
-
-        for idx, var in enumerate(self.paramnames):
-                
-            # exact match for this variable
-            if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
-                parsearch[var] = pars[idx]
-            else:
-                if min(self.params[:, idx]) > pars[idx]:
-                    parsearch[var] = min(self.params[:, idx])
-                elif max(self.params[:, idx]) < pars[idx]:
-                    parsearch[var] = max(self.params[:, idx])
-                else:
-                    parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
-
-        if verbose:
-            print(parsearch)
-        
-        if verbose:
-            print("   parsearch:", parsearch)
-                            
-        # use only models which contain closest values
-        maskclose = np.ones_like(self.params[:, 0], dtype = bool)
-        usezeromdot = False
-        if 'mdot' in self.paramnames:
-            if np.size(parsearch['mdot']) == 1:
-                if parsearch['mdot'] == 0:
-                    usezeromdot = True
-            else:
-                if verbose:
-                    print(parsearch['mdot'])
-                if parsearch['mdot'][0] == 0 or parsearch['mdot'][1] == 0:
-                    usezeromdot = True
-
-        for idx, var in enumerate(self.paramnames):
-
-            if verbose:
-                print("   ", parsearch[var])
-            if np.size(parsearch[var]) == 1:
-                nomatch = np.abs(self.params[:, idx] - parsearch[var]) > 1e-9
-                if var in self.paramnames[self.maskmdotvars]:
-                    if usezeromdot:
-                        zeroval = self.params[:, idx] == 0
-                        maskclose[nomatch & ~zeroval] = False
-                        maskclose[~zeroval & (self.params[:, idx] < parsearch[var] - 1e-9)] = False
-                        maskclose[~zeroval & (self.params[:, idx] > parsearch[var] + 1e-9)] = False
-                else:
-                    maskclose[nomatch] = False
-            else:
-                nomatch0 = (np.abs(self.params[:, idx] - parsearch[var][0]) > 1e-9) 
-                nomatch1 = (np.abs(self.params[:, idx] - parsearch[var][1]) > 1e-9)
-                if var in self.paramnames[self.maskmdotvars]:
-                    if usezeromdot:
-                        zeroval = self.params[:, idx] == 0
-                        maskclose[nomatch0 & nomatch1 & ~zeroval] = False
-                        maskclose[~zeroval & (self.params[:, idx] < parsearch[var][0] - 1e-9)] = False
-                        maskclose[~zeroval & (self.params[:, idx] > parsearch[var][1] + 1e-9)] = False
-
-                else:
-                    maskclose[nomatch0 & nomatch1] = False
-                    
-
-            #TEST
-            #print(var, parsearch[var], np.sum(maskclose))
-
-        #print pars
-        if usezeromdot and verbose:
-            print(self.params[maskclose])
-            
-        # check if interpolation is possible
-        if np.sum(maskclose) == 0:
-            print("Cannot interpolate", pars)
-            print(parsearch)
-            sys.exit()
-        
-        # indices
-        idxbest = np.array(range(len(self.files)))[maskclose]
-        if verbose:
-            print("   ", self.files[idxbest])
-        
-        #TEST
-        #self.idxbest = idxbest
-            
-        # compute distances from close model parameters
-        distances = np.array(list(map(lambda p: np.product(self.paramdist(p, pars)), self.params[idxbest])))
-        
         if closest:
-            idxbest = np.array([idxbest[np.argmin(distances)]])
-            distances = np.array([min(distances)])
+            distances = np.array(list(map(lambda p: np.product(self.paramdist(p, pars)), self.params)))
+            idxbest = [np.argmin(distances)]
+            weights = [1.]
 
-        # compute weights
-        weights = 1. / (distances + 1e-20)
-        if usezeromdot:
-            maskmdotzero = self.params[maskclose, idxmdot] == 0
-            weights[maskmdotzero] *= (np.sum(maskclose) - np.sum(maskmdotzero)) / np.sum(maskmdotzero)
-        weights = weights / np.sum(weights)
+        else:
+            
+            # find closest values for all variables
+            parsearch = {}
+
+            for idx, var in enumerate(self.paramnames):
+                    
+                # exact match for this variable
+                if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
+                    parsearch[var] = pars[idx]
+                else: # not exact match, find neighbors
+                    if min(self.params[:, idx]) > pars[idx]:
+                        parsearch[var] = min(self.params[:, idx])
+                    elif max(self.params[:, idx]) < pars[idx]:
+                        parsearch[var] = max(self.params[:, idx])
+                    else:
+                        parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
+            
+            # print result of search
+            if verbose:
+                print("   parsearch:", parsearch)
+                                
+            # use only models which contain closest values
+            maskclose = np.ones_like(self.params[:, 0], dtype = bool)
+            usezeromdot = False
+            if 'mdot' in self.paramnames:
+                if np.size(parsearch['mdot']) == 1:
+                    if parsearch['mdot'] == 0:
+                        usezeromdot = True
+                else:
+                    if verbose:
+                        print(parsearch['mdot'])
+                    if parsearch['mdot'][0] == 0 or parsearch['mdot'][1] == 0:
+                        usezeromdot = True
+            
+            # fix very close matches
+            for idx, var in enumerate(self.paramnames):
+                if verbose:
+                    print("   ", parsearch[var])
+                if np.size(parsearch[var]) == 1:
+                    nomatch = np.abs(self.params[:, idx] - parsearch[var]) > 1e-9
+                    if var in self.paramnames[self.maskmdotvars]:
+                        if usezeromdot:
+                            zeroval = self.params[:, idx] == 0
+                            maskclose[nomatch & ~zeroval] = False
+                            maskclose[~zeroval & (self.params[:, idx] < parsearch[var] - 1e-9)] = False
+                            maskclose[~zeroval & (self.params[:, idx] > parsearch[var] + 1e-9)] = False
+                    else:
+                        maskclose[nomatch] = False
+                else:
+                    nomatch0 = (np.abs(self.params[:, idx] - parsearch[var][0]) > 1e-9) 
+                    nomatch1 = (np.abs(self.params[:, idx] - parsearch[var][1]) > 1e-9)
+                    if var in self.paramnames[self.maskmdotvars]:
+                        if usezeromdot:
+                            zeroval = self.params[:, idx] == 0
+                            maskclose[nomatch0 & nomatch1 & ~zeroval] = False
+                            maskclose[~zeroval & (self.params[:, idx] < parsearch[var][0] - 1e-9)] = False
+                            maskclose[~zeroval & (self.params[:, idx] > parsearch[var][1] + 1e-9)] = False
+            
+                    else:
+                        maskclose[nomatch0 & nomatch1] = False
+                        
+            # print params at close values
+            if usezeromdot and verbose:
+                print(self.params[maskclose])
+                
+            # check if interpolation is possible
+            if np.sum(maskclose) == 0:
+                print("Cannot interpolate", pars)
+                print(parsearch)
+                sys.exit()
+            
+            # indices
+            idxbest = np.array(range(len(self.files)))[maskclose]
+            if verbose:
+                print("   ", self.files[idxbest])
+            
+            # compute distances from close model parameters
+            distances = np.array(list(map(lambda p: np.product(self.paramdist(p, pars)), self.params[idxbest])))
+            
+            # select only closest value
+            if closest:
+                idxbest = np.array([idxbest[np.argmin(distances)]])
+                distances = np.array([min(distances)])
+
+            # compute weights
+            weights = 1. / (distances + 1e-20)
+            if usezeromdot and not closest:
+                maskmdotzero = self.params[maskclose, idxmdot] == 0
+                weights[maskmdotzero] *= (np.sum(maskclose) - np.sum(maskmdotzero)) / np.sum(maskmdotzero)
+            weights = weights / np.sum(weights)
 
         # stretch: by default is the first parameters in pars
         stretch = 1.
@@ -353,6 +354,7 @@ class LCz_Av_params(object):
             intLC[band] = 0
             intLCref[band] = 0
 
+        # do interpolation
         status = False
         for iz in range(2):
             if iz + int(idxz) < 0 or iz + int(idxz) >= self.nz:
