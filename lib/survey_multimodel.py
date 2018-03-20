@@ -9,7 +9,7 @@ from LCz_Av import *
 from LCz_Av_params import *
 from SFHs import *
 from scipy.interpolate import interp1d
-from scipy.stats import lognorm, norm, uniform  # leave this here, otherwise it fails!
+from scipy.stats import lognorm, norm, uniform, multivariate_normal  # leave this here, otherwise it fails!
 
 
 # Cosmology stuff
@@ -253,6 +253,144 @@ class survey_multimodel(object):
             ax.hist(self.temergence)
             ax.set_xlabel("Time of emergence (abs. mag g $< %.1f$)" % mag_emergence)
         
+    # sample events assuming PCA representation
+    def sample_events_PCA(self, **kwargs):
+
+        self.nsim = kwargs['nsim']  # number of events
+        rvs = kwargs['rvs'] # function which return variable given random number
+
+        doplot = False
+        if 'doplot' in kwargs.keys():
+            doplot = bool(kwargs['doplot'])
+        doload = False
+        if 'doload' in kwargs.keys():
+            doload = bool(kwargs['doload'])
+        dosave = False
+        if 'dosave' in kwargs.keys():
+            dosave = bool(kwargs['dosave'])
+        keepLCs = False
+        if 'keepLCs' in kwargs.keys():
+            keepLCs = bool(kwargs['keepLCs'])
+        if doload:
+            dosave = False
+    
+        # sample variables
+        if not doload:
+
+            # sample redshifts
+            rands = np.random.random(size = self.nsim)
+            self.logzs = np.log(self.random2z(rands))
+            
+            # sample explosion times
+            tmin = min(self.obsplan.MJDs)
+            tmax = max(self.obsplan.MJDs)
+            rands = np.random.random(size = self.nsim)
+            self.texps = tmin + 1. * rands * (tmax - tmin)
+    
+            # sample physical parameters
+            for key in rvs.keys():
+                rands = rvs[key](self.nsim)
+                if key == 'logAv':
+                    self.logAvs = rands
+                if key == "alphas":
+                    # use random numbers plus column of ones to account for constant (PCA0)
+                    self.parsarray = np.column_stack((np.ones(self.nsim), rands))
+
+        if doplot:
+            fig, ax = plt.subplots(figsize = (20, 10))
+    
+        # load LCs and physical parameters for the given MJDs
+        if doload:
+            print("Load LCs, TBD")
+        else:
+            self.LCsamples = []
+            self.parsamples = []
+            
+        # get LCs and plot them if necessary
+        for i in range(self.nsim):
+
+            # print status
+            if not doload and self.obsplan.mode != 'maf':
+                if np.mod(i, 10) == 0:
+                    print("\r%i" % i, end = "")
+    
+            # sample light curves
+            if not doload:
+                
+                # save only first list with light curve at given time (no reference values)
+                self.LCsamples.append(self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i])[0])
+    
+                # append physical parameters to array
+                self.parsamples.append(np.hstack([self.logzs[i], self.texps[i], self.logAvs[i], self.parsarray[i]]))
+    
+            # plot first 1000 LCs
+            if doplot and i < 1000: # avoid plotting more than 1000 LCs
+                for band in self.LCs.uniquefilters:
+                    maskband = self.LCs.maskband[band]
+                    if i == 0:
+                        ax.plot(self.LCs.mjd[maskband], self.obsplan.limmag[maskband], lw = 4, c = self.LCs.bandcolors[band])
+                        ax.plot(self.LCs.mjd[maskband], self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)), lw = 4, c = self.LCs.bandcolors[band], ls = ':')
+                    masklim = self.LCsamples[i][band] < self.obsplan.limmag[maskband] + 2
+                    ax.plot(self.LCs.mjd[maskband][masklim], self.LCsamples[i][band][masklim], c = self.LCs.bandcolors[band], alpha = 0.1)
+    
+        # numpify and transpose physical parameters
+        self.parsamples = np.array(self.parsamples).transpose()
+    
+        # invert axis
+        if doplot:
+            ax.set_ylim(ax.get_ylim()[::-1])
+    
+        # save LCs and physical parameters
+        if dosave:
+            import pickle
+    
+            # LCs
+            LCsfile = "%s/pickles/%s_%s_LCs_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
+            pickle.dump(self.LCsamples, open(LCsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+    
+            # physical parameters
+            parsfile = "%s/pickles/%s_%s_params_%i.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
+            pickle.dump(self.parsamples, open(parsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+
+        # save plot
+        if doplot:
+            plt.savefig("plots/%s_%s.png" % (self.obsplan.planname, self.LCs.modelname))
+
+        # keep LCs in memory
+        if keepLCs:
+            for isim in range(self.nsim):
+                for band in self.LCsamples[isim].keys():
+                    maskband = self.LCs.maskband[band]
+                    masklim = self.LCsamples[isim][band] < self.obsplan.limmag[maskband]
+                    if np.sum(masklim) > 0:
+                        mindet, maxdet = min(self.LCs.mjd[maskband][masklim]), max(self.LCs.mjd[maskband][masklim])
+                        masktime = (self.LCs.mjd[maskband] > mindet - 30) & (self.LCs.mjd[maskband] < maxdet + 30)
+                        if np.sum(masktime) > 0:
+                            lenmask = np.sum(masktime)
+                            dfLCs = pd.DataFrame({"IDSN": [isim for i in range(lenmask)],\
+                                           "MJD": self.LCs.mjd[maskband][masktime], \
+                                           "limmag": self.obsplan.limmag[maskband][masktime], \
+                                           "filter": [band for i in range(lenmask)], \
+                                           "magSN": self.LCsamples[isim][band][masktime]})
+                            dfpars = pd.DataFrame({"IDSN": [isim], \
+                                                   "logz": [self.parsamples[0][isim]], \
+                                                   "texp": [self.parsamples[1][isim]], \
+                                                   "logAv": [self.parsamples[2][isim]], \
+                                                   "alpha1": [self.parsamples[4][isim]], \
+                                                   "alpha2": [self.parsamples[5][isim]]})  # check how to fix this for general number of parameters
+                            if "simLCs" in locals():
+                                simLCs = simLCs.append(dfLCs)
+                                if not isim in list(simpars["IDSN"]):
+                                    simpars = simpars.append(dfpars)
+                            else:
+                                simLCs = dfLCs
+                                simpars = dfpars
+            if "simLCs" in locals():
+                return True, simLCs, simpars
+            else:
+                return False, None, None
+
+            
     def do_efficiency(self, **kwargs):
 
         doplot = False
@@ -269,7 +407,7 @@ class survey_multimodel(object):
             
         check1stdetection = False
         if 'check1stdetection' in kwargs.keys():
-            check1stdetection = kwargs["check1stdetection"]
+            check1stdetection = bool(kwargs["check1stdetection"])
             # time of 1st detection in rest frame per object (after emergence)
             rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
 
@@ -291,23 +429,25 @@ class survey_multimodel(object):
                 maskband = self.LCs.maskband[band]
                 
                 masklim = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) # assume worst case for difference imaging
-                
-                masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
+
+                if check1stdetection:
+                    masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
                 
                 matches[idx, idxb] = np.sum(masklim)
 
                 #rftimedetections = (self.obsplan.MJDs[maskband][masklim] - (texp + self.temergence[idx])) / (1. + redshift)
-                
-                # best match to actual filters
-                rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - texp)
-                if self.doemergence:
-                    rftimedetections -= self.temergence[idx]
-                                    
+
                 if matches[idx, idxb] > 0:
-                    minmags[idx, idxb] = min(LCsample[band][masklim])
-                    if rftime1stdet[idx] == 0:
-                        rftime1stdet[idx] = min(rftimedetections)
-                    else:
+                    if check1stdetection:
+                        # best match to actual filters
+                        rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - texp) # measure time from explosion in observer time
+                        if self.doemergence:
+                            rftimedetections -= self.temergence[idx] # measure time from emergence instead
+
+                    if doplot:
+                        if matches[idx, idxb] > 0:
+                            minmags[idx, idxb] = min(LCsample[band][masklim])
+                    if check1stdetection:
                         rftime1stdet[idx] = min(rftime1stdet[idx], min(rftimedetections))
 
 
@@ -411,6 +551,161 @@ class survey_multimodel(object):
             #for c in cset.collections:
             #    c.set_linestyle('solid')
             
+            # apparent magnitudes
+            fig, ax = plt.subplots()
+            for idxb, band in enumerate(self.obsplan.uniquebands):
+                ax.hist(minmags[:, idxb][minmags[:, idxb] > 0], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
+            ax.legend(loc = 2)    
+            ax.set_xlabel("min mag")
+
+            # absolute magnitudes
+            fig, ax = plt.subplots()
+            for idxb, band in enumerate(self.obsplan.uniquebands):
+                mask = (minmags[:, idxb] > 0)
+                Dms = np.array(list(map(lambda logz: self.Dmf(np.exp(logz)), self.parsamples[0, :])))
+                ax.hist(minmags[:, idxb][mask] - Dms[mask], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
+            ax.legend(loc = 2)    
+            ax.set_xlabel("min abs mag")
+
+
+    def do_efficiency_PCA(self, **kwargs):
+
+        doplot = False
+        if 'doplot' in kwargs.keys():
+            doplot = bool(kwargs['doplot'])
+
+        dosave = False
+        if 'dosave' in kwargs.keys():
+            dosave = bool(kwargs['dosave'])
+            
+        verbose = False
+        if 'verbose' in kwargs.keys():
+            verbose = bool(kwargs['verbose'])
+
+        check1stdetection = False
+        if 'check1stdetection' in kwargs.keys():
+            check1stdetection = bool(kwargs["check1stdetection"])
+            # time of 1st detection in rest frame per object (after emergence)
+            rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
+
+        # number of detections per object per band
+        matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
+
+        if doplot:
+            # brightest magnitude detected per object per band
+            minmags = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
+
+        # check all light curves
+        for idx, LCsample in enumerate(self.LCsamples):
+
+            redshift = np.exp(self.parsamples[0, idx])
+            texp = self.parsamples[1, idx]
+
+            # loop among bands
+            for idxb, band in enumerate(self.obsplan.uniquebands):
+
+                maskband = self.LCs.maskband[band]
+                
+                masklim = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) # assume worst case for difference imaging
+
+                if check1stdetection:
+                    masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
+                
+                matches[idx, idxb] = np.sum(masklim)
+                
+                if check1stdetection:
+                    # best match to actual filters
+                    rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - texp)
+
+                if doplot:
+                    if matches[idx, idxb] > 0:
+                        minmags[idx, idxb] = min(LCsample[band][masklim])
+                if check1stdetection:
+                    if rftime1stdet[idx] == 0:
+                        rftime1stdet[idx] = min(rftimedetections)
+                    else:
+                        rftime1stdet[idx] = min(rftime1stdet[idx], min(rftimedetections))
+
+
+        # count only detections with at least two detections [and with early detections if check1stdetection]
+        detections = (np.sum(matches, axis = 1) >= 2)
+        if check1stdetection:
+            detections = np.array(detections & (rftime1stdet <= self.maxrestframeage))
+
+        # filter by time of first detection
+        labels = np.concatenate([np.array(['logz', 'texp', 'logAv'], dtype = str), np.array(["alpha1", "alpha2"], dtype = str)])
+        self.x_effs = {}
+        self.y_effs = {}
+        self.effs = {}
+        
+        for vallabel, valin in zip(labels, self.parsamples):
+            if min(valin) == max(valin):
+                continue
+            if vallabel == 'logz':
+                vallabel = 'z'
+                valin = np.exp(valin)
+            if vallabel == 'mdot':
+                vallabel = 'log10mdot'
+            if vallabel == 'logAv':
+                vallabel = 'log10Av'
+                valin = valin / np.log(10.)
+
+            # values of detected SNe
+            valout = np.array(valin[detections])
+
+            # store this for later comparison
+            if vallabel == 'log10mdot':
+                log10mdot = np.array(valout)
+                if self.doemergence:
+                    # SBO times
+                    tSBO = self.temergence[detections]
+            if vallabel == 'z':
+                z = np.array(valout)
+
+            # sort values
+            idxsort = np.argsort(valout)
+            valout = valout[idxsort]
+
+            # create bins for histogram
+            nn = np.cumsum(np.ones(self.nsim))
+            nin, bin_edgesin = np.histogram(valin, bins = 25)
+            nout, bin_edgesout = np.histogram(valout, bins = bin_edgesin)
+            self.x_effs[vallabel] = (bin_edgesin[1:] + bin_edgesin[:-1]) / 2.
+            self.y_effs[vallabel] = 1. * nout / nin
+            self.effs[vallabel] = interp1d(self.x_effs[vallabel], self.y_effs[vallabel], bounds_error = False, fill_value = 0)
+
+            
+            # save efficiencies
+            if dosave:
+                import pickle
+                effsfile = "%s/pickles/%s_%s_LCs_%i_effs.pkl" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname, self.nsim)
+                pickle.dump([self.x_effs, self.y_effs], open(effsfile, 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
+
+            # plot histograms
+            if doplot:
+                fig, ax = plt.subplots()
+                #ax.plot(valin, range(len(valin)), label = 'Explosions')
+                # plot scaled number of detections
+                ax.plot(self.x_effs[vallabel], self.effs[vallabel](self.x_effs[vallabel]), linestyle = 'steps-mid', c = 'k')
+                ax.set_ylim(0, ax.get_ylim()[1])
+                ax.set_ylabel('Efficiency', fontsize = 14)
+                ax.set_xlabel(vallabel, fontsize = 14)
+                ax2 = ax.twinx()
+                ax2.plot(valout, np.array(range(len(valout)), dtype = float) / len(valin) * self.cumtotalSNe[-1], label = 'Detections', c = 'r')
+                ax2.set_ylabel('CDF', color='r', fontsize = 14)
+                ax2.set_ylim(0, ax2.get_ylim()[1])
+                ax2.tick_params('y', colors='r')
+                if vallabel == 'log10mdot':
+                    ax.set_xlabel(r'$\log_{10} \dot M\ [M_\odot yr^{-1}]$')
+                    ax.set_ylabel("Efficiency")
+                    plt.savefig("plots/log10mdot_efficiency.pdf")
+                if  vallabel == 'beta':
+                    ax.set_xlabel(r'$\beta$')
+                    ax.set_ylabel("Efficiency")
+                    plt.savefig("plots/beta_efficiency.pdf")
+
+        if doplot:
+
             # apparent magnitudes
             fig, ax = plt.subplots()
             for idxb, band in enumerate(self.obsplan.uniquebands):

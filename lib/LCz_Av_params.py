@@ -79,17 +79,19 @@ class LCz_Av_params(object):
 
     # compute models in the given bands
     def compute_models(self, **kwargs):
-
+        
+        obsname = kwargs["obsname"]
+        
         bands = kwargs["bands"]
         dosave = False
         doload = False
         doselected = False
         if "save" in kwargs.keys():
             dosave = kwargs["save"]
-            doload = False
         if "load" in kwargs.keys():
             doload = kwargs["load"]
-            dosave = False
+            if doload:
+                dosave = False
         if "selfiles" in kwargs.keys():
             doselected = True
             selfiles = kwargs["selfiles"]
@@ -108,11 +110,16 @@ class LCz_Av_params(object):
         self.allmags = {}
 
         aux = 0
+        count = 0
         for filename, params in zip(self.files, self.params):
-
+            
             if doselected and filename[:-3] not in selfiles:
                 continue
 
+            if doload:
+                count += 1
+                print("Loading file %i" % count, end = "\r")
+            
             if not doload:
                 print(filename)
 
@@ -125,22 +132,32 @@ class LCz_Av_params(object):
                         print("File: %s, params: %s, band: %s" % (filename, params, band))
 
 
-                npydir = "%s/npy/%s/%s" % (os.environ["SURVEYSIM_PATH"], self.modelname, band)
+                npydir = "%s/npy/%s/%s/%s" % (os.environ["SURVEYSIM_PATH"], self.modelname, obsname, band)
                 if doload:
                     mags = np.load("%s/%s.npy" % (npydir, filename))
                 else:
                     npyfile = "%s/%s.npy" % (npydir, filename)
                     if not os.path.exists(npyfile):
-                        print("   File %s/%s.npy doesn't exist, computing..." % (npydir, filename))
-                        continue
-                        if not self.dostretch:
+                        
+                        print("   File %s doesn't exist, computing..." % npyfile)
+
+                        # precompute light curves
+                        if self.modelname == "Goldstein":
+                            SN = Goldstein(dir = "%s/models/Goldstein" % os.environ["SURVEYSIM_PATH"], \
+                                           energy = params[0], mass = params[1], NSE = params[2], IME = params[3], CO = params[4], m = params[5], doplot = False)
+                        elif not self.dostretch:
                             SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
                         else:
                             SN = Hsiao(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
+                        
+                        # create LCz_Av object and compute magnitudes
                         SN_Av = LCz_Av(LCz = SN, Av = self.Avs, Rv = self.Rv, zs = self.zs, DL = self.DL, Dm = self.Dm, filtername = band, doplot = False)
-                        SN_Av.compute_mags()
+                        SN_Av.compute_mags(obsname = obsname)
                         mags = np.array([SN_Av.magAvf[iAv][iz](self.times) for iz, iAv in itertools.product(range(len(self.zs)), range(len(self.Avs)))]).reshape((len(self.zs), len(self.Avs), len(self.times)))
+
+                        # save
                         if dosave:
+                            print("Saving file %s" % npyfile)
                             if not os.path.exists(npydir):
                                 os.makedirs(npydir)
                             np.save(npyfile, mags)
@@ -387,10 +404,10 @@ class LCz_Av_params(object):
         if not self.doref:
             for band in self.uniquefilters:
                 intLCref[band] = 40.
-        else:
-            for band in self.uniquefilters:
-                intLC[band] = intLC[band] - 2.5 * np.log10(scale)
-                intLCref[band] = intLCref[band] - 2.5 * np.log10(scale)
+
+        for band in self.uniquefilters:
+            intLC[band] = intLC[band] - 2.5 * np.log10(scale)
+            intLCref[band] = intLCref[band] - 2.5 * np.log10(scale)
             
         return intLC, intLCref
 

@@ -162,9 +162,9 @@ class observatory(object):
                     
             elif kwargs["observatory"] == "LSST":
                 
-                self.area = 35.04
-                self.FoV = 9.6
-                self.pixscale = 0.2
+                self.area = 35.04 # m2
+                self.FoV = 9.6 # deg2
+                self.pixscale = 0.2 # "
                 self.gain = 4 #?
                 self.overhead = 5 # s
 

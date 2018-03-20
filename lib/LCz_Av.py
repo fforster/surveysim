@@ -21,13 +21,50 @@ class LCz_Av(object):
         self.nAv = len(self.Av)
         self.nz = len(self.zs)
         self.ntimes = self.LCz.ntimes
-        
-    def compute_mags(self, **kwargs):
+
+    # this is used for when we cannot compute magnitudes directly, e.g. PCA eigenvectors in flux units
+    def compute_bandfluxes(self, **kwargs):
+
+        obsname = kwargs["obsname"]
 
         plotmodel = False
         if "plotmodel" in kwargs.keys():
             plotmodel = kwargs["plotmodel"]
-            
+
+        # array of interpolating functions
+        self.bandfluxAvf = []
+
+        for i in range(self.nAv):
+
+            #print("Av: %f" % self.Av[i])
+            #self.LCz.luminosity()
+            self.LCz.redshift(zs = self.zs, DL = self.DL)
+            self.LCz.dofilter(filtername = self.filtername, obsname = obsname)
+            if i == 0 and plotmodel:
+                self.LCz.doplot = True
+            else:
+                self.LCz.doplot = False
+            self.LCz.bandfluxes(Dm = self.Dm)
+
+            for j in range(self.nz):
+
+                # add interpolating function
+                self.bandfluxAvf.append(interp1d(self.LCz.timesz[j], self.LCz.bandintfluxz[j], bounds_error = False, fill_value = 0))
+
+        # reshape list of interpolating functions
+        self.bandfluxAvf = list(zip(*[iter(self.bandfluxAvf)]*self.nz))
+
+    # this is used when we can compute magnitudes directly
+    def compute_mags(self, **kwargs):
+
+        # check which obsname we are using
+        obsname = kwargs["obsname"]
+        
+        plotmodel = False
+        if "plotmodel" in kwargs.keys():
+            plotmodel = kwargs["plotmodel"]
+
+        # array of interpolating functions
         self.magAvf = []
 
         for i in range(self.nAv):
@@ -36,7 +73,7 @@ class LCz_Av(object):
             #self.LCz.luminosity()
             self.LCz.attenuate(Av = self.Av[i], Rv = self.Rv)
             self.LCz.redshift(zs = self.zs, DL = self.DL)
-            self.LCz.dofilter(filtername = self.filtername)
+            self.LCz.dofilter(filtername = self.filtername, obsname = obsname)
             if i == 0 and plotmodel:
                 self.LCz.doplot = True
             else:
@@ -49,7 +86,7 @@ class LCz_Av(object):
                 self.magAvf.append(interp1d(self.LCz.timesz[j], self.LCz.bandmag[j], bounds_error = False, fill_value = 40))
 
         # reshape list of interpolating functions
-        self.magAvf = zip(*[iter(self.magAvf)]*self.nz)
+        self.magAvf = list(zip(*[iter(self.magAvf)]*self.nz))
 
     # define characteristic Av distribution scale
     def set_Avdistribution(self, **kwargs):
@@ -72,6 +109,9 @@ class LCz_Av(object):
         iz = kwargs["iz"]
         MJDs = kwargs["MJDs"]
         maxrestframeage = kwargs["maxrestframeage"] # days
+        domags = True
+        if "domags" in kwargs.keys():
+            domags = kwargs["domags"] == True
 
         #print(np.shape(self.LCz.timesz), np.argmin(np.abs(maxrestframeage - self.LCz.times)))
         maxobserverage = self.LCz.timesz[iz][np.argmin(np.abs(maxrestframeage - self.LCz.times))]
@@ -84,7 +124,12 @@ class LCz_Av(object):
         else:
             iAv = np.zeros(nsim, dtype = int)
 
-        return (tmax - tmin, texp, iAv, np.array(map(lambda iAv, texp: self.magAvf[iAv][iz](MJDs - texp), iAv, texp)))
+        # return magnitudes of fluxes
+        if domags:
+            return (tmax - tmin, texp, iAv, np.array(map(lambda iAv, texp: self.magAvf[iAv][iz](MJDs - texp), iAv, texp)))
+        else:
+            return (tmax - tmin, texp, iAv, np.array(map(lambda iAv, texp: self.bandfluxAvf[iAv][iz](MJDs - texp), iAv, texp)))
+            
         
 if __name__  == "__main__":
 

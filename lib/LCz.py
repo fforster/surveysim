@@ -70,7 +70,7 @@ class LCz(object):
 
             self.L[i] = np.sum(1. + (self.flux[i]) * self.dlambda)
 
-        print(np.log10(self.L), self.times)
+        #print("Luminosity:", self.L, self.times)
 
         if self.doplot:
             print("Plotting integrated energy")
@@ -79,13 +79,14 @@ class LCz(object):
             ax.set_xlabel(r'$t$ [days]')
             ax.set_ylabel(r'$\log_{10}$ $L$ [erg s$^{-1}$]')
                 
-            ax.plot(self.times, np.log10(self.L))
-            ax.text(self.times[np.argmax(np.log10(self.L))], max(np.log10(self.L)), "Total energy radiated: %7.2e [erg]" % (np.sum(self.L * self.dtimes) * days2sec), fontsize = 8)
+            ax.plot(self.times, np.log10(np.abs(self.L)))
+            ax.text(self.times[np.argmax(np.log10(np.abs(self.L)))], max(np.log10(np.abs(self.L))), "Total energy radiated: %7.2e [erg]" % (np.sum(self.L * self.dtimes) * days2sec), fontsize = 8, ha = 'right')
             
             ax.set_xscale("log")
             ax.set_xlim(min(self.times) - 1, max(self.times))
             #ax.set_ylim(min(np.log10(self.L)) - 1, max(np.log10(self.L)) + 1)
             plt.grid()
+            plt.tight_layout()
             plt.savefig("plots/%s_Luminosity.png" % (self.modelname))
             
 
@@ -146,16 +147,36 @@ class LCz(object):
     def dofilter(self, **kwargs):
 
         self.filtername = kwargs["filtername"]
+        self.obsname = kwargs["obsname"]
                 
         # read transmission curve and create interpolation function
         # --------------------------------------------------------
             
-        ugrizy = ['u', 'g', 'r', 'i', 'z', 'Y']
+        ugrizY = ['u', 'g', 'r', 'i', 'z', 'Y']
+        ugrizy = ['u', 'g', 'r', 'i', 'z', 'y']
         UBVRI = ['U', 'B', 'V', 'R', 'I']
 
-        if self.filtername in ugrizy:
+        if self.filtername in ugrizY:
 
-            bandfilter = np.loadtxt('%s/filters/DECam_transmission_total.txt' % os.environ["SURVEYSIM_PATH"]).transpose()
+            filterfile = "DECam_transmission_total.txt"
+            if self.obsname == "LSST":
+                filterfile = "LSST_transmission_total.txt"
+                    
+            bandfilter = np.loadtxt('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile)).transpose()
+            iband = 0
+            for i in range(len(ugrizY)):
+                if ugrizY[i] == self.filtername:
+                    iband = i
+            lfilter = bandfilter[0] * 10. # AA
+            tfilter = bandfilter[iband + 1]  # fraction
+
+        elif self.filtername in ugrizy:
+
+            filterfile = "DECam_transmission_total.txt"
+            if self.obsname == "LSST":
+                filterfile = "LSST_transmission_total.txt"
+                    
+            bandfilter = np.loadtxt('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile)).transpose()
             iband = 0
             for i in range(len(ugrizy)):
                 if ugrizy[i] == self.filtername:
@@ -210,6 +231,67 @@ class LCz(object):
         dbandnu = np.zeros(self.nnu)
         dbandnu[1:self.nnu] = -(bandnu[1:self.nnu] - bandnu[0:self.nnu-1])
         self.dlognu = dbandnu / bandnu
+
+    # compute observed flux at given distance in previously set band (this is when we cannot compute magnitude, e.g. when PCA eigenvectors are in flux units and not in magnitudes)
+    def bandfluxes(self, **kwargs):
+
+        self.Dm = kwargs["Dm"]
+        self.bandintfluxz = np.zeros((self.nz, self.ntimes))
+        self.bandabsintfluxz = np.zeros((self.nz, self.ntimes))
+        self.Snuz = np.zeros((self.nz, self.nlambdas))
+        
+        # map fluxes on bandlambda creating interpolating functions
+        self.bandfluxz = np.zeros((self.nz, self.ntimes, self.nnu))
+
+        for i in range(self.nz):
+        
+            for j in range(self.ntimes):
+
+                fluxzf = interp1d(self.lambdaz[i], self.fluxz[i, j])
+                self.bandfluxz[i, j] = fluxzf(self.bandlambda)
+
+        # integrate band
+        for i in range(self.nz):
+            for j in range(self.ntimes):
+                self.bandintfluxz[i, j] = np.sum(self.bandfluxz[i, j] * (self.bandlambda**2 / cspeedAAs) * self.bandSnu * self.dlognu) / np.sum(self.bandSnu * self.dlognu)
+
+            # compute effective absolute flux
+            self.bandabsintfluxz[i] = self.bandintfluxz[i] / 10**(self.Dm[i] / 2.5)
+
+        # plot
+        if self.doplot:
+            fig, ax = plt.subplots()
+
+            # plot absolute magnitudes as seen at different redshifts
+            # -------------------------------------------------------
+
+            print("Plotting absolute redshifted magnitudes...")
+
+            ax.set_xlabel(r'$t$ [days]')
+            ax.set_ylabel(r'%s int. flux [erg/cm2/s]' % self.filtername)
+            
+            jet = cm = plt.get_cmap('jet') 
+            cNorm  = colors.Normalize(vmin = 0, vmax = self.nz)
+            scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
+            for i in range(self.nz):
+
+                colorVal = scalarMap.to_rgba(i)
+
+                ax.plot(self.timesz[i], self.bandabsintfluxz[i], color = colorVal, label = "z: %5.3f" % self.zs[i])
+                idx90 = np.argmin(np.abs(self.times - 90.))
+                ax.text(self.timesz[i, idx90], self.bandabsintfluxz[i, idx90], "z: %4.2f" % self.zs[i], color = colorVal, fontsize = 8) # show label at 90 days restframe
+        
+            ax.legend(fancybox = False, prop = {'size':6}, loc = 1)
+        
+            ax.set_xlim(np.min(self.timesz), np.max(self.timesz) * 1.5)
+            
+            ax.set_xlim(np.min(self.timesz), min(150, np.max(self.timesz)))
+
+            plt.grid()
+            ax.legend(fancybox = False, prop = {'size':6}, loc = 4, framealpha = 0.6)
+
+            plt.savefig("plots/%s_%s_bandabsflux.png" % (self.modelname, self.filtername))
+            plt.savefig("plots/%s_%s_bandabsflux.pdf" % (self.modelname, self.filtername))
         
     # compute observed magnitudes at previously set band
     def mags(self, **kwargs):
@@ -559,7 +641,7 @@ class Kasen(LCz):
             self.flux[it, :] = self.flux[it, :] * (cspeedAAs / self.lambdas**2) # [erg/s/cm2/AA]
             #self.flux[it, :] = self.flux[it, :] * (4. * np.pi * (10. * pc2cm)**2) # [erg/s/AA]
 
-# Kasen model
+# Goldstein models
 class Goldstein(LCz):
 
     def __init__(self, **kwargs):
@@ -580,16 +662,52 @@ class Goldstein(LCz):
 
         # open spectra
         data = h5py.File("%s/%5.3e_%5.3e_%5.3e_%5.3e_%5.3e_%5.3e.h5" % (self.dir, self.modelenergy, self.modelmass, self.modelNSE, self.modelIME, self.modelCO, self.modelm), 'r')
-        print(list(data.keys()))
 
         self.lambdas = cspeedAAs / np.array(data["nu"])[::-1] # AA
-        self.times = np.array(data["time"]) / days2sec # sec
+        self.times = np.array(data["time"]) / days2sec # days
         self.flux = np.array(data["Lnu"]) # erg/s/Hz
         self.nlambdas = len(self.lambdas)
         self.ntimes =  len(self.times)
         for it in range(self.ntimes):
             self.flux[it, :] = self.flux[it, ::-1] * (cspeedAAs / self.lambdas**2)            
+
+# Gonzalez-Gaitan templates
+class GonzalezGaitan(LCz):
+
+    # these models are given as eigenvectors as a function of wavelength
+    # they don't assume any extinction law, so we shouldn't use any extinction law either
+    # then, when an actual light curve is created one should choose how to weights the eigenvectors
+    # the question is whether the eigenvectors are linearly combined in flux or magnitude space
     
+    def __init__(self, **kwargs):
+
+        self.dir = kwargs["dir"]
+        self.modelPC = kwargs["modelPC"] # iPC
+        self.modelname = "GG_PC-%i" % (self.modelPC)
+        self.doplot = False
+        if "doplot" in kwargs.keys():
+            self.doplot = kwargs["doplot"]
+        self.extmodel = "CCM89+O94"
+        self.dopeaks = False
+
+        # open spectra
+        data = pd.read_csv("%s/sp_eigvectemplate.dat" % (self.dir), sep = "\s+") # time in days, lambda in AA, flux in erg/cm2/s/A @ 10 pc
+
+        self.times = np.unique(data["Epoch"]) # days
+        self.lambdas = np.unique(data["Wave"]) # AA
+
+        self.ntimes = len(self.times)
+        self.nlambdas = len(self.lambdas)
+
+        if self.modelPC == 0:
+            label = "Flux"
+        else:
+            label = "PC%i" % self.modelPC
+        self.flux = np.reshape(data[label].values, (self.ntimes, self.nlambdas)) # erg/cm2/s/AA @ 10 pc
+        self.flux = self.flux * (4. * np.pi * (10. * pc2cm)**2) # [erg/s/AA]
+        self.flux = 49.5 * self.flux
+        #self.flux = np.abs(self.flux)
+            
 # empirical evolution of SN light curves from Tominaga et al.
 class T11(StellaModel):
 
