@@ -6,14 +6,7 @@ from collections import defaultdict
 from constants import *
 
 def readSNdata(project, SNname, maxairmass = 1.7):
-    
-    if project == "DES":
-        dodes = True
-        dehits = False
-    elif project == "HiTS":
-        dodes = False
-        dohits = True
-        
+            
     #########################
     # Observational data
     #########################
@@ -21,7 +14,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
     # DES SNe
     # -----------------------------
 
-    if dodes:
+    if project == 'DES':
         
         DESdir = "../DES"
         dirs = os.listdir(DESdir)
@@ -124,7 +117,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
     # HiTS SNe
     # -----------------------------------------------------------------
 
-    elif dohits:
+    elif project == "HiTS":
         #SNname = "SNHiTS15A"
         #SNname = "SNHiTS15P"
         #SNname = "SNHiTS15D"
@@ -245,6 +238,28 @@ def readSNdata(project, SNname, maxairmass = 1.7):
             zcmb = 0.2
             fixz = False
 
+    elif project == "PTF":
+        
+        df = pd.read_table("../PTF/LCs/%s.dat" % SNname, sep = "\s*\t\s*", comment = "#", engine = "python")
+        JD0 = float(re.findall('.*?=(\d+.\d+).*?', df.columns[0])[0])
+        MJDref = JD0 - 2400000.5 # in this case it is the explosion date
+        df = df.rename(columns = {df.columns[0]: "MJD"})
+        df["MJD"] = df["MJD"] + MJDref
+        df = df[(df['family'] == 'PTF')]
+
+        sn_mjd = np.array(df["MJD"])
+        sn_mjdref = np.array(MJDref * np.ones_like(sn_mjd))
+        sn_mag = np.array(df["mag"])
+        sn_e_mag = np.array(df["mag-err"])
+        sn_filters = np.array(df["band"], dtype = str)
+        
+        sn_flux = mag2flux(sn_mag)
+        sn_e_flux = mag2flux(sn_mag) - mag2flux(sn_mag + sn_e_mag)
+
+        if SNname == "SN2013fs":
+            zcmb = 0.011855
+            fixz = True
+            texp0 = MJDref
 
     else:
         print("Define observations...")

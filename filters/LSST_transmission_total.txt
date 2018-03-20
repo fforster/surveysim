@@ -1,4 +1,4 @@
-# wavelength u g r i z y atm
+wavelength u g r i z y atm
 300.0 0.0               0.0                  0.0                 0.0                      0.0                  0.0                           
 300.1 0.0               0.0                  0.0                 0.0                      0.0                  0.0                           
 300.2 0.0               0.0                  0.0                 0.0                      0.0                  0.0                           

@@ -118,7 +118,7 @@ class LCz_Av_params(object):
 
             if doload:
                 count += 1
-                print("Loading file %i" % count, end = "\r")
+                print("Loading file %i" % count)#, end = "\r")
             
             if not doload:
                 print(filename)

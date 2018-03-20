@@ -6,6 +6,7 @@
 #feedback: keplergo@mail.arc.nasa.gov
 #lambda Transmission
 #(nm)   
+wavelength Kepler
 348	1.121E-04
 349	1.508E-04
 350	1.583E-04

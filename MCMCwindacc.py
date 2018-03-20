@@ -19,6 +19,9 @@ import corner
 
 import time
 
+os.environ["SURVEYSIM_PATH"] = "/home/fforster/surveysim"
+sys.path.append("%s/lib" % os.environ["SURVEYSIM_PATH"])
+
 from constants import *
 from LCz import *
 from LCz_Av import *
@@ -43,17 +46,23 @@ if __name__ == "__main__":
     diffLC = False
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "p:s:n:w:b:dioltcfvh", ["project=", "supernova=", "nsteps=", "walkers=", "burnin=", "diffLC", "interactive", "overwrite", "loadMCMC", "test", "computemodels", "selfiles=", "verbose", "help"])
+        opts, args = getopt.getopt(sys.argv[1:], "O:B:p:s:n:w:b:dioltcf:vh", ["observatory=", "bands=", "project=", "supernova=", "nsteps=", "walkers=", "burnin=", "diffLC", "interactive", "overwrite", "loadMCMC", "test", "computemodels", "selfiles=", "verbose", "help"])
     except getopt.GetoptError:
-        print 'python MCMCwindacc.py --help'
+        print('python MCMCwindacc.py --help')
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
-            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
+            print("e.g. python ./MCMCwindacc.py --obsname Blanco-DECam --bands 'u g r i z' --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --computemodels --filenames \"file1 file2\" (compute models in modellist.txt or in selected files)")
-            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --overwrite --verbose (interactively choose starting points, overwrite previously defined values)")
+            print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --overwrite -`-verbose (interactively choose starting points, overwrite previously defined values)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 500 (run MCMC chain with 1000 steps, 400 walkers, burnin of 500)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 800 --loadMCMC --verbose (load MCMC chain for plotting, can choose new burnin value)")
+        elif opt in ('-O', '--observatory'):
+            obsname = arg
+            print("Observatory: %s" % obsname)
+        elif opt in ('-B', '--bands'):
+            bands = arg.split()
+            print("Bands: %s" % bands)
         elif opt in ('-p', '--project'):
             project = arg
             print ("Project %s" % project)
@@ -78,7 +87,7 @@ if __name__ == "__main__":
             computemodels = True
         elif opt in ('f', '--selfiles'):
             selfiles = arg.split()
-            print(selfiles)
+            print("Selected files:", selfiles)
         elif opt in ('t', '--test'):
             dotest = True
         elif opt in ('-v', '--verbose'):
@@ -90,7 +99,7 @@ if __name__ == "__main__":
     if 'SNname' not in locals():
         print("Need to define supernova name")
         sys.exit()
-    
+        
     print("Markov chain Monte Carlo model fitting...\n")
     
 
@@ -111,7 +120,7 @@ if __name__ == "__main__":
     if not dointeractive:
         if os.path.exists("initial_pars/%s/%s.pkl" % (modelname, SNname)):
             par0 = pickle.load(open("initial_pars/%s/%s.pkl" % (modelname, SNname), 'rb'))
-            print par0
+            print(par0)
             if 'MJDmin' in par0.keys() and 'MJDmax' in par0.keys():
                 mask = (sn_mjd > par0['MJDmin']) & (sn_mjd < par0['MJDmax'])
                 sn_mjd = sn_mjd[mask]
@@ -120,10 +129,10 @@ if __name__ == "__main__":
                 sn_filters = sn_filters[mask]
     else:
         if not overwrite and os.path.exists("initial_pars/%s/%s.pkl" % (modelname, SNname)):
-            print "Exiting, initial parameter estimation already exists", dotest 
+            print("Exiting, initial parameter estimation already exists. dotest: %s" % dotest)
             sys.exit()
 
-    print par0
+    print(par0)
 
     # load models
     # --------------------------
@@ -171,27 +180,24 @@ if __name__ == "__main__":
     # do cosmology
     LCs.docosmo()
 
-    bands = ['u', 'g', 'r', 'i', 'z']
-    #bands = ['I']
-    
     # compute models in given bands
     if computemodels:
         if "selfiles" in locals(): 
-            LCs.compute_models(bands = bands, save = True, selfiles = selfiles)
+            LCs.compute_models(obsname = obsname, bands = bands, save = True, selfiles = selfiles)
         else:
-            LCs.compute_models(bands = bands, save = True)
+            LCs.compute_models(obsname = obsname, bands = bands, save = True)
         sys.exit()
     else:
-        LCs.compute_models(bands = bands, load = True)
+        LCs.compute_models(obsname = obsname, bands = bands, load = True)
         
     # set metric
     LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
         
     # set observations
     if not diffLC:
-        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
     else:
-        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
     
     # actual model
     #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]
@@ -245,7 +251,7 @@ if __name__ == "__main__":
     else:
         beta = 3.
         
-    print par0.keys(), par0, texp
+    print(par0.keys(), par0, texp)
 
     rcsm = 1. # 1e15
     vwindinf = 10.
@@ -272,7 +278,7 @@ if __name__ == "__main__":
     # check best solution
     print("Best fit parameters:", zip(parlabels, LCs.parvals))
     print("...")
-    print LCs.parvals[4:]
+    print(LCs.parvals[4:])
     LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:], True, False)
 
     fig, ax = plt.subplots(figsize = (17, 11))

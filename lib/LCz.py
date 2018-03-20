@@ -152,57 +152,27 @@ class LCz(object):
         # read transmission curve and create interpolation function
         # --------------------------------------------------------
             
-        ugrizY = ['u', 'g', 'r', 'i', 'z', 'Y']
-        ugrizy = ['u', 'g', 'r', 'i', 'z', 'y']
-        UBVRI = ['U', 'B', 'V', 'R', 'I']
-
-        if self.filtername in ugrizY:
-
+        if self.obsname == "Blanco-DECam":
             filterfile = "DECam_transmission_total.txt"
-            if self.obsname == "LSST":
-                filterfile = "LSST_transmission_total.txt"
+        elif self.obsname == "LSST":
+            filterfile = "LSST_transmission_total.txt"
+        elif self.obsname == "KMTNet":
+            filterfile = "KMTNet_transmission_total.txt"
+        elif self.obsname == "PTF48":
+            filterfile = "PTF48_transmission_total.txt"
+        elif self.obsname == "Kepler":
+            filterfile = "Kepler_transmission_total.txt"
                     
-            bandfilter = np.loadtxt('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile)).transpose()
-            iband = 0
-            for i in range(len(ugrizY)):
-                if ugrizY[i] == self.filtername:
-                    iband = i
-            lfilter = bandfilter[0] * 10. # AA
-            tfilter = bandfilter[iband + 1]  # fraction
+        bandfilter = pd.read_csv('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile), sep = "\s+")
+        lfilter = np.array(bandfilter["wavelength"]) * 10. # AA
+        tfilter = np.array(bandfilter[self.filtername])  # fraction
 
-        elif self.filtername in ugrizy:
+        # make sure it is sorted
+        idxsort = np.argsort(lfilter)
+        lfilter = lfilter[idxsort]
+        tfilter = tfilter[idxsort]
 
-            filterfile = "DECam_transmission_total.txt"
-            if self.obsname == "LSST":
-                filterfile = "LSST_transmission_total.txt"
-                    
-            bandfilter = np.loadtxt('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile)).transpose()
-            iband = 0
-            for i in range(len(ugrizy)):
-                if ugrizy[i] == self.filtername:
-                    iband = i
-            lfilter = bandfilter[0] * 10. # AA
-            tfilter = bandfilter[iband + 1]  # fraction
-
-        elif self.filtername in UBVRI:
-
-            bandfilter = np.loadtxt('%s/filters/KMTNet_transmission_total.txt' % os.environ["SURVEYSIM_PATH"]).transpose()
-            iband = 0
-            for i in range(len(UBVRI)):
-                if UBVRI[i] == self.filtername:
-                    iband = i
-            lfilter = bandfilter[0] * 10. # AA
-            tfilter = bandfilter[iband + 1]  # fraction
-
-        elif self.filtername == "Kepler":
-
-            bandfilter = np.loadtxt('%s/filters/kepler_response.dat' % os.environ["SURVEYSIM_PATH"]).transpose()
-            lfilter = bandfilter[0] * 10. # AA
-            tfilter = bandfilter[1] # fraction
-            idxsort = np.argsort(lfilter)
-            lfilter = lfilter[idxsort]
-            tfilter = tfilter[idxsort]
-
+        # find limits for integration
         i1 = 0
         i2 = 0
         for i in range(len(lfilter)):
