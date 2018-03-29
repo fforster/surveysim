@@ -19,7 +19,10 @@ import corner
 
 import time
 
-os.environ["SURVEYSIM_PATH"] = "/home/fforster/surveysim"
+if leftraru:
+    os.environ["SURVEYSIM_PATH"] = "/home/fforster/surveysim"
+else:
+    os.environ["SURVEYSIM_PATH"] = "/home/fforster/Work/surveysim"
 sys.path.append("%s/lib" % os.environ["SURVEYSIM_PATH"])
 
 from constants import *
@@ -112,7 +115,6 @@ if __name__ == "__main__":
     # Theoretical  models
     # -------------------------------------------------------------
 
-    modelsdir = "models"
     modelname = "MoriyaWindAcc"
 
     # if a previous interactive estimation of the parameters existed
@@ -137,6 +139,7 @@ if __name__ == "__main__":
     # load models
     # --------------------------
     
+    modelsdir = "%s/models" % os.environ["SURVEYSIM_PATH"]
     data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
     data[data == 'no'] = 0
     modelfile, modelmsun, modele51, modelmdot, modelrcsm, modelvwind0, modelvwindinf, modelbeta = data
@@ -152,7 +155,7 @@ if __name__ == "__main__":
 
     params = np.vstack([modelmsun, modelfoe, modelmdot, modelrcsm, modelvwindinf, modelbeta]).transpose()
     try:
-        files = np.array(map(lambda name: "%s.fr" % name, modelfile))
+        files = np.array(list(map(lambda name: "%s.fr" % name, modelfile)))
     except:
         files = "%s.fr" % modelfile
     #print(files)

@@ -242,13 +242,14 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         
         df = pd.read_table("../PTF/LCs/%s.dat" % SNname, sep = "\s*\t\s*", comment = "#", engine = "python")
         JD0 = float(re.findall('.*?=(\d+.\d+).*?', df.columns[0])[0])
-        MJDref = JD0 - 2400000.5 # in this case it is the explosion date
+        MJDref = JD0 - 2400000.5 # in this case it is the explosion date minus 50 days
         df = df.rename(columns = {df.columns[0]: "MJD"})
         df["MJD"] = df["MJD"] + MJDref
-        df = df[(df['family'] == 'PTF')]
+        #df = df[(df['family'] == 'PTF') | ((df["family"] == "SDSS") & (df["band"] == 'g'))]
+        df = df[(df["family"] == "SDSS") & ((df["band"] == 'g') | (df["band"] == 'r'))]
 
         sn_mjd = np.array(df["MJD"])
-        sn_mjdref = np.array(MJDref * np.ones_like(sn_mjd))
+        sn_mjdref = np.array(MJDref * np.ones_like(sn_mjd)) - 1000. # assume reference was taken 1000 days into the past
         sn_mag = np.array(df["mag"])
         sn_e_mag = np.array(df["mag-err"])
         sn_filters = np.array(df["band"], dtype = str)
