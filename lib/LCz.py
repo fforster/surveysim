@@ -163,7 +163,7 @@ class LCz(object):
         elif self.obsname == "Kepler":
             filterfile = "Kepler_transmission_total.txt"
                     
-        bandfilter = pd.read_csv('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile), sep = "\s+")
+        bandfilter = pd.read_csv('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile), sep = "\s+", comment="#")
         lfilter = np.array(bandfilter["wavelength"]) * 10. # AA
         tfilter = np.array(bandfilter[self.filtername])  # fraction
 
