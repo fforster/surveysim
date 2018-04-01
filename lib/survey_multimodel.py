@@ -203,7 +203,6 @@ class survey_multimodel(object):
                 # find approximate time of emergence (when abs g < mag_emergence)
                 if self.doemergence:
                     niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['g'][self.LCs.times < 30]
-                    #niceLC = niceLC
                     mask = (niceLC - self.Dmf(np.exp(self.logzs[i])) <= mag_emergence)
                     if np.sum(mask) > 0:
                         self.temergence.append(np.min(self.LCs.times[mask]))
