@@ -23,6 +23,8 @@ aux_list = []
 for obs in obs_list:
     aux_list.append(obs[-23:])
 obs_list = aux_list
+for obs in obs_list:
+    print(obs)
 
 real_obs = np.load("/home/rodrigo/supernovae_detection/HiTS_simulations/real_data/camera_and_obs_cond.pkl")["obs_conditions"]
 print(list((real_obs.keys()))[:5])
@@ -42,13 +44,16 @@ for i, obs_dir in enumerate(obs_list):
     mjd = plan.MJDs[mask]
     real_limmag = []
     real_mjd = []
-    for cond in real_obs["Field"+str(i+1).zfill(2)]:
+
+    for cond in real_obs[obs_dir[-11:-4]]:
         if cond["filter"] == "g":
             real_limmag.append(cond["limmag5"])
             real_mjd.append(cond["obs_days"])
     real_limmag = np.array(real_limmag)
     real_mjd = np.array(real_mjd)
     #plt.figure(figsize=(12,7))
+    print("REAL, EST, MASK_LEN")
+    print(len(real_mjd), len(mjd), len(mask))
     plt.plot(mjd, limmag, "-o", label="estimated")
     length = np.min([len(real_limmag), len(mjd)])
     index = np.argsort(real_mjd)
@@ -58,7 +63,7 @@ for i, obs_dir in enumerate(obs_list):
     plt.ylabel("limmag")
     plt.title("Field"+str(i+1).zfill(2)+" limmag comparison")
     plt.ylim([26, 21])
-    plt.savefig("./plots/HiTS_fields/Field"+str(i+1).zfill(2)+"_limmag.png")
-    #plt.show()
+    plt.savefig("./plots/HiTS_fields/"+obs_dir[-11:-4]+"_limmag.png")
+    plt.show()
 
 
