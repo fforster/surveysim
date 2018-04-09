@@ -109,7 +109,6 @@ if __name__ == "__main__":
     # Observational data
     # -------------------------------------------------------------
 
-    print("Here")
     sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(project, SNname)
     
     # Theoretical  models
