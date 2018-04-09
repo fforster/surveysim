@@ -2,6 +2,9 @@ import re, os, sys
 import numpy as np
 from scipy.interpolate import interp1d
 
+os.environ["SURVEYSIM_PATH"] = "/home/fforster/Work/surveysim"
+sys.path.append("%s/lib" % os.environ["SURVEYSIM_PATH"])
+
 leftraru = False
 if os.getcwd() == "/home/fforster/surveysim":
     leftraru = True
@@ -202,7 +205,7 @@ for m in ms:
         if m != None and m != 'None' and m != "" and m != " " and m != "|" and m != "+":
             ms_sel.append(m)
     counter = 1
-print ms_sel
+print(ms_sel)
 
 # iterate among samples files
 files = sorted(os.listdir("samples"))
@@ -427,10 +430,10 @@ if mode == "MCMC":
     fileout.close()
 
 if doLCs:
-    for ix in range(nrows):
-        for iy in range(ncols):
-            if (ix, iy) not in idxfilled.keys():
-                ax[ix, iy].axis('off')#set_yticklabels([])
+    #for ix in range(nrows):
+    #    for iy in range(ncols):
+    #        if (ix, iy) not in idxfilled.keys():
+    #            ax[ix, iy].axis('off')#set_yticklabels([])
 
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.1, hspace=0.15)

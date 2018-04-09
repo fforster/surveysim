@@ -110,7 +110,6 @@ if __name__ == "__main__":
     # -------------------------------------------------------------
     
     sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0 = readSNdata(project, SNname)
-
     
     # Theoretical  models
     # -------------------------------------------------------------
@@ -198,9 +197,9 @@ if __name__ == "__main__":
         
     # set observations
     if not diffLC:
-        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
     else:
-        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
     
     # actual model
     #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]
@@ -279,9 +278,10 @@ if __name__ == "__main__":
     scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta = LCs.parvals
 
     # check best solution
-    print("Best fit parameters:", zip(parlabels, LCs.parvals))
+    print("Best fit parameters:", list(zip(parlabels, LCs.parvals)))
     print("...")
     print(LCs.parvals[4:])
+    print(LCs.uniquefilters)
     LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:], True, False)
 
     fig, ax = plt.subplots(figsize = (17, 11))

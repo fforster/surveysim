@@ -91,16 +91,24 @@ class survey_multimodel_metric(BaseMetric):
         # sample nsim events when bound and pars not given (PCA LCs)
         else:
             foundLCs, simLCs, simpars = minisurvey.sample_events_PCA(nsim = self.nsim, doload = False, doplot = False, rvs = self.rvs, keepLCs = True)
+            # check efficiency
+            minisurvey.do_efficiency_PCA(doplot = False, verbose = False, check1stdetection = False)
+            # save hdf
+            totaldetections = 0
             if foundLCs:
                 simLCs["IDpix"] = self.refsurvey.mafcounter
                 simpars["IDpix"] = self.refsurvey.mafcounter
                 self.hdf.append("simLCs", simLCs, format = "table", data_columns = True)
                 self.hdf.append("simpars", simpars, format = "table", data_columns = True)
-            # check efficiency
-            minisurvey.do_efficiency_PCA(doplot = False, verbose = False, check1stdetection = False)
+                if "texp" in minisurvey.y_effs.keys() and minisurvey.cumtotalSNe[-1] > 0:
+                    totaldetections = 1. * minisurvey.y_effs['texp'][-1] * minisurvey.cumtotalSNe[-1]
+                    pixinfo = pd.DataFrame({"IDpix": [self.refsurvey.mafcounter], 
+                                            "Detections": [float(totaldetections)]})
+                    self.hdf.append("pixinfo", pixinfo, format = "table", data_columns = True)
+
 
         # print counter
-        print("\r%i" % (self.refsurvey.mafcounter), end = "")
+        print("pixel: %d, SN detected: %d" % (self.refsurvey.mafcounter, totaldetections), end = "\r", flush = True)
 
         #print(minisurvey.x_effs.keys())
         

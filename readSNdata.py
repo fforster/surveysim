@@ -16,7 +16,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     if project == 'DES':
         
-        DESdir = "../DES"
+        DESdir = "../LCs/DES"
         dirs = os.listdir(DESdir)
         SNe = defaultdict(list)
         zSNe = {}
@@ -128,7 +128,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
         #(MJDs, MJDrefs, airmass, ADUs, e_ADUs, mags, sn_filters) \
         #    = .loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 2, 5, 6, 7, 10), dtype = str).transpose()
-        df = pd.read_table("../HiTS/LCs/%s.dat" % SNname, sep = "\s+", comment = "#")
+        df = pd.read_table("../LCs/HiTS/LCs/%s.dat" % SNname, sep = "\s+", comment = "#")
         
         sn_mjd = np.array(df["MJD"])
         sn_mjdref = np.array(df["MJDref"])
@@ -240,7 +240,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "PTF":
         
-        df = pd.read_table("../PTF/LCs/%s.dat" % SNname, sep = "\s*\t\s*", comment = "#", engine = "python")
+        df = pd.read_table("../LCs/PTF/LCs/%s.dat" % SNname, sep = "\s*\t\s*", comment = "#", engine = "python")
         JD0 = float(re.findall('.*?=(\d+.\d+).*?', df.columns[0])[0])
         MJDref = JD0 - 2400000.5 # in this case it is the explosion date minus 50 days
         df = df.rename(columns = {df.columns[0]: "MJD"})
@@ -261,6 +261,20 @@ def readSNdata(project, SNname, maxairmass = 1.7):
             zcmb = 0.011855
             fixz = True
             texp0 = MJDref
+
+    elif project == "Kepler":
+
+        df = pd.read_table("../LCs/Kepler/%s.txt" % SNname, sep = "\s+", comment = "#")
+
+        sn_mjd = np.array(df["KJD"]) # need to find out what is KJD
+        sn_mjdref = sn_mjd[0]
+        sn_texp = np.array(df["KJD-T_EXP"])
+        texp0 = min(sn_mjd[sn_texp > 0])
+        sn_flux = np.array(df["LC_val-BCK"]) * 1e-25  # normalization to make SN appear close and make redshift correction negligible
+        sn_e_flux = np.array(df["LC_err"]) * 1e-25  # normalization to make SN appear close and make redshift correction negligible
+        sn_filters = np.array(list(map(lambda x: "Kepler", sn_flux)), dtype = str)
+        fixz = False
+        zcmb = 0.01
 
     else:
         print("Define observations...")
