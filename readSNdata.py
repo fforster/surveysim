@@ -276,6 +276,38 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         fixz = False
         zcmb = 0.01
 
+
+    elif project == "ROTSEIII":
+
+        df = pd.read_table("../LCs/ROTSEIII/%s.txt" % SNname, sep = "\s+", comment = "#")
+
+        from datetime import datetime
+        from astropy.time import Time
+        import calendar
+        
+        year = df.year
+        month = df.month
+        daysf = df.day
+        days = np.array(daysf, dtype = int)
+        hours = np.array(24. * (daysf - days), dtype = int)
+        minutes = np.array(60. * (24. * (daysf - days) - hours), dtype = int)
+        seconds = np.array(60. * (60. * (24. * (daysf - days) - hours) - minutes), dtype = int)
+
+        # dictionary to convert month to number
+        month2n = {}
+        for idx in range(1, 13):
+            month2n[calendar.month_abbr[idx]] = idx
+        sn_mjd = np.array(list(map(lambda yy, mm, dd, hh, mmm, ss: Time(datetime(yy, month2n[mm], dd, hh, mmm, ss), scale = "utc").mjd, year, month, days, hours, minutes, seconds)))
+        sn_mjdref = sn_mjd[0] - 1000.
+        texp0 = np.array(max(sn_mjd[df.date < 0])) # maximum MJD which has an explosion date less than zero
+        sn_flux = mag2flux(df.mag)
+        sn_e_flux = mag2flux(df.mag - df.e_mag) - mag2flux(df.mag)  # normalization to make SN appear close and make redshift correction negligible
+        sn_filters = np.array(list(map(lambda x: "ROTSEIII", sn_flux)), dtype = str)
+        fixz = True
+
+        if SNname == "SN2006bp":
+            zcmb = 0.01
+        
     else:
         print("Define observations...")
         sys.exit()
