@@ -303,10 +303,10 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         sn_flux = mag2flux(df.mag)
         sn_e_flux = mag2flux(df.mag - df.e_mag) - mag2flux(df.mag)  # normalization to make SN appear close and make redshift correction negligible
         sn_filters = np.array(list(map(lambda x: "ROTSEIII", sn_flux)), dtype = str)
-        fixz = True
+        fixz = False
 
         if SNname == "SN2006bp":
-            zcmb = 0.01
+            zcmb = 0.003510
         
     else:
         print("Define observations...")

@@ -670,7 +670,7 @@ class LCz_Av_params(object):
         
         else:
             f = open(chainname, "w")
-            f.write("# %s\n" % self.labels)
+            f.write("niter nwalker %s\n" % (" ".join(self.labels)))
             for idx, result in enumerate(sampler.sample(pos, iterations = self.nsteps)):
                 position = result[0]
                 for k in range(position.shape[0]):

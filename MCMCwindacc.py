@@ -197,9 +197,9 @@ if __name__ == "__main__":
         
     # set observations
     if not diffLC:
-        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'ROTSEIII': 'k', 'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
     else:
-        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'ROTSEIII': 'k', 'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
     
     # actual model
     #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]
