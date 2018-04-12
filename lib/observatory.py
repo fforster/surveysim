@@ -89,7 +89,7 @@ class observatory(object):
                 self.pixscale = 0.4
                 self.RON = 7 # e-
                 self.gain = 1.2 # e-/ADU
-                self.readouttime = 30. # s
+                self.readouttime = 80. # s
 
                 self.filterchange = 8 # s # GUESS
                 self.slewtime = 30. # s # GUESS

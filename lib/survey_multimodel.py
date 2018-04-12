@@ -202,7 +202,11 @@ class survey_multimodel(object):
 
                 # find approximate time of emergence (when abs g < mag_emergence)
                 if self.doemergence:
-                    niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['g'][self.LCs.times < 30]
+                    try:
+                        niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['g'][self.LCs.times < 30]
+                    except:
+                        niceLC = self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i], nice = True)[0]['B'][self.LCs.times < 30]
+                        
                     #niceLC = niceLC
                     mask = (niceLC - self.Dmf(np.exp(self.logzs[i])) <= mag_emergence)
                     if np.sum(mask) > 0:
@@ -411,6 +415,10 @@ class survey_multimodel(object):
             # time of 1st detection in rest frame per object (after emergence)
             rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
 
+        mindetections = 2
+        if 'mindetection' in kwargs.keys():
+            mindetections = int(kwargs["mindetections"])
+
         # number of detections per object per band
         matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
         
@@ -452,7 +460,7 @@ class survey_multimodel(object):
 
 
         # count only detections with at least two detections [and with early detections if check1stdetection]
-        detections = (np.sum(matches, axis = 1) >= 2)
+        detections = (np.sum(matches, axis = 1) >= mindetections)
         if check1stdetection:
             detections = np.array(detections & (rftime1stdet <= self.maxrestframeage))
 
@@ -521,13 +529,12 @@ class survey_multimodel(object):
                 ax2.tick_params('y', colors='r')
                 if vallabel == 'log10mdot':
                     ax.set_xlabel(r'$\log_{10} \dot M\ [M_\odot yr^{-1}]$')
-                    ax.set_ylabel("Efficiency")
-                    plt.savefig("plots/log10mdot_efficiency.pdf")
-                if  vallabel == 'beta':
+                elif  vallabel == 'beta':
                     ax.set_xlabel(r'$\beta$')
-                    ax.set_ylabel("Efficiency")
-                    plt.savefig("plots/beta_efficiency.pdf")
-
+                elif vallabel == "texp":
+                    ax.set_xlabel("Explosion time")
+                plt.savefig("plots/%s_efficiency.pdf" % vallabel)
+                
         if doplot:
 
             # mass loss rate vs emergence times
@@ -588,6 +595,10 @@ class survey_multimodel(object):
             # time of 1st detection in rest frame per object (after emergence)
             rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
 
+        mindetections = 2
+        if 'mindetection' in kwargs.keys():
+            mindetections = int(kwargs["mindetections"])
+
         # number of detections per object per band
         matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
 
@@ -628,7 +639,7 @@ class survey_multimodel(object):
 
 
         # count only detections with at least two detections [and with early detections if check1stdetection]
-        detections = (np.sum(matches, axis = 1) >= 2)
+        detections = (np.sum(matches, axis = 1) >= mindetections)
         if check1stdetection:
             detections = np.array(detections & (rftime1stdet <= self.maxrestframeage))
 
