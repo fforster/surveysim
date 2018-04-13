@@ -538,10 +538,11 @@ class survey_multimodel(object):
         if doplot:
 
             # mass loss rate vs emergence times
-            fig, ax = plt.subplots()
-            ax.scatter(log10mdot, tSBO)
-            ax.set_xlabel("log10mdot")
-            ax.set_ylabel("temergence - texp [days]")
+            if self.doemergence:
+                fig, ax = plt.subplots()
+                ax.scatter(log10mdot, tSBO)
+                ax.set_xlabel("log10mdot")
+                ax.set_ylabel("temergence - texp [days]")
 
             np.save("%s/pickles/%s_%s_zlog10mdot.npy" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname), [z, log10mdot])
             # mass loss rate vs redshift
