@@ -55,7 +55,7 @@ if __name__ == "__main__":
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
-            print("e.g. python ./MCMCwindacc.py --obsname Blanco-DECam --bands 'u g r i z' --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
+            print("e.g. python ./MCMCwindacc.py --observatory Blanco-DECam --bands 'u g r i z' --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --computemodels --filenames \"file1 file2\" (compute models in modellist.txt or in selected files)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --overwrite -`-verbose (interactively choose starting points, overwrite previously defined values)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --nsteps 1000 --walkers 400 --burnin 500 (run MCMC chain with 1000 steps, 400 walkers, burnin of 500)")

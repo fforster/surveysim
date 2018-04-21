@@ -35,17 +35,15 @@ elif mode == "MCMC":
 
 if survey == 'HiTS':
 
-    SNe, BICII, BICIa, spec_class, banned, poor_rise = np.loadtxt("HiTS_classification.out", dtype = str).transpose()
-
-    BICII = np.array(BICII, dtype = float)
-    BICIa = np.array(BICIa, dtype = float)
-    spec_class = np.array(spec_class, dtype = str)
-    banned = np.array(banned, dtype = str)
-    poor_rise =  np.array(poor_rise, dtype = str)
-    HiTS = sorted(SNe[((spec_class == 'II') | (BICII < BICIa)) & (banned == 'False') & (poor_rise == 'False')])
-    print(HiTS)
-    print(len(HiTS))
-
+    df = pd.read_csv("SNIIpaper/HiTS_classification.out", sep = "\s+", comment = "#")
+    print(df.keys(), df.dtypes)
+    SNe = df.SNe
+    BICII = df.BICII
+    BICIa = df.BICIa
+    spec_class = df.spec_class
+    banned = df.banned
+    poor_rise =  df.poor_rise
+    HiTS = sorted(SNe[((spec_class == 'II') | (BICII < BICIa)) & (banned == False) & (poor_rise == False)])
     DES = []
 
 elif survey == 'DES':
@@ -145,9 +143,10 @@ modelbeta = np.array(modelbeta, dtype = float)
 
 params = np.vstack([modelmsun, modelfoe, modelmdot, modelrcsm, modelvwindinf, modelbeta]).transpose()
 try:
-    files = np.array(map(lambda name: "%s.fr" % name, modelfile))
+    files = np.array(list(map(lambda name: "%s.fr" % name, modelfile)))
 except:
     files = "%s.fr" % modelfile
+    print(modelfile)
     #print(files)
     
 # Redshift, Avs and time
@@ -226,6 +225,8 @@ for f in files:
 
         print(SN)
 
+        #if SN != "SNHiTS14B":
+        #    continue
         if SN in HiTS:
             m = ms_sel[np.mod(counter, len(ms_sel))]
         elif SN in DES:
@@ -406,19 +407,19 @@ for f in files:
             else:
                 master['texp15'] = np.hstack([master['texp15'], texp[mask]])
 
-        limlog10mdot.append(np.array(map(lambda x: np.percentile(log10mdot[mask], x), [5, 50, 95])))
-        limbeta.append(np.array(map(lambda x: np.percentile(beta[mask], x), [5, 50, 95])))
-        limmass.append(np.array(map(lambda x: np.percentile(mass[mask], x), [5, 50, 95])))
-        limenergy.append(np.array(map(lambda x: np.percentile(energy[mask], x), [5, 50, 95])))
-        limAv.append(np.exp(np.array(map(lambda x: np.percentile(logAv[mask], x), [5, 50, 95]))))
+        limlog10mdot.append(np.array(list(map(lambda x: np.percentile(log10mdot[mask], x), [5, 50, 95]))))
+        limbeta.append(np.array(list(map(lambda x: np.percentile(beta[mask], x), [5, 50, 95]))))
+        limmass.append(np.array(list(map(lambda x: np.percentile(mass[mask], x), [5, 50, 95]))))
+        limenergy.append(np.array(list(map(lambda x: np.percentile(energy[mask], x), [5, 50, 95]))))
+        limAv.append(np.exp(np.array(list(map(lambda x: np.percentile(logAv[mask], x), [5, 50, 95])))))
         if fixz:
             limz.append(zcmb * np.ones(3))
         else:
-            limz.append(np.exp(np.array(map(lambda x: np.percentile(logz[mask], x), [5, 50, 95]))))
+            limz.append(np.exp(np.array(list(map(lambda x: np.percentile(logz[mask], x), [5, 50, 95])))))
         if SN[:8] == 'SNHiTS14':
-            limtexp14.append(np.array(map(lambda x: np.percentile(texp[mask], x), [5, 50, 95])))
+            limtexp14.append(np.array(list(map(lambda x: np.percentile(texp[mask], x), [5, 50, 95]))))
         elif SN[:8] == 'SNHiTS15':
-            limtexp15.append(np.array(map(lambda x: np.percentile(texp[mask], x), [5, 50, 95])))
+            limtexp15.append(np.array(list(map(lambda x: np.percentile(texp[mask], x), [5, 50, 95]))))
 
         xerr = [[limlog10mdot[-1][1] - limlog10mdot[-1][0]], [limlog10mdot[-1][2] - limlog10mdot[-1][1]]]
         yerr = [[limbeta[-1][1] - limbeta[-1][0]], [limbeta[-1][2] - limbeta[-1][1]]]
@@ -455,7 +456,28 @@ limtexp15 = np.array(limtexp15)
     
 #os.system("convert %s plots/samples/%s.pdf" % (pdfout, survey))
 
-plt.legend(loc = [0.17, 0.07], fontsize = 11)  
+# literature SNe
+doliterature = False
+if doliterature:
+    lit = {}
+    lit["SN2006bp"] = np.array([0.0007462115922905706, 0.0020939756582619195, 0.002645035113196285, 3.7430172930300003, 4.68504380389, 4.995671344830001])
+    lit["PS1-13arp"] = np.array([0.00044989571364489905, 0.0011752909504824866, 0.0025315320687651294, 1.29554086565, 3.42109825438, 4.81065224547])
+    lit["SN2013fs"] = np.array([0.001957510342591815, 0.0024105015199778245, 0.002450768518921163, 3.748174717917, 3.7504185231699996, 4.475784397759999])
+    lit["KSN2011a"] = np.array([0.0018668336766834554, 0.0025203335414241937, 0.0030167088534899474, 1.0782722334475, 2.493082275845, 2.9992118402599997])
+    lit["KSN2011d"] = np.array([0.0017007478378221167, 0.0019022813041540691, 0.0026243068983511078, 4.08315159015, 4.39987035739, 4.66486208759])
+
+    for idx, SN in enumerate(lit.keys()):
+        print(SN)
+        lit[SN][:3] = np.log10(lit[SN][:3])
+        m = ms_sel[idx + 2]
+        xerr = [[lit[SN][1] - lit[SN][0]], [lit[SN][2] - lit[SN][1]]]
+        yerr = [[lit[SN][4] - lit[SN][3]], [lit[SN][5] - lit[SN][4]]]
+        ax.errorbar(lit[SN][1], lit[SN][4], marker = m, markersize = 10, xerr = xerr, yerr = yerr, label = SN, alpha = 1., c = 'k')
+
+    plt.legend(loc = [0.17, 0.0], fontsize = 11)  # for all SNe
+else:
+    plt.legend(loc = [0.17, 0.07], fontsize = 11)  # only HiTS
+
 ax.set_xlim(-8, -2)
 ax.set_ylim(1, 5)
 ax.set_xlabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
@@ -521,6 +543,16 @@ plt.xticks(fontsize = 14)
 plt.yticks(fontsize = 14)
 plt.tight_layout()
 plt.savefig("plots/samples/log10mdotvsmass_%s.pdf" % survey)
+
+fig, ax = plt.subplots()
+ax.errorbar(limAv[:, 1], limlog10mdot[:, 1], xerr = [limAv[:, 1] - limAv[:, 0], limAv[:, 2] - limAv[:, 1]],
+            yerr = [limlog10mdot[:, 1] - limlog10mdot[:, 0], limlog10mdot[:, 2] - limlog10mdot[:, 1]], lw = 0, elinewidth = 1, marker = 'o')
+ax.set_ylabel(r"$\log_{10}\ \dot M\ [M_\odot/yr]$", fontsize = 14)
+ax.set_xlabel("Av", fontsize = 14)
+plt.xticks(fontsize = 14)
+plt.yticks(fontsize = 14)
+plt.tight_layout()
+plt.savefig("plots/samples/log10mdotvsAv_%s.pdf" % survey)
 
 fig, ax = plt.subplots()
 ax.errorbar(limmass[:, 1], limbeta[:, 1], xerr = [limmass[:, 1] - limmass[:, 0], limmass[:, 2] - limmass[:, 1]],

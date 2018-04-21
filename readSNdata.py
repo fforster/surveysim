@@ -264,17 +264,29 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "Kepler":
 
-        df = pd.read_table("../LCs/Kepler/%s.txt" % SNname, sep = "\s+", comment = "#")
+        filename = "../LCs/Kepler/%s.txt" % SNname
+        
+        # find reference magnitude
+        data = open(filename, 'r')
+        line1 = data.readline()
+        refmag = float(re.findall("flux.*(\d\d.\d\d)", line1)[0])
+        refflux = mag2flux(refmag)
+        print("Reference flux: %f" % refflux)
+        
+        df = pd.read_table(filename, sep = "\s+", comment = "#")
 
         sn_mjd = np.array(df["KJD"]) # need to find out what is KJD
-        sn_mjdref = sn_mjd[0]
-        sn_texp = np.array(df["KJD-T_EXP"])
-        texp0 = min(sn_mjd[sn_texp > 0])
-        sn_flux = np.array(df["LC_val-BCK"]) * 1e-25  # normalization to make SN appear close and make redshift correction negligible
-        sn_e_flux = np.array(df["LC_err"]) * 1e-25  # normalization to make SN appear close and make redshift correction negligible
+        sn_mjdref = sn_mjd[0] - 1000
+        texp0 = sn_mjd[0]
+        sn_flux = np.array(df.flux) * refflux  # normalization to make SN appear close and make redshift correction negligible
+        sn_e_flux = np.ones_like(sn_flux) * np.std(sn_flux[sn_mjd < sn_mjd[0] + 20])
+        #sn_e_flux = np.array(df["LC_err"]) * 1e-25  # normalization to make SN appear close and make redshift correction negligible
         sn_filters = np.array(list(map(lambda x: "Kepler", sn_flux)), dtype = str)
-        fixz = False
-        zcmb = 0.01
+        fixz = True
+        if SNname[:6] == 'ksn11a':
+            zcmb = 0.051
+        elif SNname[:6] == 'ksn11d':
+            zcmb = 0.087
 
 
     elif project == "ROTSEIII":
@@ -300,14 +312,55 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         sn_mjd = np.array(list(map(lambda yy, mm, dd, hh, mmm, ss: Time(datetime(yy, month2n[mm], dd, hh, mmm, ss), scale = "utc").mjd, year, month, days, hours, minutes, seconds)))
         sn_mjdref = sn_mjd[0] - 1000.
         texp0 = np.array(max(sn_mjd[df.date < 0])) # maximum MJD which has an explosion date less than zero
+        sn_maglim = df.maglim
         sn_flux = mag2flux(df.mag)
+        mask = np.isnan(sn_flux)
         sn_e_flux = mag2flux(df.mag - df.e_mag) - mag2flux(df.mag)  # normalization to make SN appear close and make redshift correction negligible
+        # take into account non-detections
+        sn_flux[mask] = 0
+        sn_e_flux[mask] = mag2flux(sn_maglim[mask])
         sn_filters = np.array(list(map(lambda x: "ROTSEIII", sn_flux)), dtype = str)
         fixz = False
 
         if SNname == "SN2006bp":
             zcmb = 0.003510
         
+    elif project == "PanSTARRS1":
+
+        df = pd.read_table("../LCs/PanSTARRS1/%s.txt" % SNname, sep = "\s+", comment = "#")
+
+        mask = (df.band == 'u') | (df.band == 'g') | (df.band == 'r') | (df.band == 'i') | (df.band == 'z')
+        df = df[mask]
+        sn_mjd = np.array(df.MJD)
+        sn_mjdref = sn_mjd[0] - 1000.
+        texp0 = np.array(min(sn_mjd[np.array(df.phase) > 0])) # maximum MJD which has an explosion date less than zero
+        mask = np.isnan(df.e_mag)
+        nmask = np.invert(mask)
+        sn_mag = np.array(df.mag, dtype = float)
+        sn_e_mag = np.array(df.e_mag, dtype = float)
+        sn_flux = mag2flux(sn_mag)
+        sn_e_flux = np.zeros_like(sn_flux)
+        sn_e_flux[nmask] = mag2flux(sn_mag[nmask] - sn_e_mag[nmask]) - mag2flux(sn_mag[nmask])  # normalization to make SN appear close and make redshift correction negligible
+        sn_e_flux[mask] = sn_flux[mask]
+        sn_flux[mask] = 0
+        sn_filters = df.band
+        fixz = True
+
+        if SNname == "PS1-13arp":
+            zcmb = 0.1665
+
+
+    elif project == "Swift":
+
+        sn_mjd = np.linspace(0, 1, 6)
+        sn_mjdref = 0
+        texp0 = 0
+        sn_flux = np.ones_like(sn_mjd)
+        sn_e_flux = sn_flux / 10.
+        sn_filters = np.array(["UVW2", "UVM2", "UVW1", "U", "B", "V"])
+        fixz = True
+        zcmb = 0.01
+            
     else:
         print("Define observations...")
         sys.exit()
