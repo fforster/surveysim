@@ -47,7 +47,10 @@ if __name__ == "__main__":
     loadMCMC = False
     computemodels = False
     diffLC = False
-    
+
+    loadall = True # load all models instead of loading individual files
+    saveall = False # save all models
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "O:B:p:s:n:w:b:dioltcf:vh", ["observatory=", "bands=", "project=", "supernova=", "nsteps=", "walkers=", "burnin=", "diffLC", "interactive", "overwrite", "loadMCMC", "test", "computemodels", "selfiles=", "verbose", "help"])
     except getopt.GetoptError:
@@ -55,6 +58,7 @@ if __name__ == "__main__":
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
+            print("python ./MCMCwindacc.py --observatory Blanco-DECam --band \"g r\" --project HiTS --supernova SNHiTS15A --test") # test interpolation
             print("e.g. python ./MCMCwindacc.py --observatory Blanco-DECam --bands 'u g r i z' --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --computemodels --filenames \"file1 file2\" (compute models in modellist.txt or in selected files)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --interactive --overwrite -`-verbose (interactively choose starting points, overwrite previously defined values)")
@@ -190,16 +194,28 @@ if __name__ == "__main__":
             LCs.compute_models(obsname = obsname, bands = bands, save = True)
         sys.exit()
     else:
-        LCs.compute_models(obsname = obsname, bands = bands, load = True)
+        import pickle
+        picklename = "LCs_%s_%s_%s.pickle" % (modelname, obsname, "-".join(bands))
+        if not os.path.exists(picklename):
+            loadall = False
+        if not loadall:
+            LCs.compute_models(obsname = obsname, bands = bands, load = True)
+        else:
+            print("Loading models...")
+            LCs = pickle.load(open(picklename, "rb"))
+        if saveall and not loadall:
+            pickle.dump(LCs, open(picklename, "wb"), protocol = 0) # highest protocol
+        #LCs.compute_models(obsname = obsname, bands = bands, load = True)
         
     # set metric
     LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
         
     # set observations
+    bandcolors = {'UVW2': 'violet', 'UVM2': 'm', 'UVW1': 'silver', 'U': 'darkblue', 'B': 'royalblue', 'V': 'forestgreen', 'R': 'tomato', 'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k', 'ROTSEIII': 'k', 'Kepler': 'k'}
     if not diffLC:
-        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'ROTSEIII': 'k', 'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = bandcolors)
     else:
-        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = {'ROTSEIII': 'k', 'Kepler': 'k', 'g': 'g', 'R': 'r', 'r': 'r', 'i': 'brown', 'z': 'k'})
+        LCs.set_observations(mjd = sn_mjd, mjdref = sn_mjdref, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = bandcolors)
     
     # actual model
     #filename = files[np.argmin(map(lambda p: LCs.paramdist(par, p), params))]
@@ -223,7 +239,8 @@ if __name__ == "__main__":
 
 
     # find best fit
-    scale = 1.0
+    scaleref = 1. # 1.0
+    scale = scaleref
     if 'texp' in par0.keys():
         texp = par0['texp']
     else:
@@ -259,10 +276,11 @@ if __name__ == "__main__":
     vwindinf = 10.
     parvals = np.array([scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[0.95, 1.05], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-8, -2], [1., 1.], [10, 10], [1., 5.]])
+    parbounds = np.array([[scaleref - 0.05, scaleref + 0.05], [texp - 5, texp + 5], [np.log(1e-3), np.log(1.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-8, -2], [1., 1.], [10, 10], [1., 5.]])
     parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
-    fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
- 
+    fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid 
+    #fixedvars = np.array([False,     False,  fixz,   False,   True,   True,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
+
     # initialize with previous parameters
     theta0 = parvals[np.invert(fixedvars)]
     sol = LCs.findbest(theta0 = theta0, parbounds = parbounds, fixedvars = fixedvars, parvals = parvals, parlabels = parlabels, skip = True)
@@ -344,7 +362,7 @@ if __name__ == "__main__":
         
             # update values
             #scale = 10**scale_slider.val
-            scale = 1.
+            scale = scaleref
             texp = texp_slider.val
             if not fixz:
                 logz = logz_slider.val
@@ -391,14 +409,19 @@ if __name__ == "__main__":
         plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
 
     if dotest:
-        LCs.parvals[-4] = np.log10(5e-4) # log10mdot
-        LCs.parvals[-1] = 3.5 # beta
+        LCs.parvals[-8] = np.log(0.22) # redshift
+        LCs.parvals[-7] = np.log(0.1) # logAv
+        LCs.parvals[-6] = 14. # mass
         LCs.parvals[-5] = 1. # energy
+        LCs.parvals[-4] = np.log10(2e-3) # log10mdot
+        LCs.parvals[-1] = 3.5 # beta
         print("Testing interpolation\n\n")
-        LCs.test_interpolation("mass")
-        LCs.test_interpolation("energy")
-        LCs.test_interpolation("beta")
-        LCs.test_interpolation("log10mdot")
+        LCs.test_interpolation("mass", 'a)')
+        LCs.test_interpolation("energy", 'b)')
+        LCs.test_interpolation("log10mdot", 'c)')
+        LCs.test_interpolation("beta", 'd)')
+        LCs.test_interpolation("logAv", 'e)')
+        LCs.test_interpolation("logz", 'f)')
         sys.exit()
 
     # recover values
@@ -413,6 +436,7 @@ if __name__ == "__main__":
         par0['beta'] = beta_slider.val
         if not fixz:
             par0['logz'] = logz_slider.val
+        print(par0)
         pickle.dump(par0, open("initial_pars/%s/%s.pkl" % (modelname, SNname), 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
         sys.exit()
     
@@ -425,16 +449,17 @@ if __name__ == "__main__":
     from scipy.stats import lognorm, norm, uniform  # leave this here, otherwise it fails!
 
     
-    priors = np.array([lambda scale: norm.pdf(scale, loc = 1., scale = 0.01), \
+    priors = np.array([lambda scale: norm.pdf(scale, loc = scaleref, scale = 0.005), \
                        lambda texp: norm.pdf(texp, loc = theta0[1], scale = 4.), \
                        lambda logz: norm.pdf(logz, loc = np.log(0.18), scale = 2), \
+                       #lambda logz: norm.pdf(logz, loc = np.log(0.00351), scale = np.log(0.00351 + 300/300000) - np.log(0.00351)), \
                        lambda logAv: norm.pdf(logAv, loc = np.log(0.05), scale = 2.), \
                        lambda mass: norm.pdf(mass, loc = 14, scale = 3), \
                        lambda energy: norm.pdf(energy, loc = 1., scale = 1.), \
                        lambda log10mdot: uniform.pdf(log10mdot, loc = -8., scale = 6.), \
                        lambda rcsm: norm.pdf(rcsm, loc = 1., scale = 1.), \
                        None, \
-                       lambda beta: lognorm.pdf(beta / 7., 1.)])
+                       lambda beta: norm.pdf(beta, loc = 3, scale = 2)]) #lognorm(beta / 7., 1.)])
     
     #def scaleprior(scale):
     #    return norm.pdf(scale, loc = 1., scale = 0.1)

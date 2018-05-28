@@ -10,13 +10,16 @@ def readSNdata(project, SNname, maxairmass = 1.7):
     #########################
     # Observational data
     #########################
+
+    # make sure to return numpy arrays and not pandas data frames
+    #############################################################
     
     # DES SNe
     # -----------------------------
 
     if project == 'DES':
         
-        DESdir = "../LCs/DES"
+        DESdir = "%s/../LCs/DES" % (os.environ["SURVEYSIM_PATH"])
         dirs = os.listdir(DESdir)
         SNe = defaultdict(list)
         zSNe = {}
@@ -128,7 +131,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
         #(MJDs, MJDrefs, airmass, ADUs, e_ADUs, mags, sn_filters) \
         #    = .loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 2, 5, 6, 7, 10), dtype = str).transpose()
-        df = pd.read_table("../LCs/HiTS/LCs/%s.dat" % SNname, sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/HiTS/LCs/%s.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
         
         sn_mjd = np.array(df["MJD"])
         sn_mjdref = np.array(df["MJDref"])
@@ -240,7 +243,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "PTF":
         
-        df = pd.read_table("../LCs/PTF/LCs/%s.dat" % SNname, sep = "\s*\t\s*", comment = "#", engine = "python")
+        df = pd.read_table("%s/../LCs/PTF/LCs/%s.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s*\t\s*", comment = "#", engine = "python")
         JD0 = float(re.findall('.*?=(\d+.\d+).*?', df.columns[0])[0])
         MJDref = JD0 - 2400000.5 # in this case it is the explosion date minus 50 days
         df = df.rename(columns = {df.columns[0]: "MJD"})
@@ -264,7 +267,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "Kepler":
 
-        filename = "../LCs/Kepler/%s.txt" % SNname
+        filename = "%s/../LCs/Kepler/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname)
         
         # find reference magnitude
         data = open(filename, 'r')
@@ -275,7 +278,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         
         df = pd.read_table(filename, sep = "\s+", comment = "#")
 
-        sn_mjd = np.array(df["KJD"]) # need to find out what is KJD
+        sn_mjd = np.array(df["KJD"]) + 54832.5 # see Zheng 2016
         sn_mjdref = sn_mjd[0] - 1000
         texp0 = sn_mjd[0]
         sn_flux = np.array(df.flux) * refflux  # normalization to make SN appear close and make redshift correction negligible
@@ -291,7 +294,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "ROTSEIII":
 
-        df = pd.read_table("../LCs/ROTSEIII/%s.txt" % SNname, sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/ROTSEIII/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
 
         from datetime import datetime
         from astropy.time import Time
@@ -324,10 +327,11 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
         if SNname == "SN2006bp":
             zcmb = 0.003510
+            #fixz = True
         
     elif project == "PanSTARRS1":
 
-        df = pd.read_table("../LCs/PanSTARRS1/%s.txt" % SNname, sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/PanSTARRS1/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
 
         mask = (df.band == 'u') | (df.band == 'g') | (df.band == 'r') | (df.band == 'i') | (df.band == 'z')
         df = df[mask]
@@ -352,14 +356,49 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "Swift":
 
-        sn_mjd = np.linspace(0, 1, 6)
-        sn_mjdref = 0
-        texp0 = 0
-        sn_flux = np.ones_like(sn_mjd)
-        sn_e_flux = sn_flux / 10.
-        sn_filters = np.array(["UVW2", "UVM2", "UVW1", "U", "B", "V"])
+        df = pd.read_table("%s/../LCs/Swift/%s.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+
+        # correct to AB magnitudes, see https://swift.gsfc.nasa.gov/analysis/uvot_digest/zeropts.html
+        Vega2AB = {"V": -0.01, "B": -0.13, "U": 1.02, "UVW1": 1.51, "UVM2": 1.69, "UVW2": 0.8}
+        for band in Vega2AB.keys():
+            df.Mag[df.Filter == band] += Vega2AB[band]
+
+
+        sn_mjd = np.array(df["MJD[days]"])
+        sn_mjdref = sn_mjd[0] - 1000
+        texp0 = sn_mjd[0]
+        sn_flux = np.array(mag2flux(df.Mag))
+        sn_e_flux = np.array(np.abs(mag2flux(df.Mag - df.MagErr) - mag2flux(df.Mag + df.MagErr)))
+        sn_filters = np.array(df.Filter, dtype = str)
+        
+        mask = np.isfinite(sn_flux)
+        sn_mjd = sn_mjd[mask]
+        sn_flux = sn_flux[mask]
+        sn_e_flux = sn_e_flux[mask]
+        sn_filters = sn_filters[mask]            
+
+        if SNname == "ASASSN-14jb":
+            df = pd.read_table("%s/../LCs/Swift/%s_ASASSN.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+            MJDextra = np.array(df.HJD - 2400000.5)
+            fluxextra = np.array(df["flux(mJy)"] * 1e-26) # 1 Jy = 1e-23 erg/s/cm2/Hz
+            e_fluxextra = np.array(df["flux_err"] * 1e-26)
+            filtersextra = np.array(list(map(lambda x: 'V', MJDextra)), dtype = str)
+
+            sn_mjd = np.hstack([sn_mjd, MJDextra])
+            sn_flux = np.hstack([sn_flux, fluxextra])
+            sn_e_flux = np.hstack([sn_e_flux, e_fluxextra])
+            sn_filters = np.hstack([sn_filters, filtersextra])
+
+            idx = np.argsort(sn_mjd)
+            sn_mjd = sn_mjd[idx]
+            sn_flux = sn_flux[idx]
+            sn_e_flux = sn_e_flux[idx]
+            sn_filters = sn_filters[idx]
+
         fixz = True
-        zcmb = 0.01
+
+        if SNname == "ASASSN-14jb":
+            zcmb = 0.006031
             
     else:
         print("Define observations...")

@@ -19,7 +19,6 @@ from LCz_Av import *
 
 from cos_calc import *
 
-
 # class to fit an  MCMC model to data given a grid of models
 class LCz_Av_params(object):
 
@@ -33,6 +32,7 @@ class LCz_Av_params(object):
         self.modelsdir = kwargs["modelsdir"]
         self.modelname = kwargs["modelname"]
         self.files = kwargs["files"] # dictionary with filenames given by nested keys
+        
 
         self.dostretch = False
         if "dostretch" in kwargs.keys():
@@ -58,7 +58,7 @@ class LCz_Av_params(object):
         self.nvar = len(self.paramnames)
         
         # check if mdot is in the variable names
-        print(self.paramnames)
+        #print(self.paramnames)
         self.maskmdot = np.array(self.paramnames == 'mdot', dtype = bool)
         self.maskmdotvars = np.array((self.paramnames == 'rcsm') | (self.paramnames == 'vwindinf') | (self.paramnames == 'beta'), dtype = bool)
 
@@ -224,6 +224,8 @@ class LCz_Av_params(object):
 
         self.metric = kwargs["metric"]
         self.logscale = kwargs["logscale"]
+        if "maxdistance" in kwargs.keys():
+            self.maxdistance = kwargs["maxdistance"]
 
     # distance between two parameter vectors given the metric
     def paramdist(self, p1, p2):
@@ -264,10 +266,20 @@ class LCz_Av_params(object):
         # print 
         if verbose:
             print("   Evalmodel", zip(self.paramnames, pars))
+            print("   idxz: %f, idxAv: %f" % (idxz, idxAv), self.minlogz)
 
         if closest:
-            distances = np.array(list(map(lambda p: np.product(self.paramdist(p, pars)), self.params)))
-            idxbest = [np.argmin(distances)]
+            # use euclidean distance with parammetric
+            distances = np.array(list(map(lambda p: np.sum(((p - pars) / self.metric)**2), self.params)))
+            mask = (distances < self.maxdistance)
+            if np.sum(mask) == 0:
+                intLC = {}
+                intLCref = {}
+                for band in self.uniquefilters:
+                    intLC[band] = 40.
+                    intLCref[band] = 40.
+                return intLC, intLCref
+            idxbest = [np.argmin(distances[distances < self.maxdistance])]
             weights = [1.]
 
         else:
@@ -471,7 +483,7 @@ class LCz_Av_params(object):
         return theta_lsq
 
     # test interpolation
-    def test_interpolation(self, var):
+    def test_interpolation(self, var, label):
         
         # save initial values and get extrinsic value
         startvars = np.array(self.parvals)
@@ -495,36 +507,103 @@ class LCz_Av_params(object):
         vals = np.linspace(l1, l2, nplot)
         print(var, l1, l2)
         
-        jet = plt.get_cmap('jet') 
+        jet = plt.get_cmap('viridis') # jet
         cNorm  = colors.Normalize(vmin = l1, vmax = l2)
         scalarMap = cmx.ScalarMappable(norm = cNorm, cmap = jet)
 
         fig, ax = plt.subplots(figsize = (5, 8), nrows = len(self.uniquefilters), sharex = True)
 
+        # dmf for logz
+        Dmflogz = interp1d(np.log(self.zs), self.Dm)
+
+        maxs = {}
+        
         # vary test variable
         for idx, val in enumerate(vals):
 
             # value
             #self.parvals = np.array(startvars)
             self.parvals[idxvar] = val
+
+            if var == 'logz':
+                logz = self.parvals[idxvar]
+            elif var == 'logAv':
+                logAv = self.parvals[idxvar]
+                
             print("%s: %s" % (self.parlabels[idxvar], self.parvals[idxvar]))
 
             # color
             colorVal = scalarMap.to_rgba(val)
 
             # light curve model evaluation (interpolation happens here)
-            LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time and interpolate models
-
+            LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time, interpolate models
+            
             mintime = min(self.times) + texp
-            factor = 3e-29
+            factor = 1.#3e-29
+            
+            times = self.times + texp - mintime
+            timesd = np.linspace(min(times), max(times), 1000)
+            t1, t2 = min(texp, min(self.mjd)) - 1 - mintime, max(self.mjd) + 30 - mintime
+        
+            from matplotlib.font_manager import FontProperties
+            font = FontProperties()
+            
             # loop among bands
             for idxf, band in enumerate(self.uniquefilters):
-                ax[idxf].set_ylabel("$%s$ band flux (arbitrary units)" % band, fontsize = 14)
-                ax[idxf].plot(self.times + texp - mintime, mag2flux(LCmag[band]) / factor, c = colorVal, lw = 0.5)
+                if label == "a)" or label == "c)":
+                    ax[idxf].set_ylabel("abs. $%s$ band flux [erg/s/Hz/cm$^2$]" % band, fontsize = 14)
+
+                #func = interp1d(times, mag2flux(LCmag[band] - Dmflogz(logz)), kind = 'cubic')
+                func = interp1d(times, LCmag[band], kind = 'cubic')
+
+                idxmax = np.argmin(func(times))
+                if band not in maxs.keys():
+                    maxs[band] = np.array(func(times[idxmax]))
+                else:
+                    maxs[band] = np.append(maxs[band], func(times[idxmax]))
+                    
+
+                ax[idxf].plot(timesd, func(timesd), c = colorVal, lw = 2)
                 ax[idxf].axvline(texp, c = 'gray')
-                
+
+                ## val labels
+                #if idx > len(vals) - 6 and band == 'g':
+                #    if var == "log10mdot":
+                #        log10val = np.ceil(-val)
+                #        if log10val == 2:
+                #            labelval = "%.2f" % 10**val
+                #        elif log10val == 3:
+                #            labelval = "%.3f" % 10**val
+                #        else:
+                #            labelval = "%.4f" % 10**val
+                #        
+                #    elif var == "logz":
+                #        labelval = "%3.1f" % np.exp(val)
+                #    else:
+                #        continue
+                #    idxmax = np.argmax(func(times))
+                #
+                #    font0 = font.copy()
+                #    font0.set_weight('bold')
+                #    font0.set_size('xx-large')
+                #    ax[idxf].text(times[idxmax] + 2., func(times[idxmax]) * 0.98, labelval, color = colorVal, fontproperties = font0)
+
+
+        for band in maxs.keys():
+            print(band, maxs[band], maxs[band][1:] - maxs[band][:-1], maxs[band][-1] - maxs[band][0])
         # axis and save
-        ax[1].set_xlim(min(texp, min(self.mjd)) - 1 - mintime, max(self.mjd) + 30 - mintime)
+        ax[1].set_xlim(t1, t2)
+        ax[0].set_ylim(28, ax[0].get_ylim()[0])
+        ax[1].set_ylim(28, ax[1].get_ylim()[0])
+        #for idxf, band in enumerate(self.uniquefilters):
+        #    if band != "g":
+        #        continue
+        #    y1, y2 = ax[idxf].get_ylim()
+        #    ax[idxf].text(t2 - (t2 - t1) * 0.1, y2 * 0.9, label, fontsize = 18)
+        #if var == 'logz':
+        #    ax[0].set_ylim(25, ax[0].get_ylim()[0] + 1)
+        #    ax[1].set_ylim(25, ax[1].get_ylim()[0] + 1)
+        
         #ax[0].set_title(" ".join(map(lambda x, y: "%s: %e" % (x, y), self.parlabels, startvars)), fontsize = 6)
         label = var
         if var == "log10mdot":
@@ -535,6 +614,10 @@ class LCz_Av_params(object):
             ax[0].set_title(r"Mass effect", fontsize = 14)
         elif var == "energy":
             ax[0].set_title(r"Energy effect", fontsize = 14)
+        elif var == "logAv":
+            ax[0].set_title(r"$A_v$ effect", fontsize = 14)
+        elif var == "logz":
+            ax[0].set_title(r"$z$ effect", fontsize = 14)
             
         ax[1].set_xlabel("Time since explosion [days]", fontsize = 14)
                 
