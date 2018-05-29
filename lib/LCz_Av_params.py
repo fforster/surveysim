@@ -33,11 +33,6 @@ class LCz_Av_params(object):
         self.modelname = kwargs["modelname"]
         self.files = kwargs["files"] # dictionary with filenames given by nested keys
         
-
-        self.dostretch = False
-        if "dostretch" in kwargs.keys():
-            self.dostretch = kwargs["dostretch"]
-
         # model additional interpolation parameters
         self.zs = np.atleast_1d(kwargs["zs"]) # must be np.logspace(...)
         self.Avs = np.atleast_1d(kwargs["Avs"]) # must be np.logspace(...)
@@ -148,7 +143,7 @@ class LCz_Av_params(object):
                         if self.modelname == "Goldstein":
                             SN = Goldstein(dir = "%s/models/Goldstein" % os.environ["SURVEYSIM_PATH"], \
                                            energy = params[0], mass = params[1], NSE = params[2], IME = params[3], CO = params[4], m = params[5], doplot = False)
-                        elif not self.dostretch:
+                        elif self.modelname != "Hsiao":
                             SN = StellaModel(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
                         else:
                             SN = Hsiao(dir = "%s/%s" % (self.modelsdir, self.modelname), modelname = "%s-%s" % (self.modelname, filename), modelfile = filename, doplot = False)
@@ -250,7 +245,7 @@ class LCz_Av_params(object):
 
         # make local copy of pars
         pars = np.array(parameters)
-            
+
         # save mdot index
         for idx, var in enumerate(self.paramnames):
             if var == 'mdot':
@@ -268,7 +263,22 @@ class LCz_Av_params(object):
             print("   Evalmodel", zip(self.paramnames, pars))
             print("   idxz: %f, idxAv: %f" % (idxz, idxAv), self.minlogz)
 
-        if closest:
+        # check if there are any parameters other than scale and stretch, if not skip grid search
+        if 'scale' in self.paramnames:
+            if 'stretch' in self.paramnames:
+                if len(self.paramnames) == 2:
+                    skipsearch = True
+            elif len(self.paramnames) == 1:
+                skipsearch = True
+        
+
+        if skipsearch: # skip grid search
+
+            idxbest = [0]
+            weights = [1.]
+            
+        elif closest: # use closest point in grid
+
             # use euclidean distance with parammetric
             distances = np.array(list(map(lambda p: np.sum(((p - pars) / self.metric)**2), self.params)))
             mask = (distances < self.maxdistance)
@@ -282,7 +292,7 @@ class LCz_Av_params(object):
             idxbest = [np.argmin(distances[distances < self.maxdistance])]
             weights = [1.]
 
-        else:
+        else: # find neighboring points in grid
             
             # find closest values for all variables
             parsearch = {}
@@ -376,8 +386,10 @@ class LCz_Av_params(object):
 
         # stretch: by default is the first parameters in pars
         stretch = 1.
-        if self.dostretch:
-            stretch = pars[0]
+        if "scale" in self.paramnames:
+            scale = pars[0]
+        if "stretch" in self.paramnames:
+            stretch = pars[1]
             
         # light curve interpolation
         intLC = {}

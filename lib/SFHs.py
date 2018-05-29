@@ -52,3 +52,5 @@ class SFHs(object):
 if __name__ == "__main__":
 
     SFH = SFHs(SFH = "MD14")
+
+    print(SFH.doSFR(0.4))

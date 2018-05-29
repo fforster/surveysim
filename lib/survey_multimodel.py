@@ -83,6 +83,8 @@ class survey_multimodel(object):
     # sample events
     def sample_events(self, **kwargs):
 
+        # code
+        
         self.nsim = kwargs['nsim']  # number of events
         rvs = kwargs['rvs'] # function which return variable given random number
         bounds = kwargs['bounds'] # bounds for all variables
@@ -106,23 +108,25 @@ class survey_multimodel(object):
             self.doemergence = kwargs['doemergence']
 
         if not doload:
-            # sample redshifts
+
+            # special variables are redshift, explosion time, Av
+            # other variables are interpolated in regular grid
+            # objetive of this section is fill self.parsarray array
+            
+            # sample redshifts first according to SFH, cosmology and maximum redshift
             rands = np.random.random(size = self.nsim)
             self.logzs = np.log(self.random2z(rands))
             
-            # sample explosion times
-            tmin = bounds['texp'][0]
-            tmax = bounds['texp'][1]
-            rands = np.random.random(size = self.nsim)
-            self.texps = tmin + 1. * rands * (tmax - tmin)
-    
-            # sample physical parameters
+            # sample all parameters, instrinsic (explosion properties) parameters are stored in params
             params = {}
             for key in rvs.keys():
                 rands = rvs[key](self.nsim)
                 mask = (rands >= bounds[key][0]) & (rands <= bounds[key][1])
                 rands = np.random.choice(rands[mask], size = self.nsim, replace = True)
-                if key == 'logAv':
+                # extrinsic parameters first
+                if key == 'texp': # explosion time
+                    self.texps = rands
+                elif key == 'logAv': # Av extinction
                     self.logAvs = rands
                 else:
                     params[key] = rands
@@ -134,17 +138,22 @@ class survey_multimodel(object):
                     ax.hist(rands, bins = 50)
                     ax.set_xlabel(key)
             
-            # store variables in pars array
+            # loop among paramnames and store variables in params.keys (if not mdot) in pars array
             for idx, key1 in enumerate(self.LCs.paramnames):
+                # keys in params.keys (or mdot)
                 for key2 in params.keys():
                     if key1 == key2 or (key1 == "mdot" and key2 == "log10mdot"):
                         pars[idx] = np.array(params[key2])
+
+            # loop among paramnames and store variables not in params.keys (if not mdot) in pars array as constant array
             for idx, key in enumerate(self.LCs.paramnames):
+                # keys not in params.keys
                 if key not in params.keys() and (key != 'mdot'):
                     pars[idx] = np.ones(self.nsim) * pars[idx]
     
-            # create large array
+            # create large array of variables in parsarray array
             self.parsarray = np.zeros((self.nsim, size(pars)))
+            # this will be filled with pars
             for idx, par in enumerate(pars):
                 self.parsarray[:, idx] = par
 
@@ -192,13 +201,19 @@ class survey_multimodel(object):
             # print status
             if not doload and self.obsplan.mode != 'maf':
                 if np.mod(i, 10) == 0:
-                    print("\r%i" % i, end = "")
+                    print("\rSample %i" % i, end = "")
 
             # sample light curves
             if not doload:
                 
                 # save only first list with light curve at given time (no reference values)
-                self.LCsamples.append(self.LCs.evalmodel(1., self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i])[0])
+                scale = 1.
+                stretch = 1.
+                if hasattr(self, "scale"):
+                    scale = self.scales[i]
+                if hasattr(self, "stretch"):
+                    scale = self.stretchs[i]
+                self.LCsamples.append(self.LCs.evalmodel(scale, self.texps[i], self.logzs[i], self.logAvs[i], self.parsarray[i])[0])
 
                 # find approximate time of emergence (when abs g < mag_emergence)
                 if self.doemergence:
@@ -544,17 +559,18 @@ class survey_multimodel(object):
                 ax.set_xlabel("log10mdot")
                 ax.set_ylabel("temergence - texp [days]")
 
-            np.save("%s/pickles/%s_%s_zlog10mdot.npy" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname), [z, log10mdot])
-            # mass loss rate vs redshift
-            fig, ax = plt.subplots()
-            ax.scatter(z, log10mdot, marker  = '.', alpha = 0.5)
-            ax.set_xlabel("z")
-            ax.set_ylabel("log10mdot")
+            if "log10mdot" in self.LCs.paramnames:
+                np.save("%s/pickles/%s_%s_zlog10mdot.npy" % (os.environ["SURVEYSIM_PATH"], self.LCs.modelname, self.obsplan.planname), [z, log10mdot])
+                # mass loss rate vs redshift
+                fig, ax = plt.subplots()
+                ax.scatter(z, log10mdot, marker  = '.', alpha = 0.5)
+                ax.set_xlabel("z")
+                ax.set_ylabel("log10mdot")
 
-            H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, self.maxz], [-8, -2]], bins = (12, 12))
-            x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
-            extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-            cset = ax.contour(x, y, H.transpose(), origin = 'lower')#, levels, origin = 'lower')
+                H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, self.maxz], [-8, -2]], bins = (12, 12))
+                x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
+                extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+                cset = ax.contour(x, y, H.transpose(), origin = 'lower')#, levels, origin = 'lower')
             #plt.clabel(cset, inline = 1, fontsize = 10, fmt = '%1.0i')
             #for c in cset.collections:
             #    c.set_linestyle('solid')
