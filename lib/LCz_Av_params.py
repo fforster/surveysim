@@ -264,6 +264,7 @@ class LCz_Av_params(object):
             print("   idxz: %f, idxAv: %f" % (idxz, idxAv), self.minlogz)
 
         # check if there are any parameters other than scale and stretch, if not skip grid search
+        skipsearch = False
         if 'scale' in self.paramnames:
             if 'stretch' in self.paramnames:
                 if len(self.paramnames) == 2:
