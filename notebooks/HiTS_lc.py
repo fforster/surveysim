@@ -36,7 +36,7 @@ print(real_obs["Field01"][0].keys())
 
 unique_bands = ["g", "r", "i"]
 plot_comparison = False
-nsim_per_field = 100
+nsim_per_field = 20000
 
 field_lightcurves = {}
 field_params = {}
@@ -127,7 +127,7 @@ for i, obs_dir in enumerate(obs_list):
     efficiency = knorm * IIPfrac
     maxrestframeage=1.0
     newsurvey = survey_multimodel(obsplan = plan, SFH = SFH, efficiency = efficiency, LCs = LCs, maxrestframeage = maxrestframeage)
-    newsurvey.set_maxz(0.55)
+    newsurvey.set_maxz(0.2)
     newsurvey.do_cosmology()
 
     # set distribution of physical parameters                                                                                                                                                                       
@@ -138,13 +138,13 @@ for i, obs_dir in enumerate(obs_list):
            'mass': lambda nsim: uniform.rvs(loc = 12., scale = 4., size = nsim), \
            'energy': lambda nsim: norm.rvs(loc = 1., scale = 1., size = nsim), \
            #'log10mdot': lambda nsim: uniform.rvs(loc = -8, scale = 6, size = nsim), \
-           'log10mdot' :lambda nsim: uniform.rvs(loc = -4, scale = 2, size = nsim), \
+           'log10mdot' :lambda nsim: uniform.rvs(loc = -6, scale = 4, size = nsim), \
            'beta': lambda nsim: uniform.rvs(loc = 1., scale = 4., size = nsim)}
     bounds = {'texp': [minMJD, maxMJD], \
               'logAv': [np.log(1e-4), np.log(10.)], \
               'mass': [12, 16], \
               'energy': [0.5, 2.], \
-              'log10mdot': [-4, -2], \
+              'log10mdot': [-6, -2], \
               'beta': [1., 5.]}
 
     mass = None
@@ -162,7 +162,7 @@ for i, obs_dir in enumerate(obs_list):
     #if i == 0:
     #    break
 
-file_name = "hits_sn_bounded"
+file_name = "mid_bounded_lowz"
 pickle.dump(field_lightcurves, open("../pickles/"+file_name+"_"+str(nsim_per_field)+"_lc.pkl", "wb"), protocol = pickle.HIGHEST_PROTOCOL)
 pickle.dump(field_params, open("../pickles/"+file_name+"_"+str(nsim_per_field)+"_params.pkl", "wb"), protocol = pickle.HIGHEST_PROTOCOL)
 
