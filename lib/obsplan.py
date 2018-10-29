@@ -171,6 +171,12 @@ class obsplan(object):
             if 'EXPTIME' in df.columns:
                 self.exptimes = np.array(df['EXPTIME'])
                 self.exptimes = self.exptimes[idxu][idxsorted]
+            if 'SKYMAG' in df.columns:
+                self.skymags = np.array(df['SKYMAG'])
+                self.skymags = self.skymags[idxu][idxsorted]
+            if 'MOONPHASE' in df.columns:
+                self.moonphases = np.array(df['MOONPHASE'])
+                self.moonphases = self.moonphases[idxu][idxsorted]
                 
             # find unique bands
             self.bands = self.bands[np.array(idxu, dtype = int)]
@@ -231,16 +237,17 @@ class obsplan(object):
             else:
                 self.airmasses = np.ones_like(dates) * minairmass
             
-        # compute moon phases and sky magnitude
-        self.moonphases = np.zeros_like(self.MJDs)
-        self.skymags = np.zeros_like(self.MJDs)
-        for band in self.uniquebands:
-            print("Computing moon phase and sky magnitudes for band %s" % band)
-            mask = np.array(self.bands == band)
-            skymodel = sky(band = band, MJDs = self.MJDs[mask])
-            moonphases, skymags = skymodel.skymags()
-            self.moonphases[mask] = moonphases
-            self.skymags[mask] = skymags
+        # compute moon phases and sky magnitude if necessary
+        if not hasattr(self, "moonphases") or not hasattr(self, "skymags"):
+            self.moonphases = np.zeros_like(self.MJDs)
+            self.skymags = np.zeros_like(self.MJDs)
+            for band in self.uniquebands:
+                print("Computing moon phase and sky magnitudes for band %s" % band)
+                mask = np.array(self.bands == band)
+                skymodel = sky(band = band, MJDs = self.MJDs[mask])
+                moonphases, skymags = skymodel.skymags()
+                self.moonphases[mask] = moonphases
+                self.skymags[mask] = skymags
 
         # using sky magnitudes, airmasses, exposure time, SNR lim, compute limiting magnitudes
         print("Computing limiting magnitudes for all bands (this may take some time)")

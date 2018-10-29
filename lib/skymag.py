@@ -58,6 +58,11 @@ class sky(object):
         skymags = list(map(lambda x: self.magskyf(x), moonphases))
         return np.array(moonphases), np.array(skymags)
 
+    def maxskymags(self):
+        
+        skymags = list(map(lambda x: self.magskyf(x), np.zeros_like(self.MJDs)))
+        return np.array(skymags)
+
 if __name__ == "__main__":
 
     MJDs = np.linspace(57023, 57023 + 365, 3650)

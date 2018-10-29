@@ -27,12 +27,19 @@ class survey_multimodel(object):
         self.SFH = kwargs["SFH"]
         self.efficiency = kwargs["efficiency"]
         self.LCs = kwargs["LCs"]
+
+        self.surveyname = "%s_%s_%s" % (self.obsplan.planname, self.SFH.label, self.LCs.modelname)
+        print("Survey name: %s" % self.surveyname)
         
         # maximum time for an object to have exploded before the beginning of the simulation to be considered detected
-        self.maxrestframeage = 5#10
+        self.maxrestframeage = 5. #10
         if "maxrestframeage" in kwargs.keys():
-            self.maxrestframeage = kwargs["maxrestframeage"]
-
+            self.maxrestframeage = float(kwargs["maxrestframeage"])
+        # minimum time for an object to be detected (ensure long light curves are detected)
+        self.minrestframeage = 30. #10
+        if "minrestframeage" in kwargs.keys():
+            self.minrestframeage = float(kwargs["minrestframeage"])
+            
         if self.obsplan.mode == 'maf':
             self.mafcounter = 0
 
@@ -92,13 +99,13 @@ class survey_multimodel(object):
 
         doplot = False
         if 'doplot' in kwargs.keys():
-            doplot = kwargs['doplot']
+            doplot = bool(kwargs['doplot'])
         doload = False
         if 'doload' in kwargs.keys():
-            doload = kwargs['doload']
+            doload = bool(kwargs['doload'])
         dosave = False
         if 'dosave' in kwargs.keys():
-            dosave = kwargs['dosave']
+            dosave = bool(kwargs['dosave'])
         if doload:
             dosave = False
 
@@ -137,6 +144,8 @@ class survey_multimodel(object):
                     #    key = key[3:]
                     ax.hist(rands, bins = 50)
                     ax.set_xlabel(key)
+                    plt.savefig("plots/%s_%s.png" % (self.surveyname, key))
+
             
             # loop among paramnames and store variables in params.keys (if not mdot) in pars array
             for idx, key1 in enumerate(self.LCs.paramnames):
@@ -251,6 +260,9 @@ class survey_multimodel(object):
         # invert axis
         if doplot:
             ax.set_ylim(ax.get_ylim()[::-1])
+            ax.set_ylim(25, ax.get_ylim()[1])
+            plt.savefig("plots/%s_LCs.png" % (self.surveyname))
+
 
         # save LCs and physical parameters
         if dosave:
@@ -272,6 +284,8 @@ class survey_multimodel(object):
             fig, ax = plt.subplots()
             ax.hist(self.temergence)
             ax.set_xlabel("Time of emergence (abs. mag g $< %.1f$)" % mag_emergence)
+            plt.savefig("plots/%s_timeemergence.png" % self.surveyname)
+            
         
     # sample events assuming PCA representation
     def sample_events_PCA(self, **kwargs):
@@ -359,6 +373,7 @@ class survey_multimodel(object):
         # invert axis
         if doplot:
             ax.set_ylim(ax.get_ylim()[::-1])
+            plt.savefig("plots/%s_LCs2.png" % (self.surveyname, key))
     
         # save LCs and physical parameters
         if dosave:
@@ -424,16 +439,32 @@ class survey_multimodel(object):
         verbose = False
         if 'verbose' in kwargs.keys():
             verbose = kwargs['verbose']
-            
+
+        restrstring = ""
         check1stdetection = False
         if 'check1stdetection' in kwargs.keys():
             check1stdetection = bool(kwargs["check1stdetection"])
             # time of 1st detection in rest frame per object (after emergence)
             rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
+            restrstring = "%s_maxage%i" % (restrstring, self.maxrestframeage)
+
+        checklastdetection = False
+        if 'checklastdetection' in kwargs.keys():
+            checklastdetection = bool(kwargs["checklastdetection"])
+            # time of last detection in rest frame per object (after emergence)
+            rftimelastdet = np.zeros(len(self.LCsamples))
+            restrstring = "%s_minage%i" % (restrstring, self.minrestframeage)
 
         mindetections = 2
-        if 'mindetection' in kwargs.keys():
+        if 'mindetections' in kwargs.keys():
             mindetections = int(kwargs["mindetections"])
+            restrstring = "%s_mindet%i" % (restrstring, mindetections)
+
+        print(restrstring)
+
+        showLC = False
+        if 'showLC' in kwargs.keys():
+            showLC = bool(kwargs["showLC"])
 
         # number of detections per object per band
         matches = np.zeros((len(self.LCsamples), len(self.obsplan.uniquebands)))
@@ -451,18 +482,24 @@ class survey_multimodel(object):
             for idxb, band in enumerate(self.obsplan.uniquebands):
 
                 maskband = self.LCs.maskband[band]
-                
-                masklim = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) # assume worst case for difference imaging
 
-                if check1stdetection:
-                    masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
-                
+                dodiff = True
+                if dodiff:
+                    diffeffect = -2.5 * np.log10(np.sqrt(2.))
+                else:
+                    diffeffect = 0
+                    
+                masklim = LCsample[band] < self.obsplan.limmag[maskband] + diffeffect # assume worst case for difference imaging
+
+                if check1stdetection or checklastdetection:
+                    masklim2 = LCsample[band] < self.obsplan.limmag[maskband] + diffeffect + 1. # this is equivalent to 2 sigma
+
                 matches[idx, idxb] = np.sum(masklim)
 
                 #rftimedetections = (self.obsplan.MJDs[maskband][masklim] - (texp + self.temergence[idx])) / (1. + redshift)
 
                 if matches[idx, idxb] > 0:
-                    if check1stdetection:
+                    if check1stdetection or checklastdetection:
                         # best match to actual filters
                         rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - texp) # measure time from explosion in observer time
                         if self.doemergence:
@@ -473,12 +510,22 @@ class survey_multimodel(object):
                             minmags[idx, idxb] = min(LCsample[band][masklim])
                     if check1stdetection:
                         rftime1stdet[idx] = min(rftime1stdet[idx], min(rftimedetections))
+                    if checklastdetection:
+                        rftimelastdet[idx] = max(rftimelastdet[idx], max(rftimedetections))
 
+
+        ## show 10 random light curves
+        #if showLC:
+        #    # loop among bands
+        #    for idxb, band in enumerate(self.obsplan.uniquebands):
+            
 
         # count only detections with at least two detections [and with early detections if check1stdetection]
         detections = (np.sum(matches, axis = 1) >= mindetections)
         if check1stdetection:
             detections = np.array(detections & (rftime1stdet <= self.maxrestframeage))
+        if checklastdetection:
+            detections = np.array(detections & (rftimelastdet >= self.minrestframeage))
 
         # filter by time of first detection
         labels = np.concatenate([np.array(['logz', 'texp', 'logAv'], dtype = str), np.array(self.LCs.paramnames, dtype = str)])
@@ -549,7 +596,7 @@ class survey_multimodel(object):
                     ax.set_xlabel(r'$\beta$')
                 elif vallabel == "texp":
                     ax.set_xlabel("Explosion time")
-                plt.savefig("plots/%s_efficiency.pdf" % vallabel)
+                plt.savefig("plots/%s%s_%s_efficiency.png" % (self.surveyname, restrstring, vallabel))
                 
         if doplot:
 
@@ -567,6 +614,8 @@ class survey_multimodel(object):
                 ax.scatter(z, log10mdot, marker  = '.', alpha = 0.5)
                 ax.set_xlabel("z")
                 ax.set_ylabel("log10mdot")
+                plt.savefig("plots/%s%s_log10mdot.png" % (self.surveyname, restrstring))
+
 
                 H, xedges, yedges = np.histogram2d(z, log10mdot, range = [[0, self.maxz], [-8, -2]], bins = (12, 12))
                 x, y = np.meshgrid((xedges[1:] + xedges[:-1]) / 2., (yedges[1:] + yedges[:-1]) / 2.)
@@ -579,19 +628,27 @@ class survey_multimodel(object):
             # apparent magnitudes
             fig, ax = plt.subplots()
             for idxb, band in enumerate(self.obsplan.uniquebands):
-                ax.hist(minmags[:, idxb][minmags[:, idxb] > 0], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
-            ax.legend(loc = 2)    
+                factor = 1. / np.sum(minmags[:, idxb] > 0) * np.sum(detections) / len(detections) * self.cumtotalSNe[-1]
+                ax.plot(sorted(minmags[:, idxb][minmags[:, idxb] > 0]), range(np.sum(minmags[:, idxb] > 0)) * factor, color = self.LCs.bandcolors[band], label = band)
+                ax.scatter([min(minmags[:, idxb][minmags[:, idxb] > 0]), max(minmags[:, idxb][minmags[:, idxb] > 0])], [0, (np.sum(minmags[:, idxb] > 0) - 1) * factor], color = self.LCs.bandcolors[band])
+                #ax.hist(minmags[:, idxb][minmags[:, idxb] > 0], alpha = 0.5, label = band, color = self.LCs.bandcolors[band], cumulative = True)
+            ax.legend(loc = 2)
+            ax.set_yscale('log')
             ax.set_xlabel("min mag")
+            ax.set_ylabel("CDF")
+            plt.savefig("plots/%s%s_minmag.png" % (self.surveyname, restrstring))
 
             # absolute magnitudes
             fig, ax = plt.subplots()
             for idxb, band in enumerate(self.obsplan.uniquebands):
+                factor = 1. / np.sum(minmags[:, idxb] > 0) * np.sum(detections) / len(detections) * self.cumtotalSNe[-1]
                 mask = (minmags[:, idxb] > 0)
                 Dms = np.array(list(map(lambda logz: self.Dmf(np.exp(logz)), self.parsamples[0, :])))
-                ax.hist(minmags[:, idxb][mask] - Dms[mask], alpha = 0.5, label = band, color = self.LCs.bandcolors[band])
+                ax.hist(minmags[:, idxb][mask] - Dms[mask], alpha = 0.5, label = band, weights = factor * np.ones(np.sum(mask)), color = self.LCs.bandcolors[band])
             ax.legend(loc = 2)    
             ax.set_xlabel("min abs mag")
-
+            plt.savefig("plots/%s%s_minabsmag.png" % (self.surveyname, restrstring))
+                
 
     def do_efficiency_PCA(self, **kwargs):
 
@@ -612,6 +669,12 @@ class survey_multimodel(object):
             check1stdetection = bool(kwargs["check1stdetection"])
             # time of 1st detection in rest frame per object (after emergence)
             rftime1stdet = 1e99 * np.ones(len(self.LCsamples))
+
+        checklastdetection = False
+        if 'checklastdetection' in kwargs.keys():
+            checklastdetection = bool(kwargs["checklastdetection"])
+            # time of 1st detection in rest frame per object (after emergence)
+            rftimelastdet = 1e99 * np.ones(len(self.LCsamples))
 
         mindetections = 2
         if 'mindetection' in kwargs.keys():
@@ -637,12 +700,12 @@ class survey_multimodel(object):
                 
                 masklim = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) # assume worst case for difference imaging
 
-                if check1stdetection:
+                if check1stdetection or checklastdetection:
                     masklim2 = LCsample[band] < self.obsplan.limmag[maskband] - 2.5 * np.log10(np.sqrt(2.)) + 1. # this is equivalent to 2 sigma
                 
                 matches[idx, idxb] = np.sum(masklim)
                 
-                if check1stdetection:
+                if check1stdetection or checklastdetection:
                     # best match to actual filters
                     rftimedetections = (self.obsplan.MJDs[maskband][masklim2] - texp)
 
@@ -654,12 +717,16 @@ class survey_multimodel(object):
                         rftime1stdet[idx] = min(rftimedetections)
                     else:
                         rftime1stdet[idx] = min(rftime1stdet[idx], min(rftimedetections))
+                if checklastdetection:
+                    rftimelastdet[idx] = max(rftimelastdet[idx], max(rftimedetections))
 
 
         # count only detections with at least two detections [and with early detections if check1stdetection]
         detections = (np.sum(matches, axis = 1) >= mindetections)
         if check1stdetection:
             detections = np.array(detections & (rftime1stdet <= self.maxrestframeage))
+        if checklastdetection:
+            detections = np.array(detections & (rftimelastdet >= self.minrestframeage))
 
         # filter by time of first detection
         labels = np.concatenate([np.array(['logz', 'texp', 'logAv'], dtype = str), np.array(["alpha1", "alpha2"], dtype = str)])
@@ -727,11 +794,13 @@ class survey_multimodel(object):
                 if vallabel == 'log10mdot':
                     ax.set_xlabel(r'$\log_{10} \dot M\ [M_\odot yr^{-1}]$')
                     ax.set_ylabel("Efficiency")
-                    plt.savefig("plots/log10mdot_efficiency.pdf")
-                if  vallabel == 'beta':
+                    plt.savefig("plots/log10mdot_efficiency.png")
+                elif  vallabel == 'beta':
                     ax.set_xlabel(r'$\beta$')
                     ax.set_ylabel("Efficiency")
-                    plt.savefig("plots/beta_efficiency.pdf")
+                    plt.savefig("plots/beta_efficiency.png")
+                else:
+                    plt.savefig("plots/%s_efficiency.png" % vallabel)
 
         if doplot:
 

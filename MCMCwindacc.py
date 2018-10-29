@@ -10,6 +10,8 @@ import matplotlib.colors as colors
 import matplotlib.cm as cmx
 import pickle
 
+import pandas as pd
+
 from collections import defaultdict
 import itertools
 from scipy.optimize import minimize
@@ -22,7 +24,7 @@ import time
 if leftraru:
     os.environ["SURVEYSIM_PATH"] = "/home/fforster/surveysim"
 else:
-    os.environ["SURVEYSIM_PATH"] = "/home/fforster/Work/surveysim"
+    os.environ["SURVEYSIM_PATH"] = "/home/fforster/Dropbox/Work/surveysim"
 sys.path.append("%s/lib" % os.environ["SURVEYSIM_PATH"])
 
 from constants import *
@@ -143,25 +145,34 @@ if __name__ == "__main__":
     # --------------------------
     
     modelsdir = "%s/models" % os.environ["SURVEYSIM_PATH"]
-    data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
-    data[data == 'no'] = 0
-    modelfile, modelmsun, modele51, modelmdot, modelrcsm, modelvwind0, modelvwindinf, modelbeta = data
-
-    modelfile = np.array(modelfile, dtype = str)
-    modelmsun = np.array(modelmsun, dtype = float)
-    modelfoe = np.array(modele51, dtype = float) / 1e51
-    modelmdot = np.array(modelmdot, dtype = float)
-    modelrcsm = np.array(modelrcsm, dtype = float) / 1e15
-    modelvwind0 = np.array(modelvwind0, dtype = float)  # do not use this
-    modelvwindinf = np.array(modelvwindinf, dtype = float)
-    modelbeta = np.array(modelbeta, dtype = float)
+    # data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
+    # data[data == 'no'] = 0
+    # modelfile, modelmsun, modele51, modelmdot, modelrcsm, modelvwind0, modelvwindinf, modelbeta = data
+    # 
+    # modelfile = np.array(modelfile, dtype = str)
+    # modelmsun = np.array(modelmsun, dtype = float)
+    # modelfoe = np.array(modele51, dtype = float) / 1e51
+    # modelmdot = np.array(modelmdot, dtype = float)
+    # modelrcsm = np.array(modelrcsm, dtype = float) / 1e15
+    # modelvwind0 = np.array(modelvwind0, dtype = float)  # do not use this
+    # modelvwindinf = np.array(modelvwindinf, dtype = float)
+    # modelbeta = np.array(modelbeta, dtype = float)
+    data = pd.read_csv("%s/%s/models.csv" % (modelsdir, modelname))
+    modelfile = data.filename
+    modelmsun = data.mass_msun
+    modelfoe = data.energy_foe
+    modelmdot = data.mdot_msunyr
+    modelrcsm = data.rcsm_1e15cm
+    modelvwindinf = data.vwindinf_kms
+    modelbeta = data.beta
 
     params = np.vstack([modelmsun, modelfoe, modelmdot, modelrcsm, modelvwindinf, modelbeta]).transpose()
-    try:
-        files = np.array(list(map(lambda name: "%s.fr" % name, modelfile)))
-    except:
-        files = "%s.fr" % modelfile
+    #try:
+    #    files = np.array(list(map(lambda name: "%s.fr" % name, modelfile)))
+    #except:
+    #    files = "%s.fr" % modelfile
     #print(files)
+    files = np.array(modelfile)
 
     # Redshift, Avs and time
     nz = 30
