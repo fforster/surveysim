@@ -114,9 +114,9 @@ class LCz_Av_params(object):
             if doload:
                 count += 1
                 if sys.version_info >= (3,0):
-                    print("Loading file %i" % count, end = "\r")
+                    print("Loading file %i (%s)" % (count, filename), end = "\r")
                 else:
-                    print("Loading file %i" % count)
+                    print("Loading file %i (%s)" % (count, filename))
             
             if not doload:
                 print(filename)

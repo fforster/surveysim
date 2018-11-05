@@ -214,6 +214,7 @@ if __name__ == "__main__":
         else:
             print("Loading models...")
             LCs = pickle.load(open(picklename, "rb"))
+            print("Models loaded from LCz_Av_params pickled object in file %s" % picklename)
         if saveall and not loadall:
             pickle.dump(LCs, open(picklename, "wb"), protocol = 0) # highest protocol
         #LCs.compute_models(obsname = obsname, bands = bands, load = True)
@@ -222,7 +223,10 @@ if __name__ == "__main__":
     LCs.setmetric(metric = np.array([1., 1., 1e-6, 1., 10., 1.]), logscale = np.array([False, False, True, False, False, False], dtype = bool))
         
     # set observations
-    bandcolors = {'UVW2': 'violet', 'UVM2': 'm', 'UVW1': 'silver', 'U': 'darkblue', 'B': 'royalblue', 'V': 'forestgreen', 'R': 'tomato', 'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k', 'ROTSEIII': 'k', 'Kepler': 'k'}
+    bandcolors = {'UVW2': 'violet', 'UVM2': 'm', 'UVW1': 'silver', \
+                  'U': 'darkblue', 'B': 'royalblue', 'V': 'forestgreen', 'R': 'tomato', \
+                  'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k', \
+                  'ROTSEIII': 'k', 'Kepler': 'k'}
     if not diffLC:
         LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = bandcolors)
     else:
@@ -287,9 +291,9 @@ if __name__ == "__main__":
     vwindinf = 10.
     parvals = np.array([scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
-    parbounds = np.array([[scaleref - 0.05, scaleref + 0.05], [texp - 5, texp + 5], [np.log(1e-3), np.log(1.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-8, -2], [1., 1.], [10, 10], [1., 5.]])
+    parbounds = np.array([[scaleref - 0.05, scaleref + 0.05], [texp - 5, texp + 5], [np.log(1e-3), np.log(1.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [-8, -2], [0.1, 1.], [10, 10], [1., 5.]])
     parlabels = np.array(["scale", "texp", "logz", "logAv", "mass", "energy", "log10mdot", "rcsm", "vwindinf", "beta"])
-    fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid 
+    fixedvars = np.array([False,     False,  fixz,   False,   False,   False,    False,   False,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid 
     #fixedvars = np.array([False,     False,  fixz,   False,   True,   True,    False,   True,   True,      False], dtype = bool)  # rcsm and vwinf should be True with current model grid
 
     # initialize with previous parameters
@@ -340,18 +344,19 @@ if __name__ == "__main__":
             MJDmaxall = max(MJDmaxall, max(LCs.mjd[LCs.maskband[band]]) + 5)
         
         # slider axes
-        texp_slider_ax =   fig.add_axes([0.15, 0.985, 0.75, 0.015], axisbg='w')
+        texp_slider_ax =   fig.add_axes([0.15, 0.985, 0.75, 0.015])#, axisbg='w')
         #scale_slider_ax  = fig.add_axes([0.15, 0.97, 0.75, 0.015], axisbg='w')
         if not fixz: 
-            logz_slider_ax =      fig.add_axes([0.15, 0.955, 0.75, 0.015], axisbg='w')
-        av_slider_ax =     fig.add_axes([0.15, 0.94, 0.75, 0.015], axisbg='w')
-        MJDmin_slider_ax = fig.add_axes([0.15, 0.925, 0.75, 0.015], axisbg='w')
-        MJDmax_slider_ax = fig.add_axes([0.15, 0.91, 0.75, 0.015], axisbg='w')
+            logz_slider_ax =      fig.add_axes([0.15, 0.955, 0.75, 0.015])#, axisbg='w')
+        av_slider_ax =     fig.add_axes([0.15, 0.94, 0.75, 0.015])#, axisbg='w')
+        MJDmin_slider_ax = fig.add_axes([0.15, 0.925, 0.75, 0.015])#, axisbg='w')
+        MJDmax_slider_ax = fig.add_axes([0.15, 0.91, 0.75, 0.015])#, axisbg='w')
         
-        mass_slider_ax = fig.add_axes([0.15, 0.045, 0.75, 0.015], axisbg='w')
-        energy_slider_ax = fig.add_axes([0.15, 0.03, 0.75, 0.015], axisbg='w')
-        log10mdot_slider_ax = fig.add_axes([0.15, 0.015, 0.75, 0.015], axisbg='w')
-        beta_slider_ax = fig.add_axes([0.15, 0.0, 0.75, 0.015], axisbg='w')
+        mass_slider_ax = fig.add_axes([0.15, 0.06, 0.75, 0.015])#, axisbg='w')
+        energy_slider_ax = fig.add_axes([0.15, 0.045, 0.75, 0.015])#, axisbg='w')
+        log10mdot_slider_ax = fig.add_axes([0.15, 0.03, 0.75, 0.015])#, axisbg='w')
+        rcsm_slider_ax = fig.add_axes([0.15, 0.015, 0.75, 0.015])
+        beta_slider_ax = fig.add_axes([0.15, 0.0, 0.75, 0.015])#, axisbg='w')
         
         # slider objects
         MJDmin_slider = Slider(MJDmin_slider_ax, 'MJD min', MJDminall, MJDmaxall, valinit=MJDminall, dragging = True)
@@ -367,6 +372,7 @@ if __name__ == "__main__":
         mass_slider = Slider(mass_slider_ax, 'mass', LCs.parbounds[LCs.parlabels == 'mass'][0][0], LCs.parbounds[LCs.parlabels == 'mass'][0][1], valinit=LCs.parvals[LCs.parlabels == 'mass'][0], dragging = False)
         energy_slider = Slider(energy_slider_ax, 'energy', LCs.parbounds[LCs.parlabels == 'energy'][0][0], LCs.parbounds[LCs.parlabels == 'energy'][0][1], valinit=LCs.parvals[LCs.parlabels == 'energy'][0], dragging = False)
         log10mdot_slider = Slider(log10mdot_slider_ax, 'log10mdot', LCs.parbounds[LCs.parlabels == 'log10mdot'][0][0], LCs.parbounds[LCs.parlabels == 'log10mdot'][0][1], valinit=LCs.parvals[LCs.parlabels == 'log10mdot'][0], dragging = False)
+        rcsm_slider = Slider(rcsm_slider_ax, 'rcsm', LCs.parbounds[LCs.parlabels == 'rcsm'][0][0], LCs.parbounds[LCs.parlabels == 'rcsm'][0][1], valinit=LCs.parvals[LCs.parlabels == 'rcsm'][0], dragging = False)
         beta_slider = Slider(beta_slider_ax, 'beta', LCs.parbounds[LCs.parlabels == 'beta'][0][0], LCs.parbounds[LCs.parlabels == 'beta'][0][1], valinit=LCs.parvals[LCs.parlabels == 'beta'][0], dragging = False)
         
         def slider_update(val):
@@ -384,6 +390,7 @@ if __name__ == "__main__":
             LCs.parvals[LCs.parlabels == 'mass'] = mass_slider.val
             LCs.parvals[LCs.parlabels == 'energy'] = energy_slider.val
             LCs.parvals[LCs.parlabels == 'log10mdot'] = log10mdot_slider.val
+            LCs.parvals[LCs.parlabels == 'rcsm'] = rcsm_slider.val
             LCs.parvals[LCs.parlabels == 'beta'] = beta_slider.val
 
             # compute new model
@@ -414,6 +421,7 @@ if __name__ == "__main__":
         mass_slider.on_changed(slider_update)
         energy_slider.on_changed(slider_update)
         log10mdot_slider.on_changed(slider_update)
+        rcsm_slider.on_changed(slider_update)
         beta_slider.on_changed(slider_update)
         
         plt.show()
@@ -433,6 +441,7 @@ if __name__ == "__main__":
         LCs.test_interpolation("beta", 'd)')
         LCs.test_interpolation("logAv", 'e)')
         LCs.test_interpolation("logz", 'f)')
+        LCs.test_interpolation("rcsm", 'g)')
         sys.exit()
 
     # recover values
