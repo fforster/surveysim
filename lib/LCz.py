@@ -68,7 +68,7 @@ class LCz(object):
 
         for i in range(self.ntimes):
 
-            self.L[i] = np.sum(1. + (self.flux[i]) * self.dlambda)
+            self.L[i] = np.sum(self.flux[i] * self.dlambda)
 
         #print("Luminosity:", self.L, self.times)
 
