@@ -1,10 +1,58 @@
+import os
+
+
+#node = os.getenv("SLURM_JOB_NODELIST")
+#jid = os.getenv("SLURM_JOB_ID")
+
+
+def monitor(outdir, outname, log=True, plot=True):
+    #print("ENTRO A MONITOR")
+    #print(outdir,outname)
+    pid = os.getpid()
+    #print(pid)
+    L = ['psrecord', "%s" % pid, "--interval", "1"]
+    #print(L)
+    if log:
+        L = L + ["--log", "%slog_%s_%s.txt" % (outdir, outname, pid)]
+    if plot:
+        L = L + ["--plot", "%s/plot_%s_%s.png" % (outdir, outname, pid)]
+    if not log and not plot:
+        print("Nothing being monitored")
+    else:
+        os.spawnvpe(os.P_NOWAIT, 'psrecord', L, os.environ)
+
+#monitor("logs/monitor/", f"magstats_{node}_{jid}", log=True, plot=False)
+#monitor("/logs/monitor/", "corrected_local", log=True, plot=True)
+
 import numpy as np
-import re, sys, os, getopt
+import re, sys, getopt
+
+
 leftraru = False
-if os.getcwd() == "/home/fforster/surveysim":
+if os.getcwd() == "/home/jsilvaf/surveysim":
     leftraru = True
     import matplotlib # uncomment for using in leftraru
     matplotlib.use('Agg') # uncomment for using in leftraru
+
+
+if leftraru:
+    os.environ["SURVEYSIM_PATH"] = "/home/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_INPUT"] = "/home/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_OUTPUT"] = "/home/jsilvaf/surveysim"
+else:
+    os.environ["SURVEYSIM_PATH"] = "/home/javier/codigos/nlhpc/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_INPUT"] = "/home/javier/codigos/nlhpc/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_OUTPUT"] = "/home/javier/codigos/nlhpc/jsilvaf/surveysim"
+
+sys.path.append("%s/lib" % os.environ["SURVEYSIM_PATH"])
+
+
+
+from constants import *
+
+
+
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
@@ -22,12 +70,18 @@ import corner
 import time
 
 if leftraru:
-    os.environ["SURVEYSIM_PATH"] = "/home/fforster/surveysim"
+    os.environ["SURVEYSIM_PATH"] = "/home/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_INPUT"] = "/home/fforster/surveysim"
+    os.environ["SURVEYSIM_PATH_OUTPUT"] = "/home/jsilvaf/surveysim"
 else:
-    os.environ["SURVEYSIM_PATH"] = "/home/fforster/Dropbox/Work/surveysim"
+    os.environ["SURVEYSIM_PATH"] = "/home/javier/codigos/nlhpc/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_INPUT"] = "/home/javier/codigos/nlhpc/jsilvaf/surveysim"
+    os.environ["SURVEYSIM_PATH_OUTPUT"] = "/home/javier/codigos/nlhpc/jsilvaf/surveysim"
+
 sys.path.append("%s/lib" % os.environ["SURVEYSIM_PATH"])
 
 from constants import *
+
 from LCz import *
 from LCz_Av import *
 
@@ -48,10 +102,10 @@ if __name__ == "__main__":
     dotest = False
     loadMCMC = False
     computemodels = False
-    diffLC = False
+    diffLC = False#True
 
-    loadall = True # load all models instead of loading individual files
-    saveall = False # save all models
+    loadall = False # load all models instead of loading individual files
+    saveall = False # True  # save all models
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "O:B:p:s:n:w:b:dioltcf:vh", ["observatory=", "bands=", "project=", "supernova=", "nsteps=", "walkers=", "burnin=", "diffLC", "interactive", "overwrite", "loadMCMC", "test", "computemodels", "selfiles=", "verbose", "help"])
@@ -60,6 +114,7 @@ if __name__ == "__main__":
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print("Markov chain Monte Carlo fitting using Moriya wind acceleration models.")
+            print("python ./MCMCwindacc.py --observatory Blanco-DECam --bands 'g r' --project HiTS --supernova SNHiTS15A --nsteps 1000 --walkers 400 --burnin 500 --verbose")
             print("python ./MCMCwindacc.py --observatory Blanco-DECam --band \"g r\" --project HiTS --supernova SNHiTS15A --test") # test interpolation
             print("e.g. python ./MCMCwindacc.py --observatory Blanco-DECam --bands 'u g r i z' --project DES --supernova DES15E2avs --interactive --verbose (interactively choose starting points)")
             print("e.g. python ./MCMCwindacc.py --project DES --supernova DES15E2avs --computemodels --filenames \"file1 file2\" (compute models in modellist.txt or in selected files)")
@@ -144,7 +199,7 @@ if __name__ == "__main__":
     # load models
     # --------------------------
     
-    modelsdir = "%s/models" % os.environ["SURVEYSIM_PATH"]
+    modelsdir = "%s/models" % os.environ["SURVEYSIM_PATH_INPUT"]
     # data = np.genfromtxt("%s/%s/modellist.txt" % (modelsdir, modelname), dtype = str, usecols = (0, 1, 3, 5, 7, 9, 10, 11)).transpose()
     # data[data == 'no'] = 0
     # modelfile, modelmsun, modele51, modelmdot, modelrcsm, modelvwind0, modelvwindinf, modelbeta = data
@@ -178,7 +233,7 @@ if __name__ == "__main__":
     nz = 30
     ntimes = 100
     nAvs = 10
-    zs = np.logspace(-3, 0, nz)
+    zs =  np.logspace(-3, 0, nz)
     times = np.logspace(-3, 3, ntimes)
     Avs = np.logspace(-4, 1, nAvs)
     Rv = 3.25
@@ -209,6 +264,8 @@ if __name__ == "__main__":
         picklename = "LCs_%s_%s_%s.pickle" % (modelname, obsname, "-".join(bands))
         if not os.path.exists(picklename):
             loadall = False
+        else:
+            saveall = True
         if not loadall:
             LCs.compute_models(obsname = obsname, bands = bands, load = True)
         else:
@@ -226,7 +283,8 @@ if __name__ == "__main__":
     bandcolors = {'UVW2': 'violet', 'UVM2': 'm', 'UVW1': 'silver', \
                   'U': 'darkblue', 'B': 'royalblue', 'V': 'forestgreen', 'R': 'tomato', \
                   'g': 'g', 'r': 'r', 'i': 'brown', 'z': 'k', \
-                  'ROTSEIII': 'k', 'Kepler': 'k'}
+                  'ROTSEIII': 'k', 'Kepler': 'k', "o": "orange", "c": "cyan", \
+                  "g_single": "darkgreen", "r_single": "darkred", "g_multi": "lime", "r_multi": "r"}
     if not diffLC:
         LCs.set_observations(mjd = sn_mjd, flux = sn_flux, e_flux = sn_e_flux, filters = sn_filters, objname = SNname, plot = False, bandcolors = bandcolors)
     else:
@@ -264,7 +322,11 @@ if __name__ == "__main__":
         logz = par0['logz']
     else:
         logz = np.log(zcmb)
-    logAv = np.log(0.1)#min(Avs))
+    #NEW TRYING TO BEST FIT EXTINCTION
+    if "logAv" in par0.keys():
+        logAv = par0["logAv"]
+    else:
+        logAv = np.log(0.1)#min(Avs))
     if 'mass' in par0.keys():
         mass = par0['mass']
     else:
@@ -284,10 +346,13 @@ if __name__ == "__main__":
         beta = par0['beta']
     else:
         beta = 3.
-        
+    if 'rcsm' in par0.keys():
+        rcsm = par0['rcsm']
+    else:
+        rcsm = 0.5
     print(par0.keys(), par0, texp)
 
-    rcsm = 1. # 1e15
+    #rcsm = 0.5 # 1e15
     vwindinf = 10.
     parvals = np.array([scale, texp, logz, logAv, mass, energy, log10mdot, rcsm, vwindinf, beta])
     #parbounds = np.array([[0.1, 10.], [texp - 5, texp + 5], [np.log(1e-4), np.log(10.)], [np.log(1e-4), np.log(10.)], [12, 16], [0.5, 2.], [3e-5, 1e-2], [1., 1.], [10, 10], [1., 5.]])
@@ -315,21 +380,33 @@ if __name__ == "__main__":
     print("...")
     print(LCs.parvals[4:])
     print(LCs.uniquefilters)
-    LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:], True, False)
+
+    print(".........................................")
+    LCmag, LCmagref = LCs.evalmodel(scale, texp, logz, logAv, LCs.parvals[4:],  True, False, True)
+
 
     fig, ax = plt.subplots(figsize = (17, 11))
     modelplot = {}
     texpplot = ax.axvline(texp, c = 'gray', alpha = 1)
     for band in LCs.uniquefilters:
+        print(band)
+    
         if np.size(LCmag[band]) == 1:
             if LCmag[band] == 0:
                 print("Error in %s" % SNname)
                 sys.exit()
         mask = LCs.maskband[band]
         if np.sum(mask) > 0:
+            #print(LCs.mjd[mask])
+            #print(LCs.flux[mask])
+            #print(len(LCs.e_flux[mask]))
+            print(len(LCs.times))
+            print(len(LCmag[band]))
+            #print(LCmagref[band].size)
             ax.errorbar(LCs.mjd[mask], LCs.flux[mask], yerr = LCs.e_flux[mask], marker = 'o', c = LCs.bandcolors[band], lw = 0, elinewidth = 1)
+
             modelplot[band] = ax.plot(LCs.times + texp, scale * (mag2flux(LCmag[band]) - mag2flux(LCmagref[band])), label = "%s" % band, c = LCs.bandcolors[band])
-    #title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
+    title = ax.set_title("scale: %5.3f, texp: %f, Av: %f, mass: %f, energy: %f, mdot: %3.1e, rcsm: %3.1f, beta: %f" % (scale, texp, np.exp(logAv), mass, energy, mdot, rcsm, beta), fontsize = 8)
     ax.legend(loc = 1, fontsize = 8, framealpha = 0.5)
     ax.set_xlim(min(texp, min(LCs.mjd)) - 5, max(LCs.mjd) + 10)
     plt.savefig("plots/Bestfit_%s_%s.png" % (LCs.modelname, LCs.objname))
@@ -340,7 +417,7 @@ if __name__ == "__main__":
         MJDminall = 1e99
         MJDmaxall = -1e99
         for band in LCs.uniquefilters:
-            MJDminall = min(MJDminall, min(LCs.mjd[LCs.maskband[band]]) - 5) - 5
+            MJDminall = min(MJDminall, min(LCs.mjd[LCs.maskband[band]]) - 5) - 20
             MJDmaxall = max(MJDmaxall, max(LCs.mjd[LCs.maskband[band]]) + 5)
         
         # slider axes
@@ -456,6 +533,9 @@ if __name__ == "__main__":
         par0['beta'] = beta_slider.val
         if not fixz:
             par0['logz'] = logz_slider.val
+        #ADDING EXTINCTION
+        par0["logAv"] = av_slider.val
+        par0["rcsm"] = rcsm_slider.val
         print(par0)
         pickle.dump(par0, open("initial_pars/%s/%s.pkl" % (modelname, SNname), 'wb'), protocol = pickle.HIGHEST_PROTOCOL)
         sys.exit()
@@ -477,7 +557,7 @@ if __name__ == "__main__":
                        lambda mass: norm.pdf(mass, loc = 14, scale = 3), \
                        lambda energy: norm.pdf(energy, loc = 1., scale = 1.), \
                        lambda log10mdot: uniform.pdf(log10mdot, loc = -8., scale = 6.), \
-                       lambda rcsm: norm.pdf(rcsm, loc = 1., scale = 1.), \
+                       lambda rcsm: norm.pdf(rcsm, loc = 1, scale = 1.5), \
                        None, \
                        lambda beta: norm.pdf(beta, loc = 3, scale = 2)]) #lognorm(beta / 7., 1.)])
     
@@ -509,3 +589,5 @@ if __name__ == "__main__":
 
     # plot results
     LCs.plotMCMC(nburn = burnin)#, correctlogs = True) #, correctmdot = True)
+
+

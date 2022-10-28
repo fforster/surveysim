@@ -19,8 +19,9 @@ from LCz_Av import *
 
 from cos_calc import *
 
-
 from numba import jit
+
+
 
 @jit(nopython=True)
 def paramdist(selfmetric, selfmaskmdot, selfmaskmdotvars, p1, p2):
@@ -34,33 +35,7 @@ def paramdist(selfmetric, selfmaskmdot, selfmaskmdotvars, p1, p2):
             dist[selfmaskmdotvars] = 2e-1 * selfmetric[selfmaskmdotvars]
                 
     return dist
-
-@jit(nopython=True)
-def short_for(idxbest, weights, selftimes, stretch, selfallmags_band, iz, idxz, iAv, idxAv, selfmjd, texp, selfmjdref, 
-              intLC_band, intLCref_band,fz, fAv, mask, nice=False, selfdoref=True):    
-    for idx, ww in zip(idxbest, weights):
-        if nice:
-            LCint = np.interp(selftimes, selftimes * stretch, selfallmags_band[idx][iz + int(idxz)][iAv + int(idxAv)])
-
-        else:
-            LCint = np.interp(selfmjd[mask] - texp, selftimes * stretch, selfallmags_band[idx][iz + int(idxz)][iAv + int(idxAv)])
-
-        if selfdoref:
-
-           # LCintref = np.interp(np.median(self.mjdref[mask]) - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
-            LCintref = np.interp(selfmjdref[mask][0] - texp, selftimes * stretch, selfallmags_band[idx][iz + int(idxz)][iAv + int(idxAv)])
-        intLC1_band = intLC_band + ww * LCint \
-                      * (iz * fz + (1 - iz) * (1. - fz)) \
-                      * (iAv * fAv + (1 - iAv) * (1. - fAv))
-        
-        if selfdoref:
-            intLCref1_band = intLCref_band + ww * LCintref \
-                             * (iz * fz + (1 - iz) * (1. - fz)) \
-                     * (iAv * fAv + (1 - iAv) * (1. - fAv))
-            intLCref_band = intLCref1_band
-            
-        intLC_band = intLC1_band
-    return intLC1_band, intLCref1_band
+      
 
 # class to fit an  MCMC model to data given a grid of models
 class LCz_Av_params(object):
@@ -86,11 +61,11 @@ class LCz_Av_params(object):
         self.nz = len(self.zs)
         self.logzs = np.log(self.zs)
         self.dlogz = self.logzs[-1] - self.logzs[-2]
-        self.minlogz = np.min(self.logzs)
+        self.minlogz = min(self.logzs)
         self.nAv = len(self.Avs)
         self.logAvs = np.log(self.Avs)
         self.dlogAv = self.logAvs[-1] - self.logAvs[-2]
-        self.minlogAv = np.min(self.logAvs)
+        self.minlogAv = min(self.logAvs)
 
         # number of model parameters
         self.nvar = len(self.paramnames)
@@ -117,7 +92,7 @@ class LCz_Av_params(object):
 
     # compute models in the given bands
     def compute_models(self, **kwargs):
-        #print("entro")
+        print("entro")
         obsname = kwargs["obsname"]
         
         bands = kwargs["bands"]
@@ -259,6 +234,7 @@ class LCz_Av_params(object):
             
     # defines a metric for interpolation
     def setmetric(self, **kwargs):
+
         self.metric = kwargs["metric"]
         self.logscale = kwargs["logscale"]
         if "maxdistance" in kwargs.keys():
@@ -266,25 +242,26 @@ class LCz_Av_params(object):
 
 
     # distance between two parameter vectors given the metric
-    def paramdist(self, p1, p2):
+    #def paramdist(selfmetric, selfmaskmdot, selfmaskmdtovars, p1, p2):
 
         # distance between variables
-        dist = np.abs(p1 - p2) + 1e-2 * self.metric
-
+ #       dist = np.abs(p1 - p2) + 1e-2 * selfmetric
+#
         # distance between some variables should be zero if mdot is zero in one of the two vectors
-        if np.sum(self.maskmdot) > 0:
-            if p1[self.maskmdot] == 0 or p2[self.maskmdot] == 0:
-                dist[self.maskmdotvars] = 2e-1 * self.metric[self.maskmdotvars]
+  #      if np.sum(selfmaskmdot) > 0:
+   #         if p1[selfmaskmdot] == 0 or p2[selfmaskmdot] == 0:
+    #            dist[selfmaskmdotvars] = 2e-1 * self.metric[selfmaskmdotvars]
                 
-        return dist
+     #   return dist
         
     # Function that interpolates the model at given parameter set, z, Av, texp and observed times
+    #@jit(nopython=True)
     def evalmodel(self, scale, texp, logz, logAv, parameters, nice = False, closest = False, verbose = False):
 
         # check metric has been set
-        if not hasattr(self, "paramdist"):
-            print("Please set the metric function for parameter model interpolation")
-            sys.exit()
+       # if not hasattr(self, "paramdist"):
+        #    print("Please set the metric function for parameter model interpolation")
+         #   sys.exit()
 
         # make local copy of pars
         pars = np.array(parameters)
@@ -322,12 +299,9 @@ class LCz_Av_params(object):
             weights = [1.]
             
         elif closest: # use closest point in grid
-            
+
             # use euclidean distance with parammetric
             distances = np.array(list(map(lambda p: np.sum(((p - pars) / self.metric)**2), self.params)))
-            #Revisar maxdistance
-            
-
             mask = (distances < self.maxdistance)
             if np.sum(mask) == 0:
                 intLC = {}
@@ -347,15 +321,15 @@ class LCz_Av_params(object):
             for idx, var in enumerate(self.paramnames):
                     
                 # exact match for this variable
-                if np.min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
+                if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
                     parsearch[var] = pars[idx]
                 else: # not exact match, find neighbors
-                    if np.min(self.params[:, idx]) > pars[idx]:
-                        parsearch[var] = np.min(self.params[:, idx])
-                    elif np.max(self.params[:, idx]) < pars[idx]:
-                        parsearch[var] = np.max(self.params[:, idx])
+                    if min(self.params[:, idx]) > pars[idx]:
+                        parsearch[var] = min(self.params[:, idx])
+                    elif max(self.params[:, idx]) < pars[idx]:
+                        parsearch[var] = max(self.params[:, idx])
                     else:
-                        parsearch[var] = [np.max(self.params[self.params[:, idx] < pars[idx], idx]), np.min(self.params[self.params[:, idx] > pars[idx], idx])]
+                        parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
             
             # print result of search
             if verbose:
@@ -422,7 +396,7 @@ class LCz_Av_params(object):
             # select only closest value
             if closest:
                 idxbest = np.array([idxbest[np.argmin(distances)]])
-                distances = np.array([np.min(distances)])
+                distances = np.array([min(distances)])
 
             # compute weights
             weights = 1. / (distances + 1e-20)
@@ -431,18 +405,6 @@ class LCz_Av_params(object):
                 weights[maskmdotzero] *= (np.sum(maskclose) - np.sum(maskmdotzero)) / np.sum(maskmdotzero)
             weights = weights / np.sum(weights)
 
-            #if self.modelname == "MoriyaWindAcc":
-                #print("entra al if de weights")
-               # maxflux = np.max(self.flux)
-                #tmaxflux = self.times[np.argwhere(self.flux==maxflux)][0][0]
-                #deltat = np.abs(tmaxflux - self.times)
-                #dist2maxflux = (deltat + 1e-20) / np.max(deltat) 
-                #print(dist2maxflux)
-                #print(dist2maxflux.shape)
-                #print(weights)
-                #print(weights.shape)
-                #weights = weights / dist2maxflux
-                
         # stretch: by default is the first parameters in pars
         stretch = 1.
         if "scale" in self.paramnames:
@@ -454,11 +416,7 @@ class LCz_Av_params(object):
         intLC = {}
         intLCref = {}
         for band in self.uniquefilters:
-            if nice:
-                intLC[band] = np.zeros(self.times.shape[0])
-            else:
-                mask = self.maskband[band]
-                intLC[band] = np.zeros(self.mjd[mask].shape[0])
+            intLC[band] = 0
             intLCref[band] = 0
 
         # do interpolation
@@ -474,15 +432,33 @@ class LCz_Av_params(object):
                 for band in self.uniquefilters:
                     mask = self.maskband[band]
 
-                    intLC[band], intLCref[band] =short_for(idxbest, weights, self.times, stretch, self.allmags[band], iz, idxz, iAv, idxAv, self.mjd, texp, self.mjdref, intLC[band], intLCref[band],fz, fAv, mask, nice=nice, selfdoref=self.doref)
-                    
+                    for idx, ww in zip(idxbest, weights):
+                        if nice:
+                            LCint = np.interp(self.times, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+                        else:
+                            LCint = np.interp(self.mjd[mask] - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+
+                        if self.doref:
+                            
+                           # LCintref = np.interp(np.median(self.mjdref[mask]) - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+                            LCintref = np.interp(self.mjdref[mask][0] - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+                        intLC[band] = intLC[band] + ww * LCint \
+                                      * (iz * fz + (1 - iz) * (1. - fz)) \
+                                      * (iAv * fAv + (1 - iAv) * (1. - fAv))
+                        if self.doref:
+                            intLCref[band] = intLCref[band] + ww * LCintref \
+                                             * (iz * fz + (1 - iz) * (1. - fz)) \
+                                             * (iAv * fAv + (1 - iAv) * (1. - fAv))
+
+                            
         if not self.doref:
             for band in self.uniquefilters:
                 intLCref[band] = 40.
+
         for band in self.uniquefilters:
             intLC[band] = intLC[band] - 2.5 * np.log10(scale)
             intLCref[band] = intLCref[band] - 2.5 * np.log10(scale)
-
+            
         return intLC, intLCref
 
     # chi2: sum of differences squared divided by the variance
@@ -597,12 +573,12 @@ class LCz_Av_params(object):
             # light curve model evaluation (interpolation happens here)
             LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time, interpolate models
             
-            mintime = np.min(self.times) + texp
+            mintime = min(self.times) + texp
             factor = 1.#3e-29
             
             times = self.times + texp - mintime
-            timesd = np.linspace(np.min(times), np.max(times), 1000)
-            t1, t2 = np.min(texp, np.min(self.mjd)) - 1 - mintime, np.max(self.mjd) + 30 - mintime
+            timesd = np.linspace(min(times), max(times), 1000)
+            t1, t2 = min(texp, min(self.mjd)) - 1 - mintime, max(self.mjd) + 30 - mintime
         
             from matplotlib.font_manager import FontProperties
             font = FontProperties()
@@ -722,21 +698,9 @@ class LCz_Av_params(object):
 
         loglike = 0
         modelmag, modelmagref = self.evalmodel(scale, texp, logz, logAv, pars)
-
-        if self.modelname == "MoriyaWindAcc":
-            for band in self.uniquefilters:
-                mask = self.maskband[band]
-                #maxflux = np.max(self.flux[mask])
-                #tmaxflux = self.mjd[mask][np.argwhere(self.flux[mask]==maxflux)-12][0][0]
-               # deltat = np.abs(tmaxflux - self.mjd[mask] + 1e-20)
-               # dist2maxflux = deltat / (np.max(deltat))
-               # w_rise = dist2maxflux/np.max(dist2maxflux)  #weigth rise
-                loglike = loglike - 0.5 * np.sum(( (self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))  )**2 / self.e_flux[mask]**2)
- 
-        else:
-            for band in self.uniquefilters:
-                mask = self.maskband[band]
-                loglike = loglike - 0.5 * np.sum(( self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])) )**2 / self.e_flux[mask]**2)
+        for band in self.uniquefilters:
+            mask = self.maskband[band]
+            loglike = loglike - 0.5 * np.sum((self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))**2 / self.e_flux[mask]**2)
         
         return loglike
 
@@ -849,7 +813,7 @@ class LCz_Av_params(object):
             f = open(chainname, "w")
             f.write("niter nwalker %s\n" % (" ".join(self.labels)))
  
-            #mas cosas comentadas de h5           
+#mas cosas comentadas de h5           
             # prueba buscar cadenas sampler.sample (barra de progreso para generar get_chain)
            # print("terreno PANTANOSO")
            # for sample in sampler.sample(pos, iterations = self.nsteps, progress=True):
@@ -1018,7 +982,7 @@ class LCz_Av_params(object):
         ax.set_xlabel("MJD [days]", fontsize = 14)
         ax.set_title("%s %s (median log likelihood: %4.1f)" % (self.modelname, self.objname, np.median(lnlikes)))
         ax.set_xlim(min(min(self.mjd), min(samples[:, 1])) - 1, max(self.mjd) + 1)
-        ax.legend(loc = 1, fontsize = 10)
+        ax.legend(loc = 2, fontsize = 10)
 
         plt.savefig("plots/MCMC_%s_%s_%s_models.png" % (self.modelname, self.objname, self.fitlabels))
 

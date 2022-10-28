@@ -20,48 +20,6 @@ from LCz_Av import *
 from cos_calc import *
 
 
-from numba import jit
-
-@jit(nopython=True)
-def paramdist(selfmetric, selfmaskmdot, selfmaskmdotvars, p1, p2):
-
-        #distance between variables
-    dist = np.abs(p1 - p2) + 1e-2 * selfmetric
-#
-        # distance between some variables should be zero if mdot is zero in one of the two vectors
-    if np.sum(selfmaskmdot) > 0:
-        if p1[selfmaskmdot] == 0 or p2[selfmaskmdot] == 0:
-            dist[selfmaskmdotvars] = 2e-1 * selfmetric[selfmaskmdotvars]
-                
-    return dist
-
-@jit(nopython=True)
-def short_for(idxbest, weights, selftimes, stretch, selfallmags_band, iz, idxz, iAv, idxAv, selfmjd, texp, selfmjdref, 
-              intLC_band, intLCref_band,fz, fAv, mask, nice=False, selfdoref=True):    
-    for idx, ww in zip(idxbest, weights):
-        if nice:
-            LCint = np.interp(selftimes, selftimes * stretch, selfallmags_band[idx][iz + int(idxz)][iAv + int(idxAv)])
-
-        else:
-            LCint = np.interp(selfmjd[mask] - texp, selftimes * stretch, selfallmags_band[idx][iz + int(idxz)][iAv + int(idxAv)])
-
-        if selfdoref:
-
-           # LCintref = np.interp(np.median(self.mjdref[mask]) - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
-            LCintref = np.interp(selfmjdref[mask][0] - texp, selftimes * stretch, selfallmags_band[idx][iz + int(idxz)][iAv + int(idxAv)])
-        intLC1_band = intLC_band + ww * LCint \
-                      * (iz * fz + (1 - iz) * (1. - fz)) \
-                      * (iAv * fAv + (1 - iAv) * (1. - fAv))
-        
-        if selfdoref:
-            intLCref1_band = intLCref_band + ww * LCintref \
-                             * (iz * fz + (1 - iz) * (1. - fz)) \
-                     * (iAv * fAv + (1 - iAv) * (1. - fAv))
-            intLCref_band = intLCref1_band
-            
-        intLC_band = intLC1_band
-    return intLC1_band, intLCref1_band
-
 # class to fit an  MCMC model to data given a grid of models
 class LCz_Av_params(object):
 
@@ -86,11 +44,11 @@ class LCz_Av_params(object):
         self.nz = len(self.zs)
         self.logzs = np.log(self.zs)
         self.dlogz = self.logzs[-1] - self.logzs[-2]
-        self.minlogz = np.min(self.logzs)
+        self.minlogz = min(self.logzs)
         self.nAv = len(self.Avs)
         self.logAvs = np.log(self.Avs)
         self.dlogAv = self.logAvs[-1] - self.logAvs[-2]
-        self.minlogAv = np.min(self.logAvs)
+        self.minlogAv = min(self.logAvs)
 
         # number of model parameters
         self.nvar = len(self.paramnames)
@@ -117,7 +75,7 @@ class LCz_Av_params(object):
 
     # compute models in the given bands
     def compute_models(self, **kwargs):
-        #print("entro")
+        
         obsname = kwargs["obsname"]
         
         bands = kwargs["bands"]
@@ -153,16 +111,17 @@ class LCz_Av_params(object):
             
             if doselected and filename[:-3] not in selfiles:
                 continue
-            print(filename)
+
             if doload:
                 count += 1
-               # if sys.version_info >= (3,0):
-                #    print("Loading file %i (%s)" % (count, filename)," end =", "\r")
-               # else:
-                #print("Loading file %i (%s)" % (count, filename))
+                if sys.version_info >= (3,0):
+                    print("Loading file %i (%s)" % (count, filename)," end =", "\r")
+                else:
+                    print("Loading file %i (%s)" % (count, filename))
             
-            if not doload: 
+            if not doload:
                 print(filename)
+
             for band in bands:
 
                 if "remtime" in locals() and not doload:
@@ -172,12 +131,11 @@ class LCz_Av_params(object):
                         print("File: %s, params: %s, band: %s" % (filename, params, band))
 
 
-                npydir = "%s/npy/%s/%s/%s" % (os.environ["SURVEYSIM_PATH"], self.modelname, obsname, band)
+                npydir = "%s/npy/%s/%s/%s" % (os.environ["SURVEYSIM_PATH_INPUT"], self.modelname, obsname, band)
                 if doload:
                     mags = np.load("%s/%s.npy" % (npydir, filename))
                 else:
                     npyfile = "%s/%s.npy" % (npydir, filename)
-                    print(npyfile)
                     if not os.path.exists(npyfile):
                         
                         print("   File %s doesn't exist, computing..." % npyfile)
@@ -259,11 +217,11 @@ class LCz_Av_params(object):
             
     # defines a metric for interpolation
     def setmetric(self, **kwargs):
+
         self.metric = kwargs["metric"]
         self.logscale = kwargs["logscale"]
         if "maxdistance" in kwargs.keys():
             self.maxdistance = kwargs["maxdistance"]
-
 
     # distance between two parameter vectors given the metric
     def paramdist(self, p1, p2):
@@ -322,12 +280,9 @@ class LCz_Av_params(object):
             weights = [1.]
             
         elif closest: # use closest point in grid
-            
+
             # use euclidean distance with parammetric
             distances = np.array(list(map(lambda p: np.sum(((p - pars) / self.metric)**2), self.params)))
-            #Revisar maxdistance
-            
-
             mask = (distances < self.maxdistance)
             if np.sum(mask) == 0:
                 intLC = {}
@@ -347,15 +302,15 @@ class LCz_Av_params(object):
             for idx, var in enumerate(self.paramnames):
                     
                 # exact match for this variable
-                if np.min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
+                if min(np.abs(pars[idx] - self.params[:, idx])) < 1e-9 :
                     parsearch[var] = pars[idx]
                 else: # not exact match, find neighbors
-                    if np.min(self.params[:, idx]) > pars[idx]:
-                        parsearch[var] = np.min(self.params[:, idx])
-                    elif np.max(self.params[:, idx]) < pars[idx]:
-                        parsearch[var] = np.max(self.params[:, idx])
+                    if min(self.params[:, idx]) > pars[idx]:
+                        parsearch[var] = min(self.params[:, idx])
+                    elif max(self.params[:, idx]) < pars[idx]:
+                        parsearch[var] = max(self.params[:, idx])
                     else:
-                        parsearch[var] = [np.max(self.params[self.params[:, idx] < pars[idx], idx]), np.min(self.params[self.params[:, idx] > pars[idx], idx])]
+                        parsearch[var] = [max(self.params[self.params[:, idx] < pars[idx], idx]), min(self.params[self.params[:, idx] > pars[idx], idx])]
             
             # print result of search
             if verbose:
@@ -417,12 +372,12 @@ class LCz_Av_params(object):
                 print("   ", self.files[idxbest])
             
             # compute distances from close model parameters
-            distances = np.array(list(map(lambda p: np.product(paramdist(self.metric, self.maskmdot, self.maskmdotvars, p, pars)), self.params[idxbest])))
+            distances = np.array(list(map(lambda p: np.product(self.paramdist(p, pars)), self.params[idxbest])))
             
             # select only closest value
             if closest:
                 idxbest = np.array([idxbest[np.argmin(distances)]])
-                distances = np.array([np.min(distances)])
+                distances = np.array([min(distances)])
 
             # compute weights
             weights = 1. / (distances + 1e-20)
@@ -431,18 +386,6 @@ class LCz_Av_params(object):
                 weights[maskmdotzero] *= (np.sum(maskclose) - np.sum(maskmdotzero)) / np.sum(maskmdotzero)
             weights = weights / np.sum(weights)
 
-            #if self.modelname == "MoriyaWindAcc":
-                #print("entra al if de weights")
-               # maxflux = np.max(self.flux)
-                #tmaxflux = self.times[np.argwhere(self.flux==maxflux)][0][0]
-                #deltat = np.abs(tmaxflux - self.times)
-                #dist2maxflux = (deltat + 1e-20) / np.max(deltat) 
-                #print(dist2maxflux)
-                #print(dist2maxflux.shape)
-                #print(weights)
-                #print(weights.shape)
-                #weights = weights / dist2maxflux
-                
         # stretch: by default is the first parameters in pars
         stretch = 1.
         if "scale" in self.paramnames:
@@ -454,11 +397,7 @@ class LCz_Av_params(object):
         intLC = {}
         intLCref = {}
         for band in self.uniquefilters:
-            if nice:
-                intLC[band] = np.zeros(self.times.shape[0])
-            else:
-                mask = self.maskband[band]
-                intLC[band] = np.zeros(self.mjd[mask].shape[0])
+            intLC[band] = 0
             intLCref[band] = 0
 
         # do interpolation
@@ -474,15 +413,31 @@ class LCz_Av_params(object):
                 for band in self.uniquefilters:
                     mask = self.maskband[band]
 
-                    intLC[band], intLCref[band] =short_for(idxbest, weights, self.times, stretch, self.allmags[band], iz, idxz, iAv, idxAv, self.mjd, texp, self.mjdref, intLC[band], intLCref[band],fz, fAv, mask, nice=nice, selfdoref=self.doref)
-                    
+                    for idx, ww in zip(idxbest, weights):
+                        if nice:
+                            LCint = np.interp(self.times, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+                        else:
+                            LCint = np.interp(self.mjd[mask] - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+
+                        if self.doref:
+                            LCintref = np.interp(np.median(self.mjdref[mask]) - texp, self.times * stretch, self.allmags[band][idx][iz + int(idxz)][iAv + int(idxAv)])
+                            
+                        intLC[band] = intLC[band] + ww * LCint \
+                                      * (iz * fz + (1 - iz) * (1. - fz)) \
+                                      * (iAv * fAv + (1 - iAv) * (1. - fAv))
+                        if self.doref:
+                            intLCref[band] = intLCref[band] + ww * LCintref \
+                                             * (iz * fz + (1 - iz) * (1. - fz)) \
+                                             * (iAv * fAv + (1 - iAv) * (1. - fAv))
+
         if not self.doref:
             for band in self.uniquefilters:
                 intLCref[band] = 40.
+
         for band in self.uniquefilters:
             intLC[band] = intLC[band] - 2.5 * np.log10(scale)
             intLCref[band] = intLCref[band] - 2.5 * np.log10(scale)
-
+            
         return intLC, intLCref
 
     # chi2: sum of differences squared divided by the variance
@@ -597,12 +552,12 @@ class LCz_Av_params(object):
             # light curve model evaluation (interpolation happens here)
             LCmag, LCmagref = self.evalmodel(scale, texp, logz, logAv, self.parvals[self.nvext:], True, False) # use dense time, interpolate models
             
-            mintime = np.min(self.times) + texp
+            mintime = min(self.times) + texp
             factor = 1.#3e-29
             
             times = self.times + texp - mintime
-            timesd = np.linspace(np.min(times), np.max(times), 1000)
-            t1, t2 = np.min(texp, np.min(self.mjd)) - 1 - mintime, np.max(self.mjd) + 30 - mintime
+            timesd = np.linspace(min(times), max(times), 1000)
+            t1, t2 = min(texp, min(self.mjd)) - 1 - mintime, max(self.mjd) + 30 - mintime
         
             from matplotlib.font_manager import FontProperties
             font = FontProperties()
@@ -722,21 +677,9 @@ class LCz_Av_params(object):
 
         loglike = 0
         modelmag, modelmagref = self.evalmodel(scale, texp, logz, logAv, pars)
-
-        if self.modelname == "MoriyaWindAcc":
-            for band in self.uniquefilters:
-                mask = self.maskband[band]
-                #maxflux = np.max(self.flux[mask])
-                #tmaxflux = self.mjd[mask][np.argwhere(self.flux[mask]==maxflux)-12][0][0]
-               # deltat = np.abs(tmaxflux - self.mjd[mask] + 1e-20)
-               # dist2maxflux = deltat / (np.max(deltat))
-               # w_rise = dist2maxflux/np.max(dist2maxflux)  #weigth rise
-                loglike = loglike - 0.5 * np.sum(( (self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))  )**2 / self.e_flux[mask]**2)
- 
-        else:
-            for band in self.uniquefilters:
-                mask = self.maskband[band]
-                loglike = loglike - 0.5 * np.sum(( self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])) )**2 / self.e_flux[mask]**2)
+        for band in self.uniquefilters:
+            mask = self.maskband[band]
+            loglike = loglike - 0.5 * np.sum((self.flux[mask] - (mag2flux(modelmag[band]) - mag2flux(modelmagref[band])))**2 / self.e_flux[mask]**2)
         
         return loglike
 
@@ -801,35 +744,32 @@ class LCz_Av_params(object):
         print("walkerscale:", walkerscale)
         pos = [result["x"] + deltabestfit * np.abs(walkerscale) * np.random.randn(self.ndim) for i in range(self.nwalkers)]
 
-        #commented lines of h5
         # filename containing sample chain (using .h5)
-       # import h5py
-       # import os.path
-       # from os import path
+        import h5py
+        import os.path
+        from os import path
 
-       # if path.exists("samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)):
-        #    os.remove("samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels))
-         #   print("File Removed!")
-          #  chainname_h5 = "samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)
-           # print("File Restored!")
-       # else:
-        #    chainname_h5 = "samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)
-         #   print("File Created!")
+        if path.exists("samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)):
+            os.remove("samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels))
+            print("File Removed!")
+            chainname_h5 = "samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)
+            print("File Restored!")
+        else:
+            chainname_h5 = "samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)
+            print("File Created!")
 
         # archivo .dat
-       # chainname = "samples/chain_%s_%s_%s.dat" % (self.modelname, self.objname, self.fitlabels)
+        chainname = "samples/chain_%s_%s_%s.dat" % (self.modelname, self.objname, self.fitlabels)
 
         # backend
-       # backend = emcee.backends.HDFBackend(chainname_h5)
-       # backend.reset(self.nwalkers, self.ndim)
+        backend = emcee.backends.HDFBackend(chainname_h5)
+        backend.reset(self.nwalkers, self.ndim)
 
         # initilize emcee sampler
-        sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob)
-       # print("acabo SAMPLER")
-       # filename containing sample chain
-        chainname = "samples/chain_%s_%s_%s.dat" % (self.modelname, self.objname, self.fitlabels)
-      
-  # load samples
+        sampler = emcee.EnsembleSampler(self.nwalkers, self.ndim, self.lnprob, backend=backend)
+        print("acabo SAMPLER")
+        
+        # load samples
         if doload:
             print("Loading previous MCMC chain...")
             self.chain = np.loadtxt(chainname).transpose()
@@ -848,45 +788,27 @@ class LCz_Av_params(object):
             # self.labels nombre de los parametros
             f = open(chainname, "w")
             f.write("niter nwalker %s\n" % (" ".join(self.labels)))
- 
-            #mas cosas comentadas de h5           
-            # prueba buscar cadenas sampler.sample (barra de progreso para generar get_chain)
-           # print("terreno PANTANOSO")
-           # for sample in sampler.sample(pos, iterations = self.nsteps, progress=True):
-            #    continue
-           # print("funciono sampler.sample!!!!")
-           # get_chain = sampler.get_chain()
-            # print("guardamos la get_chain()")
             
-           # for idx, result in enumerate(get_chain):
-               # for k in range(result.shape[0]):
-                  # if np.mod(idx, 2) == 0:
-              #          print("%s %s %4i %4i %s" % (self.modelname, self.objname, idx, k, " ".join(map(lambda p: str(p), result[k]))))
-               #     f.write("%i %i %s\n" % (idx, k, " ".join(list(map(lambda p: str(p), result[k])))))
-           # f.close()
-           # print("se cerro el archivo chainname")
+            # prueba buscar cadenas sampler.sample (barra de progreso para generar get_chain)
+            print("terreno PANTANOSO")
+            for sample in sampler.sample(pos, iterations = self.nsteps, progress=True):
+                continue
+            print("funciono sampler.sample!!!!")
+            get_chain = sampler.get_chain()
+            print("guardamos la get_chain()")
+            
+            for idx, result in enumerate(get_chain):
+                for k in range(result.shape[0]):
+                    if np.mod(idx, 2) == 0:
+                        print("%s %s %4i %4i %s" % (self.modelname, self.objname, idx, k, " ".join(map(lambda p: str(p), result[k]))))
+                    f.write("%i %i %s\n" % (idx, k, " ".join(list(map(lambda p: str(p), result[k])))))
+            f.close()
+            print("se cerro el archivo chainname")
                 
 
             # self.chain debe ser el sampler de la cadena
-           # self.chain = get_chain
+            self.chain = get_chain
         
-           #old version 
-
-            for idx, result in enumerate(sampler.sample(pos, iterations = self.nsteps)):
-                ##result.log_prob get te array of log_prob from results (results contains array of log_prob, blobs and ramdom state?)#
-               # print(sampler.sample(pos, iterations = self.nsteps))
-               # print(type(sampler.sample(pos, iterations = self.nsteps)))
-               # print(enumerate(sampler.sample(pos, iterations = self.nsteps)))
-                position = result.coords
-               # print(type(position))
-               # print(position.shape)
-               # print(position.shape[0])
-                for k in range(position.shape[0]):
-                    if np.mod(idx, 2) == 0:
-                        print("%s %s %4i %4i %s" % (self.modelname, self.objname, idx, k, " ".join(map(lambda p: str(p), position[k]))))
-                    f.write("%i %i %s\n" % (idx, k, " ".join(list(map(lambda p: str(p), position[k])))))
-            f.close()
-            self.chain = sampler.chain
             self.acceptance_fraction = np.mean(sampler.acceptance_fraction)
             print("Ensemble Sampler acceptance fraction: ", self.acceptance_fraction)
 
@@ -932,41 +854,38 @@ class LCz_Av_params(object):
         #        ax[j].plot(self.chain[i, :, j], alpha = 0.2)
         #plt.savefig("plots/MCMC_%s_%s_%s_evol.png" % (self.modelname, self.objname, self.fitlabels))
 
-#commented lines are from alex's
         fig, ax = plt.subplots(nrows = self.ndim, sharex = True, figsize = (16, 10))
         for j in range(self.ndim):
             ax[j].set_ylabel(self.labels[j])
             for i in range(self.nwalkers):
-                ax[j].plot(self.chain[i, :, j], alpha = 0.2)
-               # ite_chain = []
-               # for n in range(len(self.chain)):
-                #    ite_chain.append(self.chain[n, :, j][i])
-               # ax[j].plot(ite_chain, alpha = 0.2)
+                ite_chain = []
+                for n in range(len(self.chain)):
+                    ite_chain.append(self.chain[n, :, j][i])
+                ax[j].plot(ite_chain, alpha = 0.2)
         plt.savefig("plots/MCMC_%s_%s_%s_evol.png" % (self.modelname, self.objname, self.fitlabels))
+
         # extract samples and convert to normal units
-        samples = self.chain[:, nburn:, :].reshape((-1, self.ndim))
-        samplescorner = np.array(samples)
+
         # samples = self.chain[:, nburn:, :].reshape((-1, self.ndim))
         # samplescorner = np.array(samples)
         
-       # print("produciendo nuevo samples corner")
+        print("produciendo nuevo samples corner")
 
         # extract samples from the archive h5
 
-       # filename = "samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)
-       # reader_h5 = emcee.backends.HDFBackend(filename)
+        filename = "samples/chain_%s_%s_%s.h5" % (self.modelname, self.objname, self.fitlabels)
+        reader_h5 = emcee.backends.HDFBackend(filename)
 
         # corner samples
        
-       # samples = reader_h5.get_chain(discard = nburn).reshape((-1, self.ndim))
+        samples = reader_h5.get_chain(discard = nburn).reshape((-1, self.ndim))
 
 
         # do corner plot
         print("Doing corner plot...")
         # aca iba la variable samplescorner
-        # fig = corner.corner(samples, labels = self.labels)#, truths = self.bestfit)
-        fig = corner.corner(samplescorner, labels = self.labels)#, truths = self.bestfit)
-        #print("se logro el corner.corner")
+        fig = corner.corner(samples, labels = self.labels)#, truths = self.bestfit)
+        print("se logro el corner.corner")
         plt.savefig("plots/MCMC_%s_%s_%s_corner.png" % (self.modelname, self.objname, self.fitlabels))
         plt.savefig("plots/MCMC_%s_%s_%s_corner.pdf" % (self.modelname, self.objname, self.fitlabels))
         
@@ -1018,7 +937,7 @@ class LCz_Av_params(object):
         ax.set_xlabel("MJD [days]", fontsize = 14)
         ax.set_title("%s %s (median log likelihood: %4.1f)" % (self.modelname, self.objname, np.median(lnlikes)))
         ax.set_xlim(min(min(self.mjd), min(samples[:, 1])) - 1, max(self.mjd) + 1)
-        ax.legend(loc = 1, fontsize = 10)
+        ax.legend(loc = 2, fontsize = 10)
 
         plt.savefig("plots/MCMC_%s_%s_%s_models.png" % (self.modelname, self.objname, self.fitlabels))
 
@@ -1243,4 +1162,3 @@ class LCz_Av_params(object):
 #    # start MCMC
 #    MCMC.doMCMC(bestfit = solfit, fixedvars = fixedvars, parvals = parvals, parbounds = parbounds, nwalkers = 2, deltabestfit = 1e-4, nsteps = 500, nburn = 100, parlabels = parlabels) 
 #
-

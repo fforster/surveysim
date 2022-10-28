@@ -5,6 +5,12 @@ from collections import defaultdict
 
 from constants import *
 
+import astropy.units as u
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+from astropy.io import ascii
+
+
 def readSNdata(project, SNname, maxairmass = 1.7):
             
     #########################
@@ -19,7 +25,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     if project == 'DES':
         
-        DESdir = "%s/../LCs/DES" % (os.environ["SURVEYSIM_PATH"])
+        DESdir = "%s/../LCs/DES" % (os.environ["SURVEYSIM_PATH_INPUT"])
         dirs = os.listdir(DESdir)
         SNe = defaultdict(list)
         zSNe = {}
@@ -131,7 +137,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
         #(MJDs, MJDrefs, airmass, ADUs, e_ADUs, mags, sn_filters) \
         #    = .loadtxt("../HiTS/LCs/%s.txt" % SNname, usecols = (0, 1, 2, 5, 6, 7, 10), dtype = str).transpose()
-        df = pd.read_table("%s/../LCs/HiTS/LCs/%s.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/HiTS/LCs/%s.dat" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname), sep = "\s+", comment = "#")
         
         sn_mjd = np.array(df["MJD"])
         sn_mjdref = np.array(df["MJDref"])
@@ -243,7 +249,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "PTF":
         
-        df = pd.read_table("%s/../LCs/PTF/LCs/%s.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s*\t\s*", comment = "#", engine = "python")
+        df = pd.read_table("%s/../LCs/PTF/LCs/%s.dat" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname), sep = "\s*\t\s*", comment = "#", engine = "python")
         JD0 = float(re.findall('.*?=(\d+.\d+).*?', df.columns[0])[0])
         MJDref = JD0 - 2400000.5 # in this case it is the explosion date minus 50 days
         df = df.rename(columns = {df.columns[0]: "MJD"})
@@ -267,7 +273,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "Kepler":
 
-        filename = "%s/../LCs/Kepler/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname)
+        filename = "%s/../LCs/Kepler/%s.txt" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname)
         
         # find reference magnitude
         data = open(filename, 'r')
@@ -294,7 +300,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "ROTSEIII":
 
-        df = pd.read_table("%s/../LCs/ROTSEIII/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/ROTSEIII/%s.txt" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname), sep = "\s+", comment = "#")
 
         from datetime import datetime
         from astropy.time import Time
@@ -331,7 +337,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         
     elif project == "PanSTARRS1":
 
-        df = pd.read_table("%s/../LCs/PanSTARRS1/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/PanSTARRS1/%s.txt" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname), sep = "\s+", comment = "#")
 
         mask = (df.band == 'u') | (df.band == 'g') | (df.band == 'r') | (df.band == 'i') | (df.band == 'z')
         df = df[mask]
@@ -356,7 +362,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     elif project == "Swift":
 
-        df = pd.read_table("%s/../LCs/Swift/%s.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+        df = pd.read_table("%s/../LCs/Swift/%s.dat" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname), sep = "\s+", comment = "#")
 
         # correct to AB magnitudes, see https://swift.gsfc.nasa.gov/analysis/uvot_digest/zeropts.html
         Vega2AB = {"V": -0.01, "B": -0.13, "U": 1.02, "UVW1": 1.51, "UVM2": 1.69, "UVW2": 0.8}
@@ -378,7 +384,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
         sn_filters = sn_filters[mask]            
 
         if SNname == "ASASSN-14jb":
-            df = pd.read_table("%s/../LCs/Swift/%s_ASASSN.dat" % (os.environ["SURVEYSIM_PATH"], SNname), sep = "\s+", comment = "#")
+            df = pd.read_table("%s/../LCs/Swift/%s_ASASSN.dat" % (os.environ["SURVEYSIM_PATH_INPUT"], SNname), sep = "\s+", comment = "#")
             MJDextra = np.array(df.HJD - 2400000.5)
             fluxextra = np.array(df["flux(mJy)"] * 1e-26) # 1 Jy = 1e-23 erg/s/cm2/Hz
             e_fluxextra = np.array(df["flux_err"] * 1e-26)
@@ -399,7 +405,97 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
         if SNname == "ASASSN-14jb":
             zcmb = 0.006031
-            
+
+    elif project == "ZTF":
+        #needed to estimate airmass
+
+        #### data = ascii.read("%s/../LCs/ZTF/LCs/%s.txt" % (os.environ["SURVEYSIM_PATH"], SNname), format="basic")  
+        df = pd.read_csv("%s/../LCs/ZTF/LCs/%s.csv" % (os.environ["SURVEYSIM_PATH"], "sample_corrected"))
+        #rename colnames to delete ","
+        
+        #Need to change this *************************************
+        #df = df.replace("ZTF_r", "r")
+        #df = df.replace("ZTF_g", "g")
+        ##df.drop(df[df["forcediffimflux"] == "null"].index, inplace=True)
+        ##df.drop(df[df["filter"] == "ZTF_i"].index, inplace=True)
+        #mask to select SNe
+        mask = (df.SN_Name == SNname) | (df.SN_Name == SNname[2:]) | (df.oid == SNname)
+        df = df[mask] #select data from the SNe we want
+        df = df.reset_index(drop=True)
+        #to return 
+        sn_mjd = np.array(df.mjd)
+        sn_mjdref = np.array(df["refjdstart"]) - 2400000.5 
+        sn_flux = np.array(df["corrflux_uJy"], dtype = float) * (10**-29)  #uJy to ergs
+        sn_e_flux = np.array(df["sigma_flux_diff_uJy"], dtype = float) * (10**-29) #1-sigma
+        sn_filters = np.array(df["filt"], dtype = str)
+    
+        #find index of first detection
+        snt = 5 #threshold
+        args_det = np.argwhere( (sn_flux/ sn_e_flux) > snt )
+        first_det = args_det[0][0]
+
+        texp0 = sn_mjd[first_det] 
+        fixz = False
+        zcmb = df["redshift"][0]
+    
+    elif project == "ATLAS":
+        df = pd.read_csv("%s/../LCs/ATLAS/LCs/ATLAS_%s.csv" % (os.environ["SURVEYSIM_PATH"], SNname))
+        sn_mjd = np.array(df.MJD, dtype = float)
+        sn_mjdref = np.zeros(sn_mjd.shape[0])
+        sn_mjdref = sn_mjdref + 57230
+        sn_filters = np.array(df.F, dtype = str)
+        sn_flux = np.array(df.uJy, dtype = float) * (10**-29)
+        sn_e_flux = np.array(df.duJy, dtype = float) * (10**-29)
+        fixz = False
+        zcmb = 0.05
+        
+        #find index of first detection
+        snt = 5 #threshold
+        args_det = np.argwhere( (sn_flux/ sn_e_flux) > snt )
+        first_det = args_det[0][0]
+
+        texp0 = sn_mjd[first_det] - 5
+
+    elif project == "ZTF+ATLAS":
+        #ZTF
+        df = pd.read_csv("%s/../LCs/ZTF/LCs/%s.csv" % (os.environ["SURVEYSIM_PATH"], "sample_corrected"))
+        mask = (df.SN_Name == SNname) | (df.SN_Name == SNname[2:]) | (df.oid == SNname)
+        df = df[mask] #select data from the SNe we want                                                                                                                                                  
+        df = df.reset_index(drop=True)
+
+        ztf_mjd = np.array(df.mjd)
+        ztf_mjdref = np.array(df["refjdstart"]) - 2400000.5
+        ztf_flux = np.array(df["corrflux_uJy"], dtype = float) * (10**-29)  #uJy to ergs                                                                                                                 
+        ztf_e_flux = np.array(df["sigma_flux_diff_uJy"], dtype = float) * (10**-29) #1-sigma                                                                                                             
+        ztf_filters = np.array(df["filt"], dtype = str)
+
+        zcmb = df["redshift"][0]
+
+        #ATLAS
+        df = pd.read_csv("%s/../LCs/ATLAS/LCs/ATLASclean2.0.csv" % os.environ["SURVEYSIM_PATH"])
+        mask =  (df.oid == SNname)
+        df = df[mask] #select data from the SNe we want                                                                                                                                                  
+        df = df.reset_index(drop=True)
+        atlas_mjd = np.array(df.MJD, dtype = float)
+        atlas_mjdref = np.zeros(atlas_mjd.shape[0])
+        atlas_mjdref = atlas_mjdref + 57230
+        atlas_filters = np.array(df.F, dtype = str)
+        atlas_flux = np.array(df.uJy, dtype = float) * (10**-29)
+        atlas_e_flux = np.array(df.duJy, dtype = float) * (10**-29)
+        #Join ZTF+ATLAS
+        sn_mjd = np.append(ztf_mjd, atlas_mjd)
+        sn_mjdref = np.append(ztf_mjdref, atlas_mjdref)
+        sn_flux = np.append(ztf_flux, atlas_flux)                                                                                                                   
+        sn_e_flux = np.append(ztf_e_flux, atlas_e_flux)                                                                                                              
+        sn_filters = np.append(ztf_filters, atlas_filters)
+
+        #find index of first detection                                                                                                                                                                    
+        snt = 5 #threshold                                                                                                                                                                               
+        args_det = np.argwhere( (sn_flux/ sn_e_flux) > snt )
+        first_det = args_det[0][0]
+        texp0 = sn_mjd[first_det]
+        fixz = False
+
     else:
         print("Define observations...")
         sys.exit()
@@ -407,6 +503,7 @@ def readSNdata(project, SNname, maxairmass = 1.7):
 
     return sn_mjd, sn_mjdref, sn_flux, sn_e_flux, sn_filters, fixz, zcmb, texp0
 
+    
 if __name__ == "__main__":
 
     project = sys.argv[1]

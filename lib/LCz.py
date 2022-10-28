@@ -166,9 +166,16 @@ class LCz(object):
             filterfile = "ROTSEIII_transmission_total.txt"
         elif self.obsname == "Swift":
             filterfile = "Swift_transmission_total.txt"
-                    
+        elif self.obsname == "ZTF":
+            filterfile = "ZTF_transmission.txt"
+        elif self.obsname == "ATLAS":
+            filterfile = "ATLAS_transmission.txt"
+
         bandfilter = pd.read_csv('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile), sep = "\s+", comment="#")
-        lfilter = np.array(bandfilter["wavelength"]) * 10. # AA
+        if self.obsname== "ZTF" or self.obsname=="ATLAS":
+            bandfilter = pd.read_csv('%s/filters/%s' % (os.environ["SURVEYSIM_PATH"], filterfile))
+        
+        lfilter = np.array(bandfilter["wavelength"]) *10  # AA
         tfilter = np.array(bandfilter[self.filtername])  # fraction
 
         # make sure it is sorted
